@@ -170,7 +170,9 @@ function DocScanUploader({ type, setData, docs, onDocSaved }) {
   const handle = async (file) => {
     if (!file) return;
     const ext = file.name.split(".").pop().toLowerCase();
-    if (!["jpg", "jpeg", "png", "webp", "pdf"].includes(ext)) return toast.error("Format harus JPG, PNG, atau PDF.");
+    if (!["jpg", "jpeg", "png", "webp", "pdf"].includes(ext)) {
+      return toast.error("Format harus JPG, PNG, WEBP, atau PDF.");
+    }
     setLoading(true);
     const fd = new FormData();
     fd.append("file", file);
@@ -193,10 +195,10 @@ function DocScanUploader({ type, setData, docs, onDocSaved }) {
 
   return (
     <div className="rounded-2xl border-2 border-dashed border-[#27AE60]/40 bg-gradient-to-br from-[#F0FBF5] to-white p-5" data-testid={`${cfg.testId}-scan-card`}>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
           <div className="w-11 h-11 rounded-xl bg-[#E8F6EE] flex items-center justify-center shrink-0"><ScanLine className="w-6 h-6 text-[#27AE60]" /></div>
-          <div>
+          <div className="min-w-0">
             <h4 className="font-display font-bold text-[#1F2937] flex items-center gap-2">Isi Otomatis dari {cfg.label} <span className="px-2 py-0.5 rounded-full bg-[#27AE60] text-white text-[10px] font-bold">AI</span></h4>
             <p className="text-sm text-[#6B7280] mt-0.5">{cfg.desc}</p>
             {filled > 0 && !loading && <p className="text-xs text-[#27AE60] font-semibold mt-1 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> {filled} kolom terisi dari {cfg.label} terakhir.</p>}
@@ -204,8 +206,12 @@ function DocScanUploader({ type, setData, docs, onDocSaved }) {
             {open && <DocPreview doc={existing} onClose={() => setOpen(false)} />}
           </div>
         </div>
-        <button onClick={() => inputRef.current?.click()} disabled={loading} data-testid={`${cfg.testId}-upload-btn`}
-          className="px-5 py-2.5 bg-[#27AE60] hover:bg-[#0B6B3A] disabled:opacity-60 text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-colors shrink-0">
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={loading}
+          data-testid={`${cfg.testId}-upload-btn`}
+          className="flex shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-[#27AE60] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#0B6B3A] disabled:opacity-60 sm:self-auto"
+        >
           {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Membaca {cfg.label}...</> : <><UploadCloud className="w-4 h-4" /> Unggah {cfg.label}</>}
         </button>
         <input ref={inputRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf" data-testid={`${cfg.testId}-file-input`} onChange={(e) => handle(e.target.files[0])} />

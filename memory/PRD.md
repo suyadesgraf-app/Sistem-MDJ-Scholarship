@@ -113,3 +113,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Logo disimpan sebagai aset CMS publik melalui endpoint `POST /api/site/logo` dan dapat diperbarui
   kembali oleh Super Admin di menu Umum & Banner.
 - Diuji: logo CMS tampil pada header beranda dan gambar tersimpan tetap menjaga detail lambang.
+
+## 2026-09 — Perapian kartu unggah KTP dan KK
+- Kartu scan AI KTP dan Kartu Keluarga memakai tata letak fleksibel dengan tombol unggah yang
+  konsisten di sisi kanan pada layar desktop.
+- Informasi hasil scan dan tautan dokumen tersimpan tetap berada rapi pada area konten kiri.
+- Diuji melalui browser: kedua tombol unggah berada sejajar di sisi kanan tanpa overflow.
