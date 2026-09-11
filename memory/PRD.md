@@ -138,3 +138,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   dan pemisah ribuan otomatis.
 - Nilai disimpan sebagai angka pada data profil dan dapat diperbarui melalui tombol Simpan Data Pendidikan.
 - Diuji melalui browser: Rp 3.500.000 tersimpan dan tetap tampil benar setelah halaman dimuat ulang.
+
+## 2026-09 — Avatar dari pas foto mahasiswa
+- Pas foto yang diunggah pada Profil Saya kini otomatis menjadi avatar mahasiswa di header dashboard.
+- Avatar mengambil file privat melalui URL bertoken; inisial nama tetap muncul sebagai cadangan bila foto gagal dimuat.
+- Diuji melalui browser: foto profil tersimpan dimuat sebagai avatar pada sudut kanan atas dashboard.

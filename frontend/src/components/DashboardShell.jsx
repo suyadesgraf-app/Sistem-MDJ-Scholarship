@@ -20,7 +20,17 @@ export function StatusBadge({ status }) {
 }
 export { STATUS_META };
 
-export default function DashboardShell({ menu, active, onSelect, title, subtitle, actions, children, brandLabel }) {
+export default function DashboardShell({
+  menu,
+  active,
+  onSelect,
+  title,
+  subtitle,
+  actions,
+  children,
+  brandLabel,
+  avatarUrl,
+}) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -83,7 +93,28 @@ export default function DashboardShell({ menu, active, onSelect, title, subtitle
           <div className="flex items-center gap-3">
             {actions}
             <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-              <div className="w-9 h-9 rounded-full bg-[#E8F6EE] flex items-center justify-center text-[#0B6B3A] font-bold text-sm">{(user?.name || "?").charAt(0).toUpperCase()}</div>
+              <div
+                className={[
+                  "relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full",
+                  "bg-[#E8F6EE] text-sm font-bold text-[#0B6B3A]",
+                ].join(" ")}
+                data-testid="header-profile-avatar"
+              >
+                <span data-testid="header-profile-initial">
+                  {(user?.name || "?").charAt(0).toUpperCase()}
+                </span>
+                {avatarUrl && (
+                  <img
+                    src={avatarUrl}
+                    alt={`Foto profil ${user?.name || "mahasiswa"}`}
+                    className="absolute inset-0 h-full w-full object-cover"
+                    data-testid="header-profile-photo"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+              </div>
               <div className="hidden sm:block leading-tight"><p className="text-sm font-semibold text-[#1F2937] max-w-[140px] truncate">{user?.name}</p><p className="text-[11px] text-[#6B7280] capitalize">{(user?.role || "").replace("_", " ")}</p></div>
             </div>
           </div>

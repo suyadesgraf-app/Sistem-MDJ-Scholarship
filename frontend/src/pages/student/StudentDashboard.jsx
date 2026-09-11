@@ -6,6 +6,7 @@ import DashboardShell, { StatusBadge, STATUS_META } from "@/components/Dashboard
 import StudentProfile, { profileProgress } from "@/components/StudentProfile";
 import AccountSettings from "@/components/AccountSettings";
 import RegistrationSections from "@/components/RegistrationSections";
+import { docFileUrl } from "@/components/DocPreview";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
   CheckCircle2, FileCheck,
@@ -52,6 +53,11 @@ export default function StudentDashboard() {
     () => Math.round((uploadedDocumentCount / DOC_TYPES.length) * 100),
     [uploadedDocumentCount],
   );
+  const profilePhoto = useMemo(
+    () => docs.find((document) => document.doc_type === "Pas Foto 3x4"),
+    [docs],
+  );
+  const avatarUrl = profilePhoto ? docFileUrl(profilePhoto) : null;
 
   const set = (k, v) => setData((p) => ({ ...p, [k]: v }));
 
@@ -98,6 +104,7 @@ export default function StudentDashboard() {
   return (
     <DashboardShell menu={MENU} active={active} onSelect={setActive} brandLabel="Portal Pendaftar"
       title={MENU.find((m) => m.id === active)?.label} subtitle="Program Masa Depan Jakarta 2026"
+      avatarUrl={avatarUrl}
       actions={active === "profil" && <button onClick={saveProfile} disabled={saving} data-testid="save-profile-btn" className="px-4 py-2 bg-[#27AE60] hover:bg-[#0B6B3A] text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-colors">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Simpan</button>}>
 
       {active === "ringkasan" && (
