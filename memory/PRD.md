@@ -33,6 +33,8 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
   input email/NIK, kontrol visibilitas kata sandi, ingat saya, dan Google login.
 - Akun demo otomatis untuk mahasiswa dan admin ditambahkan di startup; seluruh tiga peran telah
   diverifikasi melalui API dan antarmuka (100% pengujian login lulus).
+- Login kini menyediakan tombol akun demo sekali klik untuk Super Admin, Admin/PIC, dan Mahasiswa.
+  Setiap tombol mengisi email serta kata sandi tanpa mengirim formulir secara otomatis.
 
 ## Backlog / Remaining
 - **P1**: Forgot/reset password flow; brute-force lockout on login.
