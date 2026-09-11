@@ -98,3 +98,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - CMS Super Admin kini mendukung unggah ulang Gambar Tentang Program melalui endpoint
   `POST /api/site/about-image`; kedua gambar disimpan di Object Storage dan ditampilkan publik.
 - Diuji: API CMS serta laman publik memuat gambar Tentang yang baru dan banner hero yang dipulihkan.
+
+## 2026-09 — Scan AI dokumen pendidikan
+- Tab Data Pendidikan kini menyediakan unggah dan pemindaian AI untuk KTM serta KRS/KHS/Transkrip Nilai.
+- Hasil scan mengisi kolom pendidikan yang dapat diedit: perguruan tinggi, NIM, program studi,
+  jenjang, semester, dan IPK; file juga otomatis tersimpan di daftar Dokumen.
+- Endpoint baru: `POST /api/profile/extract-ktm` dan
+  `POST /api/profile/extract-academic-record` menggunakan Gemini 3.1 Pro.
+- Diuji menyeluruh: 5/5 backend lulus, alur browser lulus, data tetap tersimpan setelah reload,
+  pratinjau dokumen bekerja, serta tampilan mobile tidak mengalami horizontal overflow.

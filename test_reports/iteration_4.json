@@ -1,0 +1,34 @@
+{
+  "summary": "Verified Data Pendidikan AI scanning end-to-end. 5/5 backend pytests passed (login, extract-ktm, extract-academic-record, bad format rejection 400, profile persistence). Playwright e2e on preview URL: demo student login, Pendaftaran>Pendidikan shows both AI cards, KTM upload -> AI auto-filled institusi='UNIVERSITAS NEGERI JAKARTA', nim='1234567890', jurusan='Ilmu Komputer', jenjang=S1; KRS upload -> also fills semester=5 and ipk=3.75. Both docs saved automatically and visible in Pendaftaran>Dokumen. Save Data Pendidikan works and all 6 fields persist after full page reload. Mobile 390x844: no horizontal overflow on Data Pendidikan.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/profile/extract-ktm|extract-academic-record", "issue": "Error message string in _extract_document says 'Format harus JPG, PNG, atau PDF.' but WEBP is actually allowed; message should mention WEBP for consistency with UI validator."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_education_scan.py",
+    "/app/test_reports/pytest/education_scan.xml"
+  ],
+  "action_items": [
+    "(Nice-to-have) Sync backend error message in _extract_document to include WEBP: 'Format harus JPG, PNG, WEBP, atau PDF.'"
+  ],
+  "critical_code_review_comments": [
+    "EducationDocumentScan.jsx correctly gates OCR responses: shows 'Tersimpan' badge only when backend returns document; upload endpoint returns 502 if S3 save fails so no false success (matches earlier fix).",
+    "Backend _extract_document maps only whitelisted fields per doc type and normalises jenjang to {D3,D4,S1}; empty jenjang gracefully ignored - verified via UI (raw scan initially blank then correctly saved as 'S1' after user selection persisted).",
+    "PUT /profile stores education inside data blob; no dedicated endpoint - fine for MVP, but consider a scoped PATCH to avoid overwriting unrelated profile fields if multiple tabs edit concurrently."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (all flows verified)"},
+  "test_credentials": "mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!",
+  "seed_data_creation": "None. Used /tmp/mdj-ktm-uji.png and /tmp/mdj-khs-uji.png as provided.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Education AI scanning is production-ready. data-testids in use: education-scan-ktm-card, education-scan-academic-card, education-scan-{ktm|academic}-file-input, education-scan-{ktm|academic}-preview, field-institusi/nim/jurusan/jenjang/semester/ipk, save-education-btn, registration-tab-pendidikan, registration-tab-dokumen, preview-document-{n}. Backend endpoints POST /api/profile/extract-ktm and /api/profile/extract-academic-record return {data, document}. Education data persists via PUT /api/profile inside profile.data.",
+  "rca of the issue": "N/A - no bugs found in current iteration."
+}

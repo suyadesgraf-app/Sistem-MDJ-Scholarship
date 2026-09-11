@@ -29,7 +29,13 @@ import httpx
 from html import escape
 from html.parser import HTMLParser
 from urllib.parse import urlparse
-from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
+from emergentintegrations.llm.chat import (
+    FileContentWithMimeType,
+    LlmChat,
+    StreamDone,
+    TextDelta,
+    UserMessage,
+)
 
 # ---------------------------------------------------------------------------
 # Config
@@ -725,6 +731,37 @@ Aturan: gunakan null jika tidak terbaca. Jangan mengarang data.
 Jika file bukan Kartu Keluarga, kembalikan {"error": "bukan_dokumen"}."""
 
 
+KTM_SYSTEM_PROMPT = """Anda adalah mesin OCR ahli untuk Kartu Tanda Mahasiswa (KTM) Indonesia.
+Ekstrak data dari gambar/PDF KTM yang diberikan dan kembalikan HANYA objek JSON valid,
+tanpa penjelasan atau markdown. Gunakan skema kunci PERSIS berikut:
+{
+  "institusi": string,
+  "nim": string,
+  "jurusan": string,
+  "jenjang": string
+}
+Aturan: jenjang hanya "D3", "D4", atau "S1" bila terbaca jelas. Gunakan null untuk field
+yang tidak terbaca dan jangan mengarang data. Jika file bukan KTM, kembalikan
+{"error": "bukan_ktm"}."""
+
+
+ACADEMIC_RECORD_SYSTEM_PROMPT = """Anda adalah mesin OCR ahli untuk dokumen akademik Indonesia.
+Dokumen dapat berupa KRS, KHS, atau Transkrip Nilai. Ekstrak data dan kembalikan HANYA
+objek JSON valid, tanpa penjelasan atau markdown. Gunakan skema kunci PERSIS berikut:
+{
+  "institusi": string,
+  "nim": string,
+  "jurusan": string,
+  "jenjang": string,
+  "semester": string,
+  "ipk": string
+}
+Aturan: semester berisi angka saja bila terbaca. IPK menggunakan format desimal, misalnya
+"3.75". Jenjang hanya "D3", "D4", atau "S1" bila terbaca jelas. Gunakan null untuk field
+yang tidak terbaca dan jangan mengarang data. Jika file bukan KRS, KHS, atau Transkrip Nilai,
+kembalikan {"error": "bukan_dokumen_akademik"}."""
+
+
 async def _save_scanned_doc(user: dict, doc_type: str, filename: str, ext: str, data: bytes, content_type: str):
     data, ext, content_type = compress_image(
         data,
@@ -753,7 +790,7 @@ async def _save_scanned_doc(user: dict, doc_type: str, filename: str, ext: str, 
 async def _extract_document(file: UploadFile, user: dict, label: str, system_prompt: str, allowed: set, doc_type: str):
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
     if ext not in ("jpg", "jpeg", "png", "webp", "pdf"):
-        raise HTTPException(status_code=400, detail="Format harus JPG, PNG, atau PDF.")
+        raise HTTPException(status_code=400, detail="Format harus JPG, PNG, WEBP, atau PDF.")
     mime = MIME_TYPES.get(ext, "application/octet-stream")
     data = await file.read()
     if len(data) > 10 * 1024 * 1024:
@@ -769,10 +806,16 @@ async def _extract_document(file: UploadFile, user: dict, label: str, system_pro
             system_message=system_prompt,
         ).with_model("gemini", "gemini-3.1-pro-preview")
         fc = FileContentWithMimeType(mime_type=mime, file_path=tmp_path)
-        raw = await chat.send_message(UserMessage(
+        chunks = []
+        async for event in chat.stream_message(UserMessage(
             text=f"Ekstrak seluruh data dari {label} ini dan kembalikan HANYA JSON sesuai skema.",
             file_contents=[fc],
-        ))
+        )):
+            if isinstance(event, TextDelta):
+                chunks.append(event.content)
+            elif isinstance(event, StreamDone):
+                break
+        raw = "".join(chunks)
     except Exception as e:
         logger.error(f"{label} extraction failed: {e}")
         raise HTTPException(status_code=502, detail=f"Gagal membaca {label}. Coba lagi dengan foto yang lebih jelas.")
@@ -790,18 +833,29 @@ async def _extract_document(file: UploadFile, user: dict, label: str, system_pro
         parsed = json.loads(match.group(0))
     except json.JSONDecodeError:
         raise HTTPException(status_code=422, detail=f"Data {label} tidak dapat dikenali. Pastikan foto jelas.")
-    if parsed.get("error") in ("bukan_ktp", "bukan_dokumen"):
+    if parsed.get("error"):
         raise HTTPException(status_code=422, detail=f"File yang diunggah bukan {label} yang valid.")
 
     mapped = {k: str(v).strip() for k, v in parsed.items() if k in allowed and v not in (None, "", "null")}
     for key in ("nik", "noKK"):
         if mapped.get(key):
             mapped[key] = re.sub(r"\D", "", mapped[key])[:16]
+    if mapped.get("semester"):
+        mapped["semester"] = re.sub(r"\D", "", mapped["semester"])[:2]
+    if mapped.get("ipk"):
+        mapped["ipk"] = re.sub(r"[^0-9,.]", "", mapped["ipk"]).replace(",", ".")
+    if mapped.get("jenjang"):
+        jenjang = mapped["jenjang"].upper().replace(" ", "")
+        mapped["jenjang"] = jenjang if jenjang in {"D3", "D4", "S1"} else ""
     document = None
     try:
         document = await _save_scanned_doc(user, doc_type, file.filename, ext, data, mime)
     except Exception as e:
         logger.error(f"Auto-save scanned {label} failed: {e}")
+        raise HTTPException(
+            status_code=502,
+            detail="Data terbaca, tetapi dokumen belum tersimpan. Silakan unggah ulang.",
+        )
     return {"data": mapped, "document": document}
 
 
@@ -816,6 +870,35 @@ async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_cur
 @api_router.post("/profile/extract-kk")
 async def extract_kk(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     return await _extract_document(file, user, "Kartu Keluarga", KK_SYSTEM_PROMPT, {"noKK"}, "Kartu Keluarga (KK)")
+
+
+@api_router.post("/profile/extract-ktm")
+async def extract_ktm(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    fields = {"institusi", "nim", "jurusan", "jenjang"}
+    return await _extract_document(
+        file,
+        user,
+        "Kartu Tanda Mahasiswa",
+        KTM_SYSTEM_PROMPT,
+        fields,
+        "Kartu Tanda Mahasiswa (KTM)",
+    )
+
+
+@api_router.post("/profile/extract-academic-record")
+async def extract_academic_record(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    fields = {"institusi", "nim", "jurusan", "jenjang", "semester", "ipk"}
+    return await _extract_document(
+        file,
+        user,
+        "KRS, KHS, atau Transkrip Nilai",
+        ACADEMIC_RECORD_SYSTEM_PROMPT,
+        fields,
+        "KRS / KHS / Transkrip Nilai",
+    )
 
 
 @api_router.get("/files/{path:path}")

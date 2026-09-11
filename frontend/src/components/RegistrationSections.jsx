@@ -13,12 +13,14 @@ import {
 } from "lucide-react";
 import { FieldGrid, PENDIDIKAN } from "@/components/StudentProfile";
 import { DocPreview } from "@/components/DocPreview";
+import EducationDocumentScan from "@/components/EducationDocumentScan";
 
 const DOC_TYPES = [
   "KTP DKI Jakarta",
   "Kartu Keluarga (KK)",
   "Pas Foto 3x4",
   "Kartu Tanda Mahasiswa (KTM)",
+  "KRS / KHS / Transkrip Nilai",
   "Surat Keterangan Mahasiswa Aktif",
   "SKTM / Surat Rekomendasi",
   "Surat Persetujuan Orang Tua",
@@ -66,6 +68,7 @@ export default function RegistrationSections({
   onSaveProfile,
   onUploadDoc,
   onDeleteDoc,
+  onDocumentSaved,
   onSubmitRegistration,
 }) {
   const [tab, setTab] = useState("formulir");
@@ -182,6 +185,14 @@ export default function RegistrationSections({
           </h3>
           <p className="text-sm text-[#6B7280] mt-1 mb-5">
             Isi data perguruan tinggi tempat Anda menempuh studi.
+          </p>
+          <EducationDocumentScan
+            docs={docs}
+            setData={setData}
+            onDocumentSaved={onDocumentSaved}
+          />
+          <p className="mt-5 text-xs leading-relaxed text-[#6B7280]">
+            Tinjau hasil AI, perbaiki bila perlu, lalu simpan data pendidikan.
           </p>
           <FieldGrid fields={PENDIDIKAN} data={data} set={set} />
           <div className="mt-6 flex justify-end">

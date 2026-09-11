@@ -22,6 +22,7 @@ const MENU = [
 
 const DOC_TYPES = [
   "KTP DKI Jakarta", "Kartu Keluarga (KK)", "Pas Foto 3x4", "Kartu Tanda Mahasiswa (KTM)",
+  "KRS / KHS / Transkrip Nilai",
   "Surat Keterangan Mahasiswa Aktif", "SKTM / Surat Rekomendasi", "Surat Persetujuan Orang Tua",
   "Surat Keterangan Tidak Menerima Beasiswa Lain", "Pakta Integritas",
 ];
@@ -127,6 +128,10 @@ export default function StudentDashboard() {
           onSaveProfile={saveProfile}
           onUploadDoc={uploadDoc}
           onDeleteDoc={deleteDoc}
+          onDocumentSaved={(document) => setDocs((previous) => [
+            ...previous.filter((item) => item.doc_type !== document.doc_type),
+            document,
+          ])}
           onSubmitRegistration={submitRegistration}
         />
       )}
