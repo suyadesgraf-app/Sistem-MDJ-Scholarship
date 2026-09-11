@@ -132,3 +132,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   **Formulir Pakta Integritas**.
 - Data Pendidikan menjadi tab awal saat mahasiswa membuka menu Pendaftaran.
 - Diuji melalui browser: urutan dan tab aktif awal sesuai arahan pengguna.
+
+## 2026-09 — Nominal biaya pendidikan per semester
+- Data Pendidikan kini memiliki kolom **Nominal Biaya Pendidikan / Semester** dengan awalan Rp
+  dan pemisah ribuan otomatis.
+- Nilai disimpan sebagai angka pada data profil dan dapat diperbarui melalui tombol Simpan Data Pendidikan.
+- Diuji melalui browser: Rp 3.500.000 tersimpan dan tetap tampil benar setelah halaman dimuat ulang.

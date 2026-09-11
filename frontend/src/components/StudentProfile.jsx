@@ -39,6 +39,14 @@ export const PENDIDIKAN = [
   { k: "nim", l: "NIM", req: true, ph: "Masukkan NIM" },
   { k: "semester", l: "Semester", digits: true, max: 2, ph: "Contoh: 5" },
   { k: "ipk", l: "IPK", ph: "Contoh: 3.50" },
+  {
+    k: "biayaPendidikanSemester",
+    l: "Nominal Biaya Pendidikan / Semester",
+    digits: true,
+    currency: true,
+    ph: "Contoh: 3.500.000",
+    hint: "Masukkan total UKT atau biaya kuliah yang dibayarkan setiap semester.",
+  },
 ];
 
 // KTP fields that get auto-locked once filled from the ID
@@ -262,6 +270,7 @@ function PhotoTab({ docs, uploadDoc, deleteDoc }) {
 
 // ---- shared bits ----
 const inputCls = "w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#27AE60] focus:border-transparent";
+const formatRupiah = (value) => String(value || "").replace(/\B(?=(\d{3})+(?!\d))/g, ".");
 const SectionCard = ({ title, desc, children }) => (
   <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_-2px_rgba(39,174,96,0.05)]">
     <h3 className="font-display font-bold text-lg text-[#1F2937]">{title}</h3>
@@ -285,6 +294,23 @@ export const FieldGrid = ({ fields, data, set }) => (
           </select>
         ) : f.area ? (
           <textarea value={data[f.k] || ""} onChange={(e) => set(f.k, e.target.value)} data-testid={`field-${f.k}`} rows={2} placeholder={f.ph} className={inputCls} />
+        ) : f.currency ? (
+          <div className="relative">
+            <span
+              className="pointer-events-none absolute inset-y-0 left-0 flex items-center px-4 text-sm font-bold text-[#0B6B3A]"
+            >
+              Rp
+            </span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={formatRupiah(data[f.k])}
+              placeholder={f.ph}
+              onChange={(e) => set(f.k, e.target.value.replace(/\D/g, ""))}
+              data-testid={`field-${f.k}`}
+              className={inputCls + " pl-11"}
+            />
+          </div>
         ) : (
           <input type={f.type || "text"} value={data[f.k] || ""} maxLength={f.max} placeholder={f.ph}
             onChange={(e) => set(f.k, f.digits ? e.target.value.replace(/\D/g, "") : e.target.value)}
