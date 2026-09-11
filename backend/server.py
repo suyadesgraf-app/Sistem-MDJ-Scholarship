@@ -94,6 +94,26 @@ def init_storage(force: bool = False):
     return storage_key
 
 
+def compress_image(data: bytes, ext: str, content_type: str, max_w: int = 2400, quality: int = 86):
+    """Downscale/re-encode raster images to JPEG; non-images (PDF) pass through."""
+    if ext not in ("jpg", "jpeg", "png", "webp", "gif", "bmp", "tiff"):
+        return data, ext, content_type
+    try:
+        img = PILImage.open(io.BytesIO(data))
+        img = img.convert("RGB")
+        if img.width > max_w:
+            img = img.resize((max_w, int(img.height * max_w / img.width)), PILImage.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=quality, optimize=True, progressive=True)
+        out = buf.getvalue()
+        if len(out) < len(data):
+            return out, "jpg", "image/jpeg"
+        return data, ext, content_type
+    except Exception as e:
+        logger.warning(f"Image compression skipped: {e}")
+        return data, ext, content_type
+
+
 def put_object(path: str, data: bytes, content_type: str) -> dict:
     key = init_storage()
     resp = requests.put(
@@ -634,8 +654,14 @@ async def upload_document(doc_type: str = Form(...), file: UploadFile = File(...
                           user: dict = Depends(get_current_user)):
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
     content_type = file.content_type or MIME_TYPES.get(ext, "application/octet-stream")
+    data, ext, content_type = compress_image(
+        await file.read(),
+        ext,
+        content_type,
+        max_w=2400,
+        quality=86,
+    )
     path = f"{APP_NAME}/uploads/{user['user_id']}/{uuid.uuid4()}.{ext}"
-    data = await file.read()
     result = put_object(path, data, content_type)
     doc_id = str(uuid.uuid4())
     # Replace any previous doc of same type (soft delete)
@@ -700,6 +726,13 @@ Jika file bukan Kartu Keluarga, kembalikan {"error": "bukan_dokumen"}."""
 
 
 async def _save_scanned_doc(user: dict, doc_type: str, filename: str, ext: str, data: bytes, content_type: str):
+    data, ext, content_type = compress_image(
+        data,
+        ext,
+        content_type,
+        max_w=2400,
+        quality=86,
+    )
     path = f"{APP_NAME}/uploads/{user['user_id']}/{uuid.uuid4()}.{ext}"
     result = put_object(path, data, content_type)
     await db.documents.update_many(
@@ -889,19 +922,15 @@ async def update_site_content(payload: SiteContentInput, user: dict = Depends(re
 
 @api_router.post("/site/banner")
 async def upload_banner(file: UploadFile = File(...), user: dict = Depends(require_roles("super_admin"))):
-    data = await file.read()
-    try:
-        img = PILImage.open(io.BytesIO(data))
-        img = img.convert("RGB")
-        if img.width > 1600:
-            img = img.resize((1600, int(img.height * 1600 / img.width)), PILImage.LANCZOS)
-        buf = io.BytesIO()
-        img.save(buf, format="JPEG", quality=72, optimize=True, progressive=True)
-        data, ext, content_type = buf.getvalue(), "jpg", "image/jpeg"
-    except Exception as e:
-        logger.warning(f"Banner compression skipped: {e}")
-        ext = file.filename.split(".")[-1].lower() if "." in file.filename else "png"
-        content_type = file.content_type or MIME_TYPES.get(ext, "image/png")
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "png"
+    content_type = file.content_type or MIME_TYPES.get(ext, "image/png")
+    data, ext, content_type = compress_image(
+        await file.read(),
+        ext,
+        content_type,
+        max_w=1920,
+        quality=80,
+    )
     path = f"{APP_NAME}/site/banner_{uuid.uuid4().hex[:8]}.{ext}"
     result = put_object(path, data, content_type)
     await db.site_files.insert_one({

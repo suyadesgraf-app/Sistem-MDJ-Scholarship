@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { StatusBadge, STATUS_META } from "@/components/DashboardShell";
 import { Search, Eye, X, FileText, Download, Loader2, Building2, Phone, Mail, GraduationCap } from "lucide-react";
+import { DocPreview } from "@/components/DocPreview";
 
 const STATUS_FILTERS = [
   ["all", "Semua"], ["submitted", "Terkirim"], ["verifikasi", "Verifikasi"],
@@ -93,13 +94,8 @@ function DetailModal({ userId, onClose, onUpdated }) {
     api.get(`/admin/participants/${userId}`).then((r) => { setData(r.data); setNewStatus(r.data.registration?.status || "submitted"); });
   }, [userId]);
 
-  const viewFile = async (doc) => {
-    try {
-      const res = await api.get(`/files/${doc.storage_path}`, { responseType: "blob" });
-      const url = URL.createObjectURL(res.data);
-      window.open(url, "_blank");
-    } catch { toast.error("Gagal membuka dokumen."); }
-  };
+  const [preview, setPreview] = useState(null);
+  const viewFile = (doc) => setPreview(doc);
 
   const updateStatus = async () => {
     setSaving(true);
@@ -153,6 +149,7 @@ function DetailModal({ userId, onClose, onUpdated }) {
                   ))}
                 </div>
               )}
+              <DocPreview doc={preview} onClose={() => setPreview(null)} />
             </div>
 
             <div className="border-t border-gray-100 pt-5">

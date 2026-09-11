@@ -27,7 +27,7 @@ export default function DashboardShell({ menu, active, onSelect, title, subtitle
 
   const doLogout = async () => { await logout(); navigate("/", { replace: true }); };
 
-  const Sidebar = () => (
+  const Sidebar = ({ mobile = false }) => (
     <div className="flex flex-col h-full">
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-gray-100">
         <div className="w-9 h-9 rounded-xl bg-[#27AE60] flex items-center justify-center"><GraduationCap className="w-5 h-5 text-white" /></div>
@@ -40,7 +40,13 @@ export default function DashboardShell({ menu, active, onSelect, title, subtitle
         {menu.map((m) => {
           const isActive = active === m.id;
           return (
-            <button key={m.id} onClick={() => { onSelect(m.id); setOpen(false); }} data-testid={`menu-${m.id}`}
+            <button
+              key={m.id}
+              onClick={() => {
+                onSelect(m.id);
+                setOpen(false);
+              }}
+              data-testid={mobile ? `mobile-menu-${m.id}` : `menu-${m.id}`}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${isActive ? "bg-[#E8F6EE] text-[#0B6B3A] border-l-4 border-[#27AE60]" : "text-[#6B7280] hover:bg-gray-50 hover:text-[#1F2937] border-l-4 border-transparent"}`}>
               <m.icon className="w-5 h-5 shrink-0" /> {m.label}
             </button>
@@ -55,9 +61,15 @@ export default function DashboardShell({ menu, active, onSelect, title, subtitle
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex">
-      <aside className="hidden lg:flex w-64 bg-white border-r border-gray-100 fixed inset-y-0 left-0 z-30"><Sidebar /></aside>
+      <aside className="hidden lg:flex w-64 bg-white border-r border-gray-100 fixed inset-y-0 left-0 z-30">
+        <Sidebar />
+      </aside>
       {open && <div className="lg:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setOpen(false)} />}
-      <aside className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white transform transition-transform ${open ? "translate-x-0" : "-translate-x-full"}`}><Sidebar /></aside>
+      <aside
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white transform transition-transform ${open ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <Sidebar mobile />
+      </aside>
 
       <div className="flex-1 lg:ml-64 min-w-0">
         <header className="h-16 bg-white/90 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6">

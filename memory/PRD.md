@@ -83,3 +83,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Landing: HERO_IMG default diperkecil (w=1600,q=60), fallback onError, bg solid saat loading.
 - `DocPreview.jsx`: modal pratinjau gambar/PDF (iframe). Dipakai di tab Dokumen (klik nama file), kartu scan KTP/KK, dan foto profil.
 - Catatan: banner saat ini adalah gambar uji acak (banner_91c6425b.jpg) — user perlu unggah ulang banner asli.
+
+## 2026-09 — Kualitas kompresi unggahan disesuaikan
+- Dokumen mahasiswa (KTP, KK, pas foto, dan unggahan lain) kini memakai batas lebar 2400px
+  dan JPEG kualitas 86, sehingga teks identitas lebih tajam tanpa menghilangkan penghematan ukuran.
+- Banner memakai batas lebar 1920px dan JPEG kualitas 80 untuk menjaga ketajaman visual hero.
+- Kompresi hanya dipakai apabila hasil akhirnya lebih kecil daripada file asli.
+- Diuji: unggahan PNG 3200px menjadi JPEG 323.054 byte dari 415.656 byte dan tulisan tetap
+  terbaca jelas pada pratinjau Admin Pendaftaran. Penanda menu desktop/mobile juga dibuat unik.
