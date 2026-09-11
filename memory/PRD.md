@@ -34,7 +34,9 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
 - Akun demo otomatis untuk mahasiswa dan admin ditambahkan di startup; seluruh tiga peran telah
   diverifikasi melalui API dan antarmuka (100% pengujian login lulus).
 - Login kini menyediakan tombol akun demo sekali klik untuk Super Admin, Admin/PIC, dan Mahasiswa.
-  Setiap tombol mengisi email serta kata sandi tanpa mengirim formulir secara otomatis.
+  Setiap tombol kini menjalankan login normal dan mengarahkan pengguna ke dashboard perannya.
+- Bug akun demo yang hanya menampilkan notifikasi telah diperbaiki dan diverifikasi end-to-end:
+  Super Admin ke `/super-admin`, Admin/PIC ke `/admin`, dan Mahasiswa ke `/dashboard`.
 
 ## Backlog / Remaining
 - **P1**: Forgot/reset password flow; brute-force lockout on login.

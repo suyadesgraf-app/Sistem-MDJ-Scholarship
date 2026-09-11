@@ -710,24 +710,37 @@ async def startup():
     ]
     for account in demo_accounts:
         exists = await db.users.find_one({"email": account["email"]}, {"_id": 0})
-        if exists:
+        if not exists:
+            await db.users.insert_one(
+                {
+                    "user_id": f"user_{uuid.uuid4().hex[:12]}",
+                    "email": account["email"],
+                    "password_hash": hash_password(account["password"]),
+                    "name": account["name"],
+                    "role": account["role"],
+                    "auth_provider": "password",
+                    "nik": None,
+                    "phone": None,
+                    "picture": None,
+                    "is_active": True,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            logger.info("Seeded demo %s account", account["role"])
             continue
-        await db.users.insert_one(
-            {
-                "user_id": f"user_{uuid.uuid4().hex[:12]}",
-                "email": account["email"],
-                "password_hash": hash_password(account["password"]),
-                "name": account["name"],
-                "role": account["role"],
-                "auth_provider": "password",
-                "nik": None,
-                "phone": None,
-                "picture": None,
-                "is_active": True,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            }
-        )
-        logger.info("Seeded demo %s account", account["role"])
+
+        updates = {}
+        if exists.get("role") != account["role"]:
+            updates["role"] = account["role"]
+        if exists.get("name") != account["name"]:
+            updates["name"] = account["name"]
+        if not exists.get("is_active", True):
+            updates["is_active"] = True
+        if not verify_password(account["password"], exists.get("password_hash") or ""):
+            updates["password_hash"] = hash_password(account["password"])
+        if updates:
+            await db.users.update_one({"email": account["email"]}, {"$set": updates})
+            logger.info("Refreshed demo %s account", account["role"])
     # Seed site content
     if not await db.site_content.find_one({"key": "main"}):
         await db.site_content.insert_one({"key": "main", **DEFAULT_SITE_CONTENT})

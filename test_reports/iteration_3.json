@@ -1,0 +1,23 @@
+{
+  "summary": "Verified one-click demo login fix. All 3 demo buttons on /login now trigger POST /api/auth/login and redirect by role. Backend pytest (test_login_roles.py) 4/4 passed. Playwright e2e: Super Admin -> /super-admin, Admin/PIC -> /admin, Mahasiswa -> /dashboard; each returns 200 with correct role, token in body, and httpOnly access_token cookie. During in-flight login all demo buttons are disabled (prevents double-click). No horizontal overflow at 1920 or 390. No console/page errors. Google OAuth not exercised.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_login_roles.py",
+    "/app/test_reports/pytest/login_roles.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Login.jsx loginWithDemoAccount uses the same AuthContext.login() as the manual form -> no bypass endpoint; matches requirement.",
+    "All three demo buttons share the same loading state (disabled={loading}) which correctly prevents concurrent clicks.",
+    "Demo credentials are read from REACT_APP_DEMO_* env vars; ensure these stay in sync with backend seed if secrets rotate."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (3/3 demo buttons + disabled state + responsive)"},
+  "test_credentials": "supri@baznasbazisdki.id/MdjSuper2026!, admin.mdj@baznasbazisdki.id/AdminMDJ2026!, mahasiswa.mdj@baznasbazisdki.id/MahasiswaMDJ2026!",
+  "seed_data_creation": "None (used seeded demo accounts).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Demo one-click login is fully working. Data-testids: demo-account-super-admin-button, demo-account-admin-button, demo-account-student-button. All hit POST /api/auth/login and navigate via dashboardPath(role). Cookie access_token is httpOnly.",
+  "rca of the issue": "Previous behavior only showed a toast because handler didn't actually call login/navigate; current Login.jsx loginWithDemoAccount calls AuthContext.login(email, password) then navigate(dashboardPath(user.role)) — verified live end-to-end."
+}

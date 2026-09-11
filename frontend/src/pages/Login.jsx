@@ -121,11 +121,20 @@ export default function Login() {
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
-  const fillDemoAccount = (account) => {
+  const loginWithDemoAccount = async (account) => {
     setEmail(account.email);
     setPassword(account.password);
     setShow(false);
-    toast.success(`Akun demo ${account.label} sudah diisi.`);
+    setLoading(true);
+    try {
+      const user = await login(account.email, account.password);
+      toast.success(`Berhasil masuk sebagai ${account.label}.`);
+      navigate(dashboardPath(user.role), { replace: true });
+    } catch (err) {
+      toast.error(formatApiError(err.response?.data?.detail) || err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -247,11 +256,13 @@ export default function Login() {
                 <button
                   key={account.label}
                   type="button"
-                  onClick={() => fillDemoAccount(account)}
+                  onClick={() => loginWithDemoAccount(account)}
                   data-testid={account.testId}
+                  disabled={loading}
                   className="rounded-full border border-[#8FE2B4] bg-[#F2FFF7] px-4 py-2 text-sm font-bold
                     text-[#08743D] transition-colors duration-200 hover:bg-[#DDF8E8] focus-visible:outline-none
-                    focus-visible:ring-2 focus-visible:ring-[#27AE60] focus-visible:ring-offset-2"
+                    focus-visible:ring-2 focus-visible:ring-[#27AE60] focus-visible:ring-offset-2
+                    disabled:cursor-wait disabled:opacity-60"
                 >
                   {account.label}
                 </button>

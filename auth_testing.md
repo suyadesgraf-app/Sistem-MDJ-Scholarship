@@ -15,6 +15,8 @@ Both are accepted via cookie OR `Authorization: Bearer <token>` header.
 - Mahasiswa: mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026! / student
 - Admin Pendaftaran: admin.mdj@baznasbazisdki.id / AdminMDJ2026! / admin
 - Super Admin: supri@baznasbazisdki.id / MdjSuper2026! / super_admin
+- Tombol akun demo pada `/login` menjalankan `POST /api/auth/login` yang sama dengan formulir
+  standar, lalu mengarahkan pengguna berdasarkan peran. Tidak ada endpoint bypass autentikasi.
 
 ## API test (curl)
 ```
