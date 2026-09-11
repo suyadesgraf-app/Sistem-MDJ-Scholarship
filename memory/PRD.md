@@ -54,6 +54,9 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
   - Ubah nomor via OTP SMS (Twilio Verify): `POST /api/auth/phone/send-otp` & `/verify-otp`.
     CATATAN: fitur SMS AKTIF hanya setelah kredensial Twilio (TWILIO_ACCOUNT_SID/AUTH_TOKEN/VERIFY_SERVICE_SID)
     diisi di backend/.env. Saat ini kosong → endpoint mengembalikan 503 "Verifikasi SMS belum dikonfigurasi".
+- Struktur navigasi mahasiswa disederhanakan: menu **Dokumen** di sidebar dihapus. Menu **Pendaftaran** kini
+  memiliki submenu **Formulir**, **Data Pendidikan**, dan **Dokumen**. Data Pendidikan dipindahkan dari Profil
+  Saya; unggah, ganti, dan hapus dokumen tetap menggunakan alur API dokumen yang sama.
 
 ## Backlog / Remaining
 - **P1**: Forgot/reset password flow; brute-force lockout on login.

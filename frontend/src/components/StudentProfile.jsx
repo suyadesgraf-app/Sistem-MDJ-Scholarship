@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import {
-  User, MapPin, GraduationCap, Image as ImageIcon, ShieldCheck,
+  User, MapPin, Image as ImageIcon, ShieldCheck,
   ScanLine, Loader2, CheckCircle2, UploadCloud, Info, Trash2, Camera,
 } from "lucide-react";
 
@@ -31,7 +31,7 @@ const ALAMAT = [
   { k: "kodePos", l: "Kode Pos", digits: true, max: 5, ph: "00000" },
   { k: "alamatLengkap", l: "Alamat Lengkap", req: true, full: true, area: true, ph: "Nama jalan, nomor rumah, blok, dll." },
 ];
-const PENDIDIKAN = [
+export const PENDIDIKAN = [
   { k: "jenjang", l: "Jenjang", req: true, opts: [["D3", "D3"], ["D4", "D4"], ["S1", "S1"]] },
   { k: "institusi", l: "Perguruan Tinggi", req: true, ph: "Masukkan nama perguruan tinggi" },
   { k: "jurusan", l: "Program Studi", ph: "Masukkan program studi" },
@@ -52,14 +52,12 @@ export function profileProgress(data = {}) {
 const STEPS = [
   { id: "pribadi", label: "Data Pribadi", keys: PRIBADI.map((f) => f.k) },
   { id: "alamat", label: "Kontak & Alamat", keys: [...KONTAK, ...ALAMAT].map((f) => f.k) },
-  { id: "pendidikan", label: "Pendidikan", keys: PENDIDIKAN.map((f) => f.k) },
   { id: "foto", label: "Foto Profil", keys: [] },
 ];
 
 const TABS = [
   { id: "pribadi", label: "Data Pribadi", icon: User },
   { id: "alamat", label: "Alamat", icon: MapPin },
-  { id: "pendidikan", label: "Data Pendidikan", icon: GraduationCap },
   { id: "foto", label: "Foto Profil", icon: ImageIcon },
 ];
 
@@ -144,12 +142,6 @@ export default function StudentProfile({ data, set, setData, docs, uploadDoc, de
       {tab === "alamat" && (
         <SectionCard title="Alamat Domisili" desc="Isi alamat tempat tinggal Anda saat ini.">
           <FieldGrid fields={ALAMAT} data={data} set={set} />
-        </SectionCard>
-      )}
-
-      {tab === "pendidikan" && (
-        <SectionCard title="Data Pendidikan" desc="Isi data perguruan tinggi tempat Anda menempuh studi.">
-          <FieldGrid fields={PENDIDIKAN} data={data} set={set} />
         </SectionCard>
       )}
 
@@ -258,7 +250,7 @@ const SectionCard = ({ title, desc, children }) => (
     {children}
   </div>
 );
-const FieldGrid = ({ fields, data, set }) => (
+export const FieldGrid = ({ fields, data, set }) => (
   <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
     {fields.map((f) => (
       <div key={f.k} className={f.full ? "sm:col-span-2" : ""}>

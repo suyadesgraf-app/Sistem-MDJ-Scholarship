@@ -1,20 +1,20 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
-import api, { API } from "@/lib/api";
+import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import DashboardShell, { StatusBadge, STATUS_META } from "@/components/DashboardShell";
 import StudentProfile, { profileProgress } from "@/components/StudentProfile";
 import AccountSettings from "@/components/AccountSettings";
+import RegistrationSections from "@/components/RegistrationSections";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
-  UploadCloud, CheckCircle2, Clock, Trash2, FileCheck, AlertCircle, Eye,
+  CheckCircle2, FileCheck,
 } from "lucide-react";
 
 const MENU = [
   { id: "ringkasan", label: "Ringkasan", icon: Home },
   { id: "profil", label: "Profil Saya", icon: User },
   { id: "daftar", label: "Pendaftaran", icon: FileText },
-  { id: "dokumen", label: "Dokumen", icon: FileCheck },
   { id: "status", label: "Status Seleksi", icon: Activity },
   { id: "pengumuman", label: "Pengumuman", icon: Megaphone },
   { id: "pengaturan", label: "Pengaturan", icon: Settings },
@@ -25,8 +25,6 @@ const DOC_TYPES = [
   "Surat Keterangan Mahasiswa Aktif", "SKTM / Surat Rekomendasi", "Surat Persetujuan Orang Tua",
   "Surat Keterangan Tidak Menerima Beasiswa Lain", "Pakta Integritas",
 ];
-
-const CATEGORY_OPTS = ["Mahasiswa Sarjana (S1)", "Mahasiswa Vokasi", "Koordinator Akademik", "Volunteer / Relawan"];
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -118,58 +116,19 @@ export default function StudentDashboard() {
       )}
 
       {active === "daftar" && (
-        <div className="space-y-6">
-          <Card>
-            <h3 className="font-display font-bold text-lg text-[#1F2937] mb-2">Formulir Pendaftaran Beasiswa</h3>
-            <p className="text-sm text-[#6B7280] mb-5">Pilih kategori program yang sesuai dengan profil Anda.</p>
-            <label className="block text-sm font-semibold text-[#1F2937] mb-1.5">Kategori Program <span className="text-[#DC2626]">*</span></label>
-            <select value={reg.category || ""} onChange={(e) => setReg((p) => ({ ...p, category: e.target.value }))} data-testid="reg-category-select" className={selectCls} disabled={reg.status && reg.status !== "draft"}>
-              <option value="">Pilih kategori...</option>
-              {CATEGORY_OPTS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <div className="mt-5 rounded-xl bg-[#F9FAFB] p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-[#F2C94C] shrink-0 mt-0.5" />
-              <p className="text-sm text-[#6B7280]">Kelengkapan profil saat ini <b className="text-[#1F2937]">{progress}%</b>. Data wajib harus 100% dan dokumen lengkap sebelum pendaftaran dapat dikirim.</p>
-            </div>
-            {(!reg.status || reg.status === "draft") ? (
-              <div className="flex gap-3 mt-5">
-                <button onClick={() => submitRegistration("draft")} data-testid="save-draft-btn" className="px-5 py-2.5 border border-gray-300 text-[#1F2937] text-sm font-bold rounded-xl hover:bg-gray-50">Simpan Draft</button>
-                <button onClick={() => submitRegistration("submit")} data-testid="submit-registration-btn" className="px-5 py-2.5 bg-[#27AE60] hover:bg-[#0B6B3A] text-white text-sm font-bold rounded-xl transition-colors">Kirim Pendaftaran</button>
-              </div>
-            ) : (
-              <div className="mt-5 flex items-center gap-3 rounded-xl bg-[#E8F6EE] p-4"><CheckCircle2 className="w-5 h-5 text-[#27AE60]" /><span className="text-sm font-semibold text-[#0B6B3A]">Pendaftaran Anda telah dikirim. Pantau perkembangan di menu Status Seleksi.</span></div>
-            )}
-          </Card>
-        </div>
-      )}
-
-      {active === "dokumen" && (
-        <div className="space-y-4">
-          <Card>
-            <h3 className="font-display font-bold text-lg text-[#1F2937] mb-1">Unggah Berkas Persyaratan</h3>
-            <p className="text-sm text-[#6B7280] mb-5">Format PDF/JPG/PNG. Ukuran maksimal 5MB per file.</p>
-            <div className="space-y-3">
-              {DOC_TYPES.map((dt) => {
-                const doc = docs.find((d) => d.doc_type === dt);
-                return (
-                  <div key={dt} className="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-gray-100 bg-[#F9FAFB]">
-                    <div className="flex items-center gap-3 min-w-0">
-                      {doc ? <CheckCircle2 className="w-5 h-5 text-[#27AE60] shrink-0" /> : <Clock className="w-5 h-5 text-gray-400 shrink-0" />}
-                      <div className="min-w-0"><p className="text-sm font-semibold text-[#1F2937] truncate">{dt}</p>{doc && <p className="text-xs text-[#6B7280] truncate">{doc.original_filename}</p>}</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {doc && <button onClick={() => deleteDoc(doc.id)} data-testid={`delete-doc-${DOC_TYPES.indexOf(dt)}`} className="p-2 text-[#DC2626] hover:bg-[#FEE2E2] rounded-lg" aria-label="Hapus"><Trash2 className="w-4 h-4" /></button>}
-                      <label className="px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-[#1F2937] text-xs font-bold rounded-lg cursor-pointer flex items-center gap-2">
-                        <UploadCloud className="w-4 h-4" /> {doc ? "Ganti" : "Unggah"}
-                        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" data-testid={`upload-doc-${DOC_TYPES.indexOf(dt)}`} onChange={(e) => uploadDoc(dt, e.target.files[0])} />
-                      </label>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        </div>
+        <RegistrationSections
+          data={data}
+          setData={setData}
+          docs={docs}
+          reg={reg}
+          setReg={setReg}
+          progress={progress}
+          saving={saving}
+          onSaveProfile={saveProfile}
+          onUploadDoc={uploadDoc}
+          onDeleteDoc={deleteDoc}
+          onSubmitRegistration={submitRegistration}
+        />
       )}
 
       {active === "status" && (
@@ -225,8 +184,6 @@ export default function StudentDashboard() {
   );
 }
 
-const inputCls = "w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#27AE60] focus:border-transparent";
-const selectCls = inputCls + " bg-white";
 const Card = ({ children, className = "" }) => <div className={`bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_-2px_rgba(39,174,96,0.05)] ${className}`}>{children}</div>;
 const StatTile = ({ icon: Icon, label, value }) => (
   <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm"><div className="w-10 h-10 rounded-xl bg-[#E8F6EE] flex items-center justify-center mb-3"><Icon className="w-5 h-5 text-[#27AE60]" /></div><p className="text-xs text-[#6B7280]">{label}</p><p className="font-display font-extrabold text-xl text-[#1F2937] mt-0.5">{value}</p></div>
