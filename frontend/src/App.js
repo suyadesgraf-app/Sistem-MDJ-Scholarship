@@ -9,6 +9,7 @@ import Register from "@/pages/Register";
 import StudentDashboard from "@/pages/student/StudentDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
+import VerifyEmail from "@/pages/VerifyEmail";
 
 function AppRoutes() {
   const location = useLocation();
@@ -18,6 +19,7 @@ function AppRoutes() {
       <Route path="/" element={<Landing />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/dashboard" element={<ProtectedRoute roles={["student"]}><StudentDashboard /></ProtectedRoute>} />
       <Route path="/admin" element={<ProtectedRoute roles={["admin", "super_admin"]}><AdminDashboard /></ProtectedRoute>} />
       <Route path="/super-admin" element={<ProtectedRoute roles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />

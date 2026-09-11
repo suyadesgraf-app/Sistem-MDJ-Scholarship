@@ -20,6 +20,13 @@ import requests
 import json
 import re
 import tempfile
+import secrets
+import asyncio
+import ipaddress
+import httpx
+from html import escape
+from html.parser import HTMLParser
+from urllib.parse import urlparse
 from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
 
 # ---------------------------------------------------------------------------
@@ -42,6 +49,19 @@ STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
 APP_NAME = "mdj-scholarship"
+
+# Email (Emergent-managed Resend)
+EMAIL_BASE_URL = "https://integrations.emergentagent.com"
+EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY")
+EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "MDJ Scholarship")
+EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO")
+APP_BASE_URL = (os.environ.get("APP_BASE_URL") or "").rstrip("/")
+
+# Twilio SMS OTP (optional — phone verification disabled until configured)
+TWILIO_ACCOUNT_SID = (os.environ.get("TWILIO_ACCOUNT_SID") or "").strip()
+TWILIO_AUTH_TOKEN = (os.environ.get("TWILIO_AUTH_TOKEN") or "").strip()
+TWILIO_VERIFY_SERVICE_SID = (os.environ.get("TWILIO_VERIFY_SERVICE_SID") or "").strip()
+TWILIO_ENABLED = bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SERVICE_SID)
 
 EMERGENT_AUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data"
 
@@ -98,6 +118,104 @@ def get_object(path: str):
         resp = requests.get(f"{STORAGE_URL}/objects/{path}", headers={"X-Storage-Key": key}, timeout=60)
     resp.raise_for_status()
     return resp.content, resp.headers.get("Content-Type", "application/octet-stream")
+
+
+# ---------------------------------------------------------------------------
+# Email (Emergent-managed Resend) — guardrail gate + async send
+# ---------------------------------------------------------------------------
+_SHORTENERS = ("bit.ly", "tinyurl.com", "t.co", "is.gd", "cutt.ly", "goo.gl", "rebrand.ly")
+_CRED_ASK = ("reply with your password", "reply with the code", "send your password", "cvv",
+             "send us your password", "enter your password below", "confirm your card number",
+             "your full card number", "seed phrase", "recovery phrase", "verify your card",
+             "social security number", "confirm your bank details")
+_HOSTISH = re.compile(r"\b(?:https?://)?((?:[a-z0-9-]+\.)+[a-z]{2,})", re.I)
+
+
+def _host_ok(host: str) -> bool:
+    if not host or "xn--" in host:
+        return False
+    try:
+        ipaddress.ip_address(host)
+        return False
+    except ValueError:
+        pass
+    return not any(host == s or host.endswith("." + s) for s in _SHORTENERS)
+
+
+def _same_site(shown: str, real: str) -> bool:
+    return shown == real or real.endswith("." + shown) or shown.endswith("." + real)
+
+
+class _EmailScan(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.tags, self.urls, self.anchors = set(), [], []
+        self._href, self._text = None, []
+
+    def handle_starttag(self, tag, attrs):
+        self.tags.add(tag.lower())
+        self.urls += [v for k, v in attrs if k.lower() in ("href", "src") and v]
+        if tag.lower() == "a":
+            self._href = dict((k.lower(), v) for k, v in attrs).get("href")
+            self._text = []
+
+    def handle_data(self, data):
+        if self._href is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() == "a" and self._href is not None:
+            self.anchors.append((self._href, "".join(self._text)))
+            self._href, self._text = None, []
+
+
+def _assert_safe_email(subject: str, html: str) -> None:
+    scan = _EmailScan()
+    scan.feed(html)
+    if scan.tags & {"form", "input", "textarea", "select"}:
+        raise ValueError("No forms or input fields in email (G2)")
+    body = f"{subject}\n{html}".lower()
+    for p in _CRED_ASK:
+        if p in body:
+            raise ValueError(f"Email asks the recipient for credentials: {p!r} (G2)")
+    for url in scan.urls:
+        low = url.strip().lower()
+        if low.startswith(("mailto:", "tel:", "cid:", "#")):
+            continue
+        if not low.startswith("https://"):
+            raise ValueError(f"Email links/assets must be absolute https: {url!r} (G3)")
+        host = urlparse(low).hostname or ""
+        if not _host_ok(host) or urlparse(low).username is not None:
+            raise ValueError(f"Shortened, numeric-host or credential-bearing URL: {url!r} (G3)")
+    for href, text in scan.anchors:
+        real = urlparse(href.strip().lower()).hostname or ""
+        if not real:
+            continue
+        for m in _HOSTISH.finditer(text):
+            if not _same_site(m.group(1).lower(), real):
+                raise ValueError(f"Anchor text {m.group(1)!r} != real link host {real!r} (G3)")
+
+
+async def send_email(*, to: str, subject: str, html: str) -> Optional[str]:
+    _assert_safe_email(subject, html)
+    payload = {"to": [to], "subject": subject, "html": html, "from_name": EMAIL_FROM_NAME}
+    if EMAIL_REPLY_TO:
+        payload["contact_email"] = EMAIL_REPLY_TO
+    try:
+        async with httpx.AsyncClient(timeout=30) as http_client:
+            resp = await http_client.post(
+                f"{EMAIL_BASE_URL}/api/v1/email/send",
+                headers={"X-Email-Key": EMAIL_KEY},
+                json=payload,
+            )
+        resp.raise_for_status()
+        return resp.json().get("id")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Email send failed: {e.response.status_code} {e.response.text}")
+        raise HTTPException(status_code=502, detail="Gagal mengirim email verifikasi")
+    except Exception as e:
+        logger.error(f"Email send error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Gagal mengirim email verifikasi")
 
 
 # ---------------------------------------------------------------------------
@@ -192,6 +310,29 @@ class GoogleSessionInput(BaseModel):
 
 class ProfileInput(BaseModel):
     data: Dict[str, Any]
+
+
+class ChangePasswordInput(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class EmailChangeInput(BaseModel):
+    new_email: EmailStr
+    password: str
+
+
+class EmailVerifyInput(BaseModel):
+    token: str
+
+
+class PhoneOtpSendInput(BaseModel):
+    phone: str
+
+
+class PhoneOtpVerifyInput(BaseModel):
+    phone: str
+    code: str
 
 
 class RegistrationInput(BaseModel):
@@ -307,6 +448,123 @@ async def logout(request: Request, response: Response):
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return clean_user(user)
+
+
+# ---------------------------------------------------------------------------
+# Account settings — password, email change (verified link), phone OTP
+# ---------------------------------------------------------------------------
+@api_router.post("/auth/change-password")
+async def change_password(payload: ChangePasswordInput, user: dict = Depends(get_current_user)):
+    doc = await db.users.find_one({"user_id": user["user_id"]})
+    if not doc or not doc.get("password_hash"):
+        raise HTTPException(status_code=400, detail="Akun ini masuk lewat Google dan tidak memiliki kata sandi.")
+    if not verify_password(payload.current_password, doc["password_hash"]):
+        raise HTTPException(status_code=400, detail="Kata sandi saat ini salah.")
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Kata sandi baru minimal 8 karakter.")
+    if verify_password(payload.new_password, doc["password_hash"]):
+        raise HTTPException(status_code=400, detail="Kata sandi baru tidak boleh sama dengan yang lama.")
+    await db.users.update_one({"user_id": user["user_id"]},
+                              {"$set": {"password_hash": hash_password(payload.new_password)}})
+    return {"message": "Kata sandi berhasil diperbarui."}
+
+
+@api_router.post("/auth/email/change-request")
+async def request_email_change(payload: EmailChangeInput, user: dict = Depends(get_current_user)):
+    doc = await db.users.find_one({"user_id": user["user_id"]})
+    if not doc or not doc.get("password_hash"):
+        raise HTTPException(status_code=400, detail="Akun Google tidak dapat mengubah email di sini.")
+    if not verify_password(payload.password, doc["password_hash"]):
+        raise HTTPException(status_code=400, detail="Kata sandi salah.")
+    new_email = payload.new_email.lower().strip()
+    if new_email == doc["email"]:
+        raise HTTPException(status_code=400, detail="Email baru sama dengan email saat ini.")
+    if await db.users.find_one({"email": new_email}):
+        raise HTTPException(status_code=400, detail="Email tersebut sudah digunakan akun lain.")
+    token = secrets.token_urlsafe(32)
+    await db.email_change_tokens.update_many({"user_id": user["user_id"], "used": False},
+                                             {"$set": {"used": True}})
+    await db.email_change_tokens.insert_one({
+        "user_id": user["user_id"], "new_email": new_email, "token": token, "used": False,
+        "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    link = f"{APP_BASE_URL}/verify-email?token={token}"
+    html = (
+        '<table role="presentation" width="100%"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#1F2937">'
+        f'<p>Halo {escape(doc.get("name", ""))},</p>'
+        f'<p>Kami menerima permintaan untuk mengubah alamat email akun MDJ Scholarship Anda menjadi '
+        f'<strong>{escape(new_email)}</strong>.</p>'
+        f'<p>Klik tautan berikut untuk mengonfirmasi perubahan (berlaku 1 jam):</p>'
+        f'<p><a href="{escape(link)}" style="display:inline-block;background:#27AE60;color:#ffffff;'
+        f'padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Verifikasi Email Saya</a></p>'
+        f'<p style="font-size:12px;color:#888">Jika Anda tidak meminta perubahan ini, abaikan email ini. '
+        f'Sent by {escape(EMAIL_FROM_NAME)}. Kami tidak pernah meminta kata sandi Anda melalui email.</p>'
+        '</td></tr></table>'
+    )
+    await send_email(to=new_email, subject="Verifikasi perubahan email MDJ Scholarship", html=html)
+    return {"message": f"Tautan verifikasi telah dikirim ke {new_email}. Silakan cek kotak masuk Anda."}
+
+
+@api_router.post("/auth/email/verify")
+async def verify_email_change(payload: EmailVerifyInput):
+    rec = await db.email_change_tokens.find_one({"token": payload.token, "used": False})
+    if not rec:
+        raise HTTPException(status_code=400, detail="Tautan verifikasi tidak valid atau sudah digunakan.")
+    expires_at = rec["expires_at"]
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Tautan verifikasi sudah kedaluwarsa.")
+    new_email = rec["new_email"]
+    if await db.users.find_one({"email": new_email, "user_id": {"$ne": rec["user_id"]}}):
+        raise HTTPException(status_code=400, detail="Email tersebut sudah digunakan akun lain.")
+    await db.users.update_one({"user_id": rec["user_id"]},
+                              {"$set": {"email": new_email, "email_verified": True}})
+    await db.email_change_tokens.update_one({"token": payload.token}, {"$set": {"used": True}})
+    return {"message": "Email berhasil diperbarui.", "email": new_email}
+
+
+@api_router.post("/auth/phone/send-otp")
+async def send_phone_otp(payload: PhoneOtpSendInput, user: dict = Depends(get_current_user)):
+    if not TWILIO_ENABLED:
+        raise HTTPException(status_code=503, detail="Verifikasi SMS belum dikonfigurasi. Hubungi administrator.")
+    phone = payload.phone.strip()
+    if not re.fullmatch(r"\+[1-9]\d{7,14}", phone):
+        raise HTTPException(status_code=400, detail="Nomor harus format internasional, contoh: +6281234567890.")
+    try:
+        from twilio.rest import Client
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        await asyncio.to_thread(
+            lambda: client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID)
+            .verifications.create(to=phone, channel="sms")
+        )
+    except Exception as e:
+        logger.error(f"Twilio send OTP failed: {e}")
+        raise HTTPException(status_code=502, detail="Gagal mengirim kode OTP. Periksa nomor Anda.")
+    return {"message": f"Kode OTP telah dikirim ke {phone}."}
+
+
+@api_router.post("/auth/phone/verify-otp")
+async def verify_phone_otp(payload: PhoneOtpVerifyInput, user: dict = Depends(get_current_user)):
+    if not TWILIO_ENABLED:
+        raise HTTPException(status_code=503, detail="Verifikasi SMS belum dikonfigurasi. Hubungi administrator.")
+    phone = payload.phone.strip()
+    try:
+        from twilio.rest import Client
+        client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+        check = await asyncio.to_thread(
+            lambda: client.verify.v2.services(TWILIO_VERIFY_SERVICE_SID)
+            .verification_checks.create(to=phone, code=payload.code)
+        )
+    except Exception as e:
+        logger.error(f"Twilio verify OTP failed: {e}")
+        raise HTTPException(status_code=502, detail="Gagal memverifikasi kode OTP.")
+    if check.status != "approved":
+        raise HTTPException(status_code=400, detail="Kode OTP salah atau kedaluwarsa.")
+    await db.users.update_one({"user_id": user["user_id"]},
+                              {"$set": {"phone": phone, "phone_verified": True}})
+    return {"message": "Nomor telepon berhasil diverifikasi.", "phone": phone}
 
 
 # ---------------------------------------------------------------------------

@@ -45,6 +45,15 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
   Emergent LLM Key) mengekstrak & mengisi otomatis Nama, NIK, Tempat/Tgl Lahir (dinormalisasi YYYY-MM-DD),
   Jenis Kelamin (L/P), Agama, Status Perkawinan, dan Alamat (RT/RW/kel/kec/kota/provinsi). Endpoint
   `POST /api/profile/extract-ktp`. Data hasil AI tetap dapat diedit. Diverifikasi end-to-end (curl + UI).
+- Tab Pengaturan (student) diredesain: panel "Informasi Akun" (Email + badge Terverifikasi, Nomor Telepon +
+  badge status) dan "Keamanan Akun" (ganti kata sandi + indikator kekuatan). Komponen
+  `/app/frontend/src/components/AccountSettings.jsx` + halaman `/verify-email` (`VerifyEmail.jsx`).
+  - Ganti kata sandi: `POST /api/auth/change-password` (verifikasi kata sandi lama, min 8 char). Terverifikasi.
+  - Ubah email dengan link verifikasi via Emergent Resend: `POST /api/auth/email/change-request` →
+    email berisi tautan → `POST /api/auth/email/verify`. Token 1 jam, sekali pakai. Terverifikasi end-to-end.
+  - Ubah nomor via OTP SMS (Twilio Verify): `POST /api/auth/phone/send-otp` & `/verify-otp`.
+    CATATAN: fitur SMS AKTIF hanya setelah kredensial Twilio (TWILIO_ACCOUNT_SID/AUTH_TOKEN/VERIFY_SERVICE_SID)
+    diisi di backend/.env. Saat ini kosong → endpoint mengembalikan 503 "Verifikasi SMS belum dikonfigurasi".
 
 ## Backlog / Remaining
 - **P1**: Forgot/reset password flow; brute-force lockout on login.

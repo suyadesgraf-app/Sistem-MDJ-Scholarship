@@ -4,6 +4,7 @@ import api, { API } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import DashboardShell, { StatusBadge, STATUS_META } from "@/components/DashboardShell";
 import StudentProfile, { profileProgress } from "@/components/StudentProfile";
+import AccountSettings from "@/components/AccountSettings";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
   UploadCloud, CheckCircle2, Clock, Trash2, FileCheck, AlertCircle, Eye,
@@ -219,17 +220,7 @@ export default function StudentDashboard() {
         </div>
       )}
 
-      {active === "pengaturan" && (
-        <Card>
-          <h3 className="font-display font-bold text-lg text-[#1F2937] mb-4">Informasi Akun</h3>
-          <div className="space-y-3 text-sm">
-            <Row label="Nama" value={user?.name} />
-            <Row label="Email" value={user?.email} />
-            <Row label="Metode Login" value={user?.auth_provider === "google" ? "Google" : "Email & Kata Sandi"} />
-            <Row label="Peran" value="Mahasiswa Pendaftar" />
-          </div>
-        </Card>
-      )}
+      {active === "pengaturan" && <AccountSettings />}
     </DashboardShell>
   );
 }
@@ -240,4 +231,3 @@ const Card = ({ children, className = "" }) => <div className={`bg-white border 
 const StatTile = ({ icon: Icon, label, value }) => (
   <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm"><div className="w-10 h-10 rounded-xl bg-[#E8F6EE] flex items-center justify-center mb-3"><Icon className="w-5 h-5 text-[#27AE60]" /></div><p className="text-xs text-[#6B7280]">{label}</p><p className="font-display font-extrabold text-xl text-[#1F2937] mt-0.5">{value}</p></div>
 );
-const Row = ({ label, value }) => <div className="flex items-center justify-between py-2 border-b border-gray-50"><span className="text-[#6B7280]">{label}</span><span className="font-semibold text-[#1F2937]">{value}</span></div>;
