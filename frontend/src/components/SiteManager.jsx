@@ -31,7 +31,8 @@ export default function SiteManager() {
   const uploadBanner = async (file) => {
     if (!file) return;
     setUploading(true);
-    const fd = new FormData(); fd.append("file", file);
+    const fd = new FormData();
+    fd.append("file", file);
     try {
       const { data } = await api.post("/site/banner", fd, { headers: { "Content-Type": "multipart/form-data" } });
       setC((p) => ({ ...p, banner_url: data.banner_url }));
@@ -40,11 +41,26 @@ export default function SiteManager() {
     finally { setUploading(false); }
   };
 
+  const uploadAboutImage = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData(); fd.append("file", file);
+    try {
+      const { data } = await api.post("/site/about-image", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setC((p) => ({ ...p, about_url: data.about_url }));
+      toast.success("Gambar Tentang berhasil diunggah.");
+    } catch { toast.error("Gagal mengunggah gambar Tentang."); }
+    finally { setUploading(false); }
+  };
+
   const setField = (path, value) => setC((p) => ({ ...p, [path]: value }));
   const setSetting = (k, v) => setC((p) => ({ ...p, settings: { ...p.settings, [k]: v } }));
   const setHero = (k, v) => setC((p) => ({ ...p, hero: { ...p.hero, [k]: v } }));
 
   const bannerSrc = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : null;
+  const aboutSrc = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : null;
 
   return (
     <div className="space-y-4">
@@ -63,6 +79,32 @@ export default function SiteManager() {
               <input type="file" accept="image/*" className="hidden" data-testid="upload-banner-input" onChange={(e) => uploadBanner(e.target.files[0])} />
             </label>
             <p className="text-xs text-[#6B7280] mt-2">Rekomendasi rasio lebar (16:9). Format JPG/PNG.</p>
+          </Panel>
+          <Panel title="Gambar Tentang Program">
+            {aboutSrc && (
+              <img
+                src={aboutSrc}
+                alt="Tentang Program"
+                className="w-full h-40 object-cover rounded-xl mb-4"
+                data-testid="about-image-preview"
+              />
+            )}
+            <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-sm font-bold rounded-xl cursor-pointer">
+              {uploading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ImageIcon className="w-4 h-4" />
+              )}
+              Unggah Gambar Tentang
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                data-testid="upload-about-image-input"
+                onChange={(e) => uploadAboutImage(e.target.files[0])}
+              />
+            </label>
+            <p className="text-xs text-[#6B7280] mt-2">Pilih gambar mahasiswa atau kegiatan program dengan rasio lebar.</p>
           </Panel>
           <Panel title="Periode & Status Pendaftaran">
             <label className="flex items-center gap-3 mb-4 cursor-pointer">

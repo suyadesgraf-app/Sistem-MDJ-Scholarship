@@ -91,3 +91,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Kompresi hanya dipakai apabila hasil akhirnya lebih kecil daripada file asli.
 - Diuji: unggahan PNG 3200px menjadi JPEG 323.054 byte dari 415.656 byte dan tulisan tetap
   terbaca jelas pada pratinjau Admin Pendaftaran. Penanda menu desktop/mobile juga dibuat unik.
+
+## 2026-09 — Pembaruan visual laman depan
+- Banner hero diganti dengan kolase kegiatan dan prestasi MDJ yang diunggah pengguna.
+- Gambar bagian Tentang Program diganti dengan foto mahasiswa yang berkolaborasi.
+- CMS Super Admin kini mendukung unggah ulang Gambar Tentang Program melalui endpoint
+  `POST /api/site/about-image`; kedua gambar disimpan di Object Storage dan ditampilkan publik.
+- Diuji: API CMS serta laman publik memuat kedua URL gambar baru dengan benar.

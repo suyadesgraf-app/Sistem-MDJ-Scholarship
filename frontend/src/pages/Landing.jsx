@@ -112,6 +112,7 @@ export default function Landing() {
   const faqs = c.faqs || [];
   const hero = c.hero || {};
   const bannerBg = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : HERO_IMG;
+  const aboutBg = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : ABOUT_IMG;
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -190,7 +191,12 @@ export default function Landing() {
               ))}
             </div>
           </div>
-          <img src={ABOUT_IMG} alt="Mahasiswa" className="rounded-2xl w-full h-72 object-cover shadow-lg" />
+          <img
+            src={aboutBg}
+            alt="Mahasiswa berkolaborasi"
+            className="rounded-2xl w-full h-72 object-cover shadow-lg"
+            data-testid="about-program-image"
+          />
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {BENEFITS.map((b, i) => (
