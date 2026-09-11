@@ -5,7 +5,7 @@ import axios from "axios";
 import {
   GraduationCap, User, Award, Shield, Menu, X, CheckCircle2, ArrowRight,
   School, BookOpen, Star, Calendar, ChevronDown, Sparkles, ShieldCheck,
-  Download, MapPin, Megaphone,
+  Download, MapPin, Megaphone, Facebook, Instagram, Youtube, Phone, Mail,
 } from "lucide-react";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwxfHxqYWthcnRhJTIwY2l0eXNjYXBlJTIwZGF5dGltZXxlbnwwfHx8fDE3ODkxNTYxNDB8MA&ixlib=rb-4.1.0&q=85";
@@ -301,34 +301,175 @@ export default function Landing() {
       </section>
 
       {/* CTA */}
-      <section className="py-20 bg-[#27AE60]">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="font-display font-black text-3xl lg:text-4xl tracking-tight text-white mb-4">Siap Mengambil Langkah untuk Masa Depanmu?</h2>
-          <p className="text-white/85 mb-8">Persiapkan dokumenmu, lengkapi pendaftaran, dan jadilah bagian dari Kader Akademia Program Masa Depan Jakarta.</p>
-          <button onClick={() => go("/register")} data-testid="cta-register-btn" className="px-8 py-4 text-base font-bold text-[#0B6B3A] bg-[#F2C94C] rounded-full hover:bg-[#D4AC2B] shadow-xl transition-colors">Daftar Sekarang</button>
+      <section className="border-b-2 border-[#27AE60] bg-[#08743D] py-16 sm:py-20">
+        <div className="mx-auto max-w-3xl px-4 text-center">
+          <h2 className="font-display mb-4 text-3xl font-black leading-[1.04] text-white sm:text-4xl">
+            Siap Mengambil Langkah untuk Masa Depanmu?
+          </h2>
+          <p className="mx-auto mb-8 max-w-2xl text-sm leading-relaxed text-white/90 sm:text-base">
+            Persiapkan dokumenmu, lengkapi pendaftaran, dan jadilah bagian dari Kader Akademia
+            Program Masa Depan Jakarta.
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              onClick={() => go("/register")}
+              data-testid="cta-register-btn"
+              className="rounded-xl bg-[#F2C94C] px-7 py-3 text-sm font-bold text-[#0B6B3A] shadow-lg
+                shadow-black/10 transition-colors duration-200 hover:bg-[#D4AC2B]
+                focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white
+                focus-visible:ring-offset-2 focus-visible:ring-offset-[#08743D]"
+            >
+              Daftar Sekarang
+            </button>
+            <a
+              href="#persyaratan"
+              data-testid="cta-requirements-link"
+              className="rounded-xl border border-white/30 px-7 py-3 text-sm font-bold text-white
+                transition-colors duration-200 hover:bg-white/10 focus-visible:outline-none
+                focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2
+                focus-visible:ring-offset-[#08743D]"
+            >
+              Cek Persyaratan
+            </a>
+          </div>
         </div>
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-[#0B3D1F] text-white/70 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-3 gap-8">
+      <footer className="bg-[#111827] py-14 text-white/65 sm:py-16">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:gap-12">
           <div>
-            <Logo light />
-            <p className="text-sm mt-4 leading-relaxed max-w-xs">Program pemberdayaan dan bantuan biaya pendidikan mahasiswa DKI Jakarta oleh BAZNAS (BAZIS) Provinsi DKI Jakarta.</p>
+            <p className="font-display text-base font-extrabold uppercase text-white">
+              Masa Depan Jakarta Scholarship
+            </p>
+            <p className="mt-0.5 text-[10px] font-medium text-white/50">
+              BAZNAS (BAZIS) Provinsi DKI Jakarta
+            </p>
+            <p className="mt-5 max-w-xs text-sm leading-relaxed">
+              Program beasiswa dan pembinaan komprehensif bagi mahasiswa DKI Jakarta dan keluarga
+              prasejahtera untuk membangun generasi berilmu, berakhlak, berdaya, dan berkontribusi.
+            </p>
+            <div className="mt-6 flex items-center gap-3">
+              <a
+                href="https://www.facebook.com/baznasbazisdki"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Facebook BAZNAS BAZIS DKI Jakarta"
+                data-testid="footer-facebook-link"
+                className="text-white/60 transition-colors duration-200 hover:text-[#F2C94C]"
+              >
+                <Facebook className="h-5 w-5" />
+              </a>
+              <a
+                href="https://www.instagram.com/baznasbazisdki/"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Instagram BAZNAS BAZIS DKI Jakarta"
+                data-testid="footer-instagram-link"
+                className="text-white/60 transition-colors duration-200 hover:text-[#F2C94C]"
+              >
+                <Instagram className="h-5 w-5" />
+              </a>
+              <a
+                href="https://www.youtube.com/@baznasbazisdki"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="YouTube BAZNAS BAZIS DKI Jakarta"
+                data-testid="footer-youtube-link"
+                className="text-white/60 transition-colors duration-200 hover:text-[#F2C94C]"
+              >
+                <Youtube className="h-5 w-5" />
+              </a>
+            </div>
           </div>
+
           <div>
-            <p className="font-display font-bold text-white mb-3">Tautan</p>
-            <ul className="space-y-2 text-sm">
-              {NAV_LINKS.map((l) => <li key={l.name}><a href={l.href} className="hover:text-white">{l.name}</a></li>)}
+            <p className="font-display text-sm font-bold text-white">Tautan Cepat</p>
+            <ul className="mt-5 space-y-3 text-sm">
+              {NAV_LINKS.slice(1).map((link) => (
+                <li key={link.name}>
+                  <a
+                    href={link.href}
+                    data-testid={`footer-link-${link.name.toLowerCase()}`}
+                    className="transition-colors duration-200 hover:text-white"
+                  >
+                    {link.name === "Tentang" ? "Tentang Program" : link.name}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
+
           <div>
-            <p className="font-display font-bold text-white mb-3">Kontak</p>
-            <p className="text-sm flex items-center gap-2"><MapPin className="w-4 h-4" /> Jl. Awaludin No.2, Jakarta Pusat</p>
-            <p className="text-sm mt-2">info@baznasbazisdki.id</p>
+            <p className="font-display text-sm font-bold text-white">Informasi Legal</p>
+            <ul className="mt-5 space-y-3 text-sm">
+              <li>
+                <a
+                  href="#kebijakan-privasi"
+                  data-testid="footer-privacy-link"
+                  className="transition-colors duration-200 hover:text-white"
+                >
+                  Kebijakan Privasi
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#syarat-ketentuan"
+                  data-testid="footer-terms-link"
+                  className="transition-colors duration-200 hover:text-white"
+                >
+                  Syarat dan Ketentuan
+                </a>
+              </li>
+              <li>
+                <a
+                  href="#pedoman-program"
+                  data-testid="footer-guide-link"
+                  className="transition-colors duration-200 hover:text-white"
+                >
+                  Pedoman Program
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <p className="font-display text-sm font-bold text-white">Hubungi Kami</p>
+            <div className="mt-5 space-y-3 text-sm leading-relaxed">
+              <p className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#27AE60]" />
+                <span>
+                  Gedung Graha Mental Spiritual Lt.5, Jl. Awaludin II, Kebon Melati, Tanah Abang,
+                  Jakarta Pusat
+                </span>
+              </p>
+              <a
+                href="tel:+62213199456"
+                data-testid="footer-phone-link"
+                className="flex items-center gap-3 transition-colors duration-200 hover:text-white"
+              >
+                <Phone className="h-4 w-4 shrink-0 text-[#27AE60]" />
+                <span>[Nomor Telepon BAZNAS]</span>
+              </a>
+              <a
+                href="mailto:pendaftaranmdj@baznasbazisdki.id"
+                data-testid="footer-email-link"
+                className="flex items-center gap-3 break-all transition-colors duration-200 hover:text-white"
+              >
+                <Mail className="h-4 w-4 shrink-0 text-[#27AE60]" />
+                <span>pendaftaranmdj@baznasbazisdki.id</span>
+              </a>
+            </div>
           </div>
         </div>
-        <div className="max-w-7xl mx-auto px-4 mt-10 pt-6 border-t border-white/10 text-center text-xs">© {new Date().getFullYear()} BAZNAS (BAZIS) Provinsi DKI Jakarta — MDJ Scholarship.</div>
+        <div className="mx-auto mt-12 max-w-6xl border-t border-white/10 px-4 pt-6 sm:px-6">
+          <div className="flex flex-col justify-between gap-2 text-xs sm:flex-row sm:items-center">
+            <p data-testid="footer-copyright">
+              © {new Date().getFullYear()} BAZNAS (BAZIS) Provinsi DKI Jakarta. Seluruh hak dilindungi.
+            </p>
+            <p data-testid="footer-tagline">Muda dengan Zakat, Bahagia dengan Manfaat.</p>
+          </div>
+        </div>
       </footer>
     </div>
   );

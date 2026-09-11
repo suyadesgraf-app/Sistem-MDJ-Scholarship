@@ -27,6 +27,8 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
 - Admin dashboard: stats overview (tiles + trend chart), participants table (filter/search), detail modal (profile+docs+account), status update.
 - Super admin dashboard: stats, participants, admin account CRUD (create/toggle/delete with guards), website CMS (banner upload, period/status, hero text, timeline, announcements, statistics, requirements, FAQ editors).
 - Role-based routing & backend role gating (verified). 34/34 backend tests pass.
+- Landing page CTA dan footer diperbarui mengikuti referensi visual: CTA hijau dengan dua aksi,
+  footer gelap empat kolom, tautan sosial, legal, kontak, dan baris hak cipta responsif.
 
 ## Backlog / Remaining
 - **P1**: Forgot/reset password flow; brute-force lockout on login.
