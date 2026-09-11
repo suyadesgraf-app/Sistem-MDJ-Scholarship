@@ -37,6 +37,14 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
   Setiap tombol kini menjalankan login normal dan mengarahkan pengguna ke dashboard perannya.
 - Bug akun demo yang hanya menampilkan notifikasi telah diperbaiki dan diverifikasi end-to-end:
   Super Admin ke `/super-admin`, Admin/PIC ke `/admin`, dan Mahasiswa ke `/dashboard`.
+- Halaman Profil Saya (student) diredesain sesuai referensi: header badge "Calon Penerima Manfaat" +
+  persentase kelengkapan, indikator langkah, sub-tab (Data Pribadi | Alamat | Data Pendidikan | Foto Profil),
+  field baru "Status Perkawinan", Informasi Kontak dengan badge email Terverifikasi. Komponen baru
+  `/app/frontend/src/components/StudentProfile.jsx`.
+- Fitur AI "Isi Otomatis dari KTP": unggah JPG/PNG/WEBP/PDF KTP → Gemini 3.1 Pro (gemini-3.1-pro-preview via
+  Emergent LLM Key) mengekstrak & mengisi otomatis Nama, NIK, Tempat/Tgl Lahir (dinormalisasi YYYY-MM-DD),
+  Jenis Kelamin (L/P), Agama, Status Perkawinan, dan Alamat (RT/RW/kel/kec/kota/provinsi). Endpoint
+  `POST /api/profile/extract-ktp`. Data hasil AI tetap dapat diedit. Diverifikasi end-to-end (curl + UI).
 
 ## Backlog / Remaining
 - **P1**: Forgot/reset password flow; brute-force lockout on login.

@@ -17,6 +17,10 @@ import uuid
 import jwt
 import bcrypt
 import requests
+import json
+import re
+import tempfile
+from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
 
 # ---------------------------------------------------------------------------
 # Config
@@ -400,6 +404,82 @@ async def list_documents(user: dict = Depends(get_current_user)):
 async def delete_document(doc_id: str, user: dict = Depends(get_current_user)):
     await db.documents.update_one({"id": doc_id, "user_id": user["user_id"]}, {"$set": {"is_deleted": True}})
     return {"message": "Dokumen dihapus"}
+
+
+KTP_SYSTEM_PROMPT = """Anda adalah mesin OCR ahli untuk KTP (Kartu Tanda Penduduk) Indonesia.
+Ekstrak data dari gambar/PDF KTP yang diberikan dan kembalikan HANYA objek JSON valid,
+tanpa penjelasan, tanpa markdown fence. Gunakan skema kunci PERSIS berikut:
+{
+  "namaLengkap": string,          // Nama sesuai KTP, huruf kapital seperti aslinya
+  "nik": string,                  // 16 digit angka saja
+  "tempatLahir": string,          // Kota/kabupaten tempat lahir
+  "tanggalLahir": string,         // WAJIB format YYYY-MM-DD (konversi dari DD-MM-YYYY)
+  "jenisKelamin": string,         // "L" untuk LAKI-LAKI, "P" untuk PEREMPUAN
+  "agama": string,                // salah satu: islam, kristen, katolik, hindu, buddha, konghucu
+  "statusPerkawinan": string,     // "belum_kawin" (BELUM KAWIN), "kawin" (KAWIN), "cerai" (CERAI HIDUP/MATI)
+  "alamatLengkap": string,        // Isi baris ALAMAT
+  "rt": string,                   // RT saja (angka)
+  "rw": string,                   // RW saja (angka)
+  "kelurahan": string,            // KEL/DESA
+  "kecamatan": string,            // KECAMATAN
+  "kota": string,                 // Kota/Kabupaten (dari header atau alamat)
+  "provinsi": string              // Provinsi (dari header KTP)
+}
+Aturan: gunakan null untuk field yang tidak terbaca. Jangan mengarang data.
+Jika file bukan KTP, kembalikan {"error": "bukan_ktp"}."""
+
+
+@api_router.post("/profile/extract-ktp")
+async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
+    if ext not in ("jpg", "jpeg", "png", "webp", "pdf"):
+        raise HTTPException(status_code=400, detail="Format harus JPG, PNG, atau PDF.")
+    mime = MIME_TYPES.get(ext, "application/octet-stream")
+    data = await file.read()
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran file maksimal 10MB.")
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+            tmp.write(data)
+            tmp_path = tmp.name
+        chat = LlmChat(
+            api_key=EMERGENT_KEY,
+            session_id=f"ktp-{user['user_id']}-{uuid.uuid4()}",
+            system_message=KTP_SYSTEM_PROMPT,
+        ).with_model("gemini", "gemini-3.1-pro-preview")
+        fc = FileContentWithMimeType(mime_type=mime, file_path=tmp_path)
+        raw = await chat.send_message(UserMessage(
+            text="Ekstrak seluruh data dari KTP ini dan kembalikan HANYA JSON sesuai skema.",
+            file_contents=[fc],
+        ))
+    except Exception as e:
+        logger.error(f"KTP extraction failed: {e}")
+        raise HTTPException(status_code=502, detail="Gagal membaca KTP. Coba lagi dengan foto yang lebih jelas.")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.DOTALL).strip()
+    match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+    if not match:
+        raise HTTPException(status_code=422, detail="Data KTP tidak dapat dikenali. Pastikan foto jelas.")
+    try:
+        parsed = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=422, detail="Data KTP tidak dapat dikenali. Pastikan foto jelas.")
+    if parsed.get("error") == "bukan_ktp":
+        raise HTTPException(status_code=422, detail="File yang diunggah bukan KTP yang valid.")
+
+    allowed = {"namaLengkap", "nik", "tempatLahir", "tanggalLahir", "jenisKelamin",
+               "agama", "statusPerkawinan", "alamatLengkap", "rt", "rw",
+               "kelurahan", "kecamatan", "kota", "provinsi"}
+    mapped = {k: str(v).strip() for k, v in parsed.items() if k in allowed and v not in (None, "", "null")}
+    if mapped.get("nik"):
+        mapped["nik"] = re.sub(r"\D", "", mapped["nik"])[:16]
+    return {"data": mapped}
 
 
 @api_router.get("/files/{path:path}")

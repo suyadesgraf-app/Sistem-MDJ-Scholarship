@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import api, { API } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import DashboardShell, { StatusBadge, STATUS_META } from "@/components/DashboardShell";
+import StudentProfile, { profileProgress } from "@/components/StudentProfile";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
   UploadCloud, CheckCircle2, Clock, Trash2, FileCheck, AlertCircle, Eye,
@@ -17,38 +18,6 @@ const MENU = [
   { id: "pengumuman", label: "Pengumuman", icon: Megaphone },
   { id: "pengaturan", label: "Pengaturan", icon: Settings },
 ];
-
-const SECTIONS = {
-  pribadi: { title: "Data Pribadi", fields: [
-    { k: "namaLengkap", l: "Nama Lengkap", req: true },
-    { k: "nik", l: "NIK", req: true, digits: true, max: 16 },
-    { k: "noKK", l: "No. Kartu Keluarga", req: true, digits: true, max: 16 },
-    { k: "tempatLahir", l: "Tempat Lahir", req: true },
-    { k: "tanggalLahir", l: "Tanggal Lahir", req: true, type: "date" },
-    { k: "jenisKelamin", l: "Jenis Kelamin", req: true, opts: [["L", "Laki-laki"], ["P", "Perempuan"]] },
-    { k: "agama", l: "Agama", opts: [["islam", "Islam"], ["kristen", "Kristen"], ["katolik", "Katolik"], ["hindu", "Hindu"], ["buddha", "Buddha"], ["konghucu", "Konghucu"]] },
-    { k: "noTelp", l: "No. Telepon", req: true },
-    { k: "email", l: "Email", req: true, type: "email" },
-  ]},
-  alamat: { title: "Alamat Domisili", fields: [
-    { k: "provinsi", l: "Provinsi", req: true },
-    { k: "kota", l: "Kota/Kabupaten", req: true },
-    { k: "kecamatan", l: "Kecamatan" },
-    { k: "kelurahan", l: "Kelurahan" },
-    { k: "rt", l: "RT", digits: true, max: 3 },
-    { k: "rw", l: "RW", digits: true, max: 3 },
-    { k: "kodePos", l: "Kode Pos", digits: true, max: 5 },
-    { k: "alamatLengkap", l: "Alamat Lengkap", req: true, full: true, area: true },
-  ]},
-  pendidikan: { title: "Data Pendidikan", fields: [
-    { k: "jenjang", l: "Jenjang", req: true, opts: [["D3", "D3"], ["D4", "D4"], ["S1", "S1"]] },
-    { k: "institusi", l: "Perguruan Tinggi", req: true },
-    { k: "jurusan", l: "Program Studi" },
-    { k: "nim", l: "NIM", req: true },
-    { k: "semester", l: "Semester", digits: true, max: 2 },
-    { k: "ipk", l: "IPK" },
-  ]},
-};
 
 const DOC_TYPES = [
   "KTP DKI Jakarta", "Kartu Keluarga (KK)", "Pas Foto 3x4", "Kartu Tanda Mahasiswa (KTM)",
@@ -74,11 +43,7 @@ export default function StudentDashboard() {
     api.get("/site/content").then((r) => setContent(r.data));
   }, []);
 
-  const progress = useMemo(() => {
-    const req = [...SECTIONS.pribadi.fields, ...SECTIONS.alamat.fields, ...SECTIONS.pendidikan.fields].filter((f) => f.req).map((f) => f.k);
-    const filled = req.filter((k) => data[k] && String(data[k]).trim() !== "");
-    return Math.round((filled.length / req.length) * 100);
-  }, [data]);
+  const progress = useMemo(() => profileProgress(data), [data]);
 
   const set = (k, v) => setData((p) => ({ ...p, [k]: v }));
 
@@ -148,32 +113,7 @@ export default function StudentDashboard() {
       )}
 
       {active === "profil" && (
-        <div className="space-y-6">
-          {Object.entries(SECTIONS).map(([key, sec]) => (
-            <Card key={key}>
-              <h3 className="font-display font-bold text-lg text-[#1F2937] mb-5">{sec.title}</h3>
-              <div className="grid sm:grid-cols-2 gap-4">
-                {sec.fields.map((f) => (
-                  <div key={f.k} className={f.full ? "sm:col-span-2" : ""}>
-                    <label className="block text-sm font-semibold text-[#1F2937] mb-1.5">{f.l} {f.req && <span className="text-[#DC2626]">*</span>}</label>
-                    {f.opts ? (
-                      <select value={data[f.k] || ""} onChange={(e) => set(f.k, e.target.value)} data-testid={`field-${f.k}`} className={selectCls}>
-                        <option value="">Pilih...</option>
-                        {f.opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                      </select>
-                    ) : f.area ? (
-                      <textarea value={data[f.k] || ""} onChange={(e) => set(f.k, e.target.value)} data-testid={`field-${f.k}`} rows={2} className={inputCls} />
-                    ) : (
-                      <input type={f.type || "text"} value={data[f.k] || ""} maxLength={f.max}
-                        onChange={(e) => set(f.k, f.digits ? e.target.value.replace(/\D/g, "") : e.target.value)}
-                        data-testid={`field-${f.k}`} className={inputCls} />
-                    )}
-                  </div>
-                ))}
-              </div>
-            </Card>
-          ))}
-        </div>
+        <StudentProfile data={data} set={set} setData={setData} docs={docs} uploadDoc={uploadDoc} deleteDoc={deleteDoc} />
       )}
 
       {active === "daftar" && (
