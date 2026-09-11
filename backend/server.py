@@ -20,6 +20,8 @@ import requests
 import json
 import re
 import tempfile
+import io
+from PIL import Image as PILImage
 import secrets
 import asyncio
 import ipaddress
@@ -785,6 +787,11 @@ async def extract_kk(file: UploadFile = File(...), user: dict = Depends(get_curr
 
 @api_router.get("/files/{path:path}")
 async def download_file(path: str, request: Request, auth: str = Query(None)):
+    site_record = await db.site_files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
+    if site_record:
+        data, content_type = get_object(path)
+        return StarletteResponse(content=data, media_type=site_record.get("content_type", content_type),
+                                 headers={"Cache-Control": "public, max-age=31536000, immutable"})
     token = request.cookies.get("access_token") or request.cookies.get("session_token") or auth
     if not token:
         auth_header = request.headers.get("Authorization", "")
@@ -793,10 +800,9 @@ async def download_file(path: str, request: Request, auth: str = Query(None)):
     if not token or not await resolve_user_from_token(token):
         raise HTTPException(status_code=401, detail="Not authenticated")
     record = await db.documents.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
-    if not record:
-        record = await db.site_files.find_one({"storage_path": path, "is_deleted": False}, {"_id": 0})
     data, content_type = get_object(path)
-    return StarletteResponse(content=data, media_type=(record or {}).get("content_type", content_type))
+    return StarletteResponse(content=data, media_type=(record or {}).get("content_type", content_type),
+                             headers={"Cache-Control": "private, max-age=3600"})
 
 
 # ---------------------------------------------------------------------------
@@ -883,10 +889,20 @@ async def update_site_content(payload: SiteContentInput, user: dict = Depends(re
 
 @api_router.post("/site/banner")
 async def upload_banner(file: UploadFile = File(...), user: dict = Depends(require_roles("super_admin"))):
-    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "png"
-    content_type = file.content_type or MIME_TYPES.get(ext, "image/png")
-    path = f"{APP_NAME}/site/banner_{uuid.uuid4().hex[:8]}.{ext}"
     data = await file.read()
+    try:
+        img = PILImage.open(io.BytesIO(data))
+        img = img.convert("RGB")
+        if img.width > 1600:
+            img = img.resize((1600, int(img.height * 1600 / img.width)), PILImage.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=72, optimize=True, progressive=True)
+        data, ext, content_type = buf.getvalue(), "jpg", "image/jpeg"
+    except Exception as e:
+        logger.warning(f"Banner compression skipped: {e}")
+        ext = file.filename.split(".")[-1].lower() if "." in file.filename else "png"
+        content_type = file.content_type or MIME_TYPES.get(ext, "image/png")
+    path = f"{APP_NAME}/site/banner_{uuid.uuid4().hex[:8]}.{ext}"
     result = put_object(path, data, content_type)
     await db.site_files.insert_one({
         "storage_path": result["path"], "content_type": content_type,

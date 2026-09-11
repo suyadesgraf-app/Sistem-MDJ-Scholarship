@@ -1,6 +1,7 @@
 import React, { useRef, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { DocPreview, docFileUrl } from "@/components/DocPreview";
 import {
   User, MapPin, Image as ImageIcon, ShieldCheck,
   ScanLine, Loader2, CheckCircle2, UploadCloud, Info, Trash2, Camera, FileCheck,
@@ -163,6 +164,7 @@ function DocScanUploader({ type, setData, docs, onDocSaved }) {
   const [loading, setLoading] = useState(false);
   const [filled, setFilled] = useState(0);
   const [savedDoc, setSavedDoc] = useState(null);
+  const [open, setOpen] = useState(false);
   const existing = savedDoc || (docs || []).find((d) => d.doc_type === cfg.docType);
 
   const handle = async (file) => {
@@ -198,7 +200,8 @@ function DocScanUploader({ type, setData, docs, onDocSaved }) {
             <h4 className="font-display font-bold text-[#1F2937] flex items-center gap-2">Isi Otomatis dari {cfg.label} <span className="px-2 py-0.5 rounded-full bg-[#27AE60] text-white text-[10px] font-bold">AI</span></h4>
             <p className="text-sm text-[#6B7280] mt-0.5">{cfg.desc}</p>
             {filled > 0 && !loading && <p className="text-xs text-[#27AE60] font-semibold mt-1 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> {filled} kolom terisi dari {cfg.label} terakhir.</p>}
-            {existing && !loading && <p className="text-xs text-[#6B7280] mt-1 flex items-center gap-1" data-testid={`${cfg.testId}-saved-doc`}><FileCheck className="w-3.5 h-3.5 text-[#27AE60]" /> Dokumen tersimpan: {existing.original_filename}</p>}
+            {existing && !loading && <button type="button" onClick={() => setOpen(true)} className="text-xs text-[#0B6B3A] hover:underline mt-1 flex items-center gap-1" data-testid={`${cfg.testId}-saved-doc`}><FileCheck className="w-3.5 h-3.5 text-[#27AE60]" /> Dokumen tersimpan: {existing.original_filename}</button>}
+            {open && <DocPreview doc={existing} onClose={() => setOpen(false)} />}
           </div>
         </div>
         <button onClick={() => inputRef.current?.click()} disabled={loading} data-testid={`${cfg.testId}-upload-btn`}
@@ -216,10 +219,9 @@ const PHOTO_DOC = "Pas Foto 3x4";
 function PhotoTab({ docs, uploadDoc, deleteDoc }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
   const photo = (docs || []).find((d) => d.doc_type === PHOTO_DOC);
-  const BACKEND = process.env.REACT_APP_BACKEND_URL;
-  const token = typeof window !== "undefined" ? localStorage.getItem("mdj_token") : null;
-  const previewUrl = photo ? `${BACKEND}/api/files/${photo.storage_path}${token ? `?auth=${token}` : ""}` : null;
+  const previewUrl = photo ? docFileUrl(photo) : null;
 
   const onFile = async (file) => {
     if (!file) return;
@@ -233,8 +235,9 @@ function PhotoTab({ docs, uploadDoc, deleteDoc }) {
     <SectionCard title="Foto Profil" desc="Unggah pas foto formal 3x4 dengan latar belakang polos. Format JPG/PNG, maksimal 5MB.">
       <div className="flex flex-col sm:flex-row items-center gap-6">
         <div className="w-32 h-40 rounded-xl border-2 border-gray-200 bg-[#F9FAFB] overflow-hidden flex items-center justify-center shrink-0">
-          {previewUrl ? <img src={previewUrl} alt="Pas foto" className="w-full h-full object-cover" data-testid="profile-photo-preview" /> : <Camera className="w-10 h-10 text-gray-300" />}
+          {previewUrl ? <img src={previewUrl} alt="Pas foto" onClick={() => setOpen(true)} className="w-full h-full object-cover cursor-zoom-in" data-testid="profile-photo-preview" /> : <Camera className="w-10 h-10 text-gray-300" />}
         </div>
+        {open && <DocPreview doc={photo} onClose={() => setOpen(false)} />}
         <div className="flex-1 text-center sm:text-left">
           <p className="text-sm text-[#6B7280] mb-3">{photo ? `File saat ini: ${photo.original_filename}` : "Belum ada foto yang diunggah."}</p>
           <div className="flex flex-wrap gap-2 justify-center sm:justify-start">

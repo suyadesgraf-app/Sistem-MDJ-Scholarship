@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  Eye,
   Clock,
   FileCheck,
   FileText,
@@ -11,6 +12,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { FieldGrid, PENDIDIKAN } from "@/components/StudentProfile";
+import { DocPreview } from "@/components/DocPreview";
 
 const DOC_TYPES = [
   "KTP DKI Jakarta",
@@ -67,6 +69,7 @@ export default function RegistrationSections({
   onSubmitRegistration,
 }) {
   const [tab, setTab] = useState("formulir");
+  const [preview, setPreview] = useState(null);
   const set = (key, value) => setData((previous) => ({ ...previous, [key]: value }));
 
   return (
@@ -232,9 +235,14 @@ export default function RegistrationSections({
                         {docType}
                       </p>
                       {document && (
-                        <p className="text-xs text-[#6B7280] truncate">
-                          {document.original_filename}
-                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setPreview(document)}
+                          data-testid={`preview-document-${index}`}
+                          className="text-xs text-[#0B6B3A] hover:underline truncate max-w-[260px] flex items-center gap-1"
+                        >
+                          <Eye className="w-3.5 h-3.5 shrink-0" /> {document.original_filename}
+                        </button>
                       )}
                     </div>
                   </div>
@@ -273,6 +281,7 @@ export default function RegistrationSections({
               );
             })}
           </div>
+          <DocPreview doc={preview} onClose={() => setPreview(null)} />
         </Card>
       )}
     </div>

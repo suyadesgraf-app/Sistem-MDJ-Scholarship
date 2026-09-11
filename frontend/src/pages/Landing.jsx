@@ -8,7 +8,7 @@ import {
   Download, MapPin, Megaphone, Facebook, Instagram, Youtube, Phone, Mail,
 } from "lucide-react";
 
-const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwxfHxqYWthcnRhJTIwY2l0eXNjYXBlJTIwZGF5dGltZXxlbnwwfHx8fDE3ODkxNTYxNDB8MA&ixlib=rb-4.1.0&q=85";
+const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?auto=format&fit=crop&w=1600&q=60";
 const ABOUT_IMG = "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBzbWlsaW5nJTIwc3R1ZHlpbmd8ZW58MHx8fHwxNzg5MTU2MTM5fDA&ixlib=rb-4.1.0&q=85";
 
 const NAV_LINKS = [
@@ -119,8 +119,8 @@ export default function Landing() {
 
       {/* HERO */}
       <section id="beranda" className="relative min-h-[620px] flex items-center pt-20 overflow-hidden">
-        <div className="absolute inset-0">
-          <img src={bannerBg} alt="Jakarta" className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-[#0B6B3A]">
+          <img src={bannerBg} alt="Jakarta" fetchpriority="high" decoding="async" onError={(e) => { if (e.currentTarget.src !== HERO_IMG) e.currentTarget.src = HERO_IMG; }} className="w-full h-full object-cover" data-testid="hero-banner-img" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0B3D1F]/95 via-[#0B6B3A]/85 to-[#27AE60]/60" />
         </div>
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full grid lg:grid-cols-2 gap-10 items-center py-16">

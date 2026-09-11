@@ -76,3 +76,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 ## 2026-06 — Auto-simpan file scan KTP/KK
 - `extract-ktp`/`extract-kk` kini juga menyimpan file ke Object Storage + `documents` (doc_type "KTP DKI Jakarta"/"Kartu Keluarga (KK)", mengganti dokumen lama). Response berisi `document`.
 - Kartu scan di Profil menampilkan "Dokumen tersimpan: <nama file>"; daftar Dokumen Pendaftaran ikut terupdate. Tested via curl + screenshot.
+
+## 2026-06 — Kompresi banner + pratinjau dokumen
+- `POST /api/site/banner` kini kompres gambar via Pillow (maks lebar 1600px, JPEG q72). Object store menolak WebP → gunakan JPEG.
+- `GET /api/files/{path}`: file site (banner) publik tanpa auth + Cache-Control immutable; dokumen mahasiswa tetap butuh auth.
+- Landing: HERO_IMG default diperkecil (w=1600,q=60), fallback onError, bg solid saat loading.
+- `DocPreview.jsx`: modal pratinjau gambar/PDF (iframe). Dipakai di tab Dokumen (klik nama file), kartu scan KTP/KK, dan foto profil.
+- Catatan: banner saat ini adalah gambar uji acak (banner_91c6425b.jpg) — user perlu unggah ulang banner asli.
