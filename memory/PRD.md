@@ -93,8 +93,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   terbaca jelas pada pratinjau Admin Pendaftaran. Penanda menu desktop/mobile juga dibuat unik.
 
 ## 2026-09 — Pembaruan visual laman depan
-- Banner hero diganti dengan kolase kegiatan dan prestasi MDJ yang diunggah pengguna.
-- Gambar bagian Tentang Program diganti dengan foto mahasiswa yang berkolaborasi.
+- Gambar bagian Tentang Program diganti dengan kolase kegiatan dan prestasi MDJ yang diunggah pengguna.
+- Banner hero dipulihkan ke gambar sebelumnya sesuai klarifikasi pengguna.
 - CMS Super Admin kini mendukung unggah ulang Gambar Tentang Program melalui endpoint
   `POST /api/site/about-image`; kedua gambar disimpan di Object Storage dan ditampilkan publik.
-- Diuji: API CMS serta laman publik memuat kedua URL gambar baru dengan benar.
+- Diuji: API CMS serta laman publik memuat gambar Tentang yang baru dan banner hero yang dipulihkan.
