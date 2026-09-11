@@ -55,12 +55,31 @@ export default function SiteManager() {
     finally { setUploading(false); }
   };
 
+  const uploadLogo = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const { data } = await api.post("/site/logo", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setC((previous) => ({ ...previous, logo_url: data.logo_url }));
+      toast.success("Logo MDJ berhasil diunggah.");
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || "Gagal mengunggah logo MDJ.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const setField = (path, value) => setC((p) => ({ ...p, [path]: value }));
   const setSetting = (k, v) => setC((p) => ({ ...p, settings: { ...p.settings, [k]: v } }));
   const setHero = (k, v) => setC((p) => ({ ...p, hero: { ...p.hero, [k]: v } }));
 
   const bannerSrc = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : null;
   const aboutSrc = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : null;
+  const logoSrc = c.logo_url ? `${API.replace("/api", "")}${c.logo_url}` : null;
 
   return (
     <div className="space-y-4">
@@ -72,6 +91,34 @@ export default function SiteManager() {
 
       {tab === "umum" && (
         <div className="space-y-4">
+          <Panel title="Logo MDJ Scholarship">
+            {logoSrc && (
+              <img
+                src={logoSrc}
+                alt="Logo MDJ Scholarship"
+                className="mb-4 h-24 w-24 rounded-lg object-contain"
+                data-testid="site-logo-preview"
+              />
+            )}
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-4 py-2.5 text-sm font-bold hover:bg-gray-50">
+              {uploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ImageIcon className="h-4 w-4" />
+              )}
+              Unggah Logo
+              <input
+                type="file"
+                accept=".jpg,.jpeg,.png,.webp"
+                className="hidden"
+                data-testid="upload-site-logo-input"
+                onChange={(event) => uploadLogo(event.target.files[0])}
+              />
+            </label>
+            <p className="mt-2 text-xs text-[#6B7280]">
+              Gunakan logo persegi dengan latar yang sesuai identitas MDJ.
+            </p>
+          </Panel>
           <Panel title="Banner Hero">
             {bannerSrc && <img src={bannerSrc} alt="Banner" className="w-full h-40 object-cover rounded-xl mb-4" />}
             <label className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-sm font-bold rounded-xl cursor-pointer">

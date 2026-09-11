@@ -34,10 +34,19 @@ const CATEGORIES = [
   { title: "Volunteer / Relawan", desc: "Kesempatan berkontribusi dalam event sosial dan ke-BAZNAS-an.", icon: User },
 ];
 
-const Logo = ({ light }) => (
+const Logo = ({ light, logoUrl }) => (
   <div className="flex items-center gap-2.5" data-testid="mdj-logo">
-    <div className="w-10 h-10 rounded-xl bg-[#27AE60] flex items-center justify-center shadow-md shadow-[#27AE60]/30">
-      <GraduationCap className="w-6 h-6 text-white" />
+    <div className="h-10 w-10 overflow-hidden rounded-lg bg-[#27AE60] shadow-md shadow-[#27AE60]/30">
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt="Logo MDJ Scholarship"
+          className="h-full w-full object-contain"
+          data-testid="mdj-header-logo-image"
+        />
+      ) : (
+        <GraduationCap className="mx-auto h-6 w-6 translate-y-[7px] text-white" />
+      )}
     </div>
     <div className="leading-tight">
       <p className={`font-display font-extrabold text-base ${light ? "text-white" : "text-[#1F2937]"}`}>MDJ Scholarship</p>
@@ -46,7 +55,7 @@ const Logo = ({ light }) => (
   </div>
 );
 
-const Navbar = ({ onNavigate }) => {
+const Navbar = ({ onNavigate, logoUrl }) => {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -58,7 +67,7 @@ const Navbar = ({ onNavigate }) => {
     <nav className={`fixed top-0 inset-x-0 z-50 transition-all ${scrolled ? "bg-white/90 backdrop-blur-xl border-b border-gray-100 shadow-sm" : "bg-transparent"}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Logo light={!scrolled} />
+          <Logo light={!scrolled} logoUrl={logoUrl} />
           <div className="hidden lg:flex items-center gap-1">
             {NAV_LINKS.map((l) => (
               <a key={l.name} href={l.href} data-testid={`nav-${l.name.toLowerCase()}`}
@@ -113,10 +122,11 @@ export default function Landing() {
   const hero = c.hero || {};
   const bannerBg = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : HERO_IMG;
   const aboutBg = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : ABOUT_IMG;
+  const logoUrl = c.logo_url ? `${API.replace("/api", "")}${c.logo_url}` : null;
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      <Navbar onNavigate={go} />
+      <Navbar onNavigate={go} logoUrl={logoUrl} />
 
       {/* HERO */}
       <section id="beranda" className="relative min-h-[620px] flex items-center pt-20 overflow-hidden">

@@ -1056,6 +1056,39 @@ async def upload_about_image(
     return {"about_url": about_url, "storage_path": result["path"]}
 
 
+@api_router.post("/site/logo")
+async def upload_site_logo(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_roles("super_admin")),
+):
+    ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        raise HTTPException(status_code=400, detail="Logo harus berupa JPG, PNG, atau WEBP.")
+    content_type = file.content_type or MIME_TYPES.get(ext, "image/png")
+    data, ext, content_type = compress_image(
+        await file.read(),
+        ext,
+        content_type,
+        max_w=512,
+        quality=92,
+    )
+    path = f"{APP_NAME}/site/logo_{uuid.uuid4().hex[:8]}.{ext}"
+    result = put_object(path, data, content_type)
+    await db.site_files.insert_one({
+        "storage_path": result["path"],
+        "content_type": content_type,
+        "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    logo_url = f"/api/files/{result['path']}"
+    await db.site_content.update_one(
+        {"key": "main"},
+        {"$set": {"logo_url": logo_url}},
+        upsert=True,
+    )
+    return {"logo_url": logo_url, "storage_path": result["path"]}
+
+
 # ---------------------------------------------------------------------------
 # Admin: participants management
 # ---------------------------------------------------------------------------

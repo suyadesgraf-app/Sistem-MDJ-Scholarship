@@ -107,3 +107,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   `POST /api/profile/extract-academic-record` menggunakan Gemini 3.1 Pro.
 - Diuji menyeluruh: 5/5 backend lulus, alur browser lulus, data tetap tersimpan setelah reload,
   pratinjau dokumen bekerja, serta tampilan mobile tidak mengalami horizontal overflow.
+
+## 2026-09 — Logo MDJ di header laman depan
+- Ikon topi pada header landing page diganti dengan logo MDJ Scholarship yang diunggah pengguna.
+- Logo disimpan sebagai aset CMS publik melalui endpoint `POST /api/site/logo` dan dapat diperbarui
+  kembali oleh Super Admin di menu Umum & Banner.
+- Diuji: logo CMS tampil pada header beranda dan gambar tersimpan tetap menjaga detail lambang.
