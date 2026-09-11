@@ -125,7 +125,8 @@ export default function StudentProfile({ data, set, setData, docs, uploadDoc, de
       {/* Panels */}
       {tab === "pribadi" && (
         <div className="space-y-6">
-          <KtpUploader data={data} setData={setData} />
+          <DocScanUploader type="ktp" setData={setData} />
+          <DocScanUploader type="kk" setData={setData} />
           <SectionCard title="Data Pribadi" desc="Isi data sesuai KTP, Kartu Keluarga, atau dokumen identitas resmi.">
             <FieldGrid fields={PRIBADI} data={data} set={set} />
           </SectionCard>
@@ -150,8 +151,14 @@ export default function StudentProfile({ data, set, setData, docs, uploadDoc, de
   );
 }
 
-// ---- KTP auto-fill uploader ----
-function KtpUploader({ data, setData }) {
+// ---- AI document auto-fill uploader (KTP / KK) ----
+const SCAN_DOCS = {
+  ktp: { label: "KTP", endpoint: "/profile/extract-ktp", desc: "Unggah foto/PDF KTP, AI akan mengisi data pribadi Anda otomatis. Semua data tetap dapat diperiksa & diedit.", testId: "ktp" },
+  kk: { label: "Kartu Keluarga", endpoint: "/profile/extract-kk", desc: "Unggah foto/PDF Kartu Keluarga, AI akan mengisi Nomor KK Anda otomatis.", testId: "kk" },
+};
+
+function DocScanUploader({ type, setData }) {
+  const cfg = SCAN_DOCS[type];
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [filled, setFilled] = useState(0);
@@ -164,15 +171,15 @@ function KtpUploader({ data, setData }) {
     const fd = new FormData();
     fd.append("file", file);
     try {
-      const { data: res } = await api.post("/profile/extract-ktp", fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 90000 });
+      const { data: res } = await api.post(cfg.endpoint, fd, { headers: { "Content-Type": "multipart/form-data" }, timeout: 90000 });
       const mapped = res.data || {};
       const count = Object.keys(mapped).length;
-      if (count === 0) { toast.error("Tidak ada data yang terbaca dari KTP."); return; }
+      if (count === 0) { toast.error(`Tidak ada data yang terbaca dari ${cfg.label}.`); return; }
       setData((p) => ({ ...p, ...mapped }));
       setFilled(count);
-      toast.success(`Berhasil! ${count} kolom terisi otomatis dari KTP. Silakan periksa kembali.`);
+      toast.success(`Berhasil! ${count} kolom terisi otomatis dari ${cfg.label}. Silakan periksa kembali.`);
     } catch (e) {
-      toast.error(e?.response?.data?.detail || "Gagal membaca KTP. Coba lagi dengan foto yang lebih jelas.");
+      toast.error(e?.response?.data?.detail || `Gagal membaca ${cfg.label}. Coba lagi dengan foto yang lebih jelas.`);
     } finally {
       setLoading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -180,21 +187,21 @@ function KtpUploader({ data, setData }) {
   };
 
   return (
-    <div className="rounded-2xl border-2 border-dashed border-[#27AE60]/40 bg-gradient-to-br from-[#F0FBF5] to-white p-5">
+    <div className="rounded-2xl border-2 border-dashed border-[#27AE60]/40 bg-gradient-to-br from-[#F0FBF5] to-white p-5" data-testid={`${cfg.testId}-scan-card`}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <div className="w-11 h-11 rounded-xl bg-[#E8F6EE] flex items-center justify-center shrink-0"><ScanLine className="w-6 h-6 text-[#27AE60]" /></div>
           <div>
-            <h4 className="font-display font-bold text-[#1F2937] flex items-center gap-2">Isi Otomatis dari KTP <span className="px-2 py-0.5 rounded-full bg-[#27AE60] text-white text-[10px] font-bold">AI</span></h4>
-            <p className="text-sm text-[#6B7280] mt-0.5">Unggah foto/PDF KTP, AI akan mengisi data pribadi Anda otomatis. Semua data tetap dapat diperiksa & diedit.</p>
-            {filled > 0 && !loading && <p className="text-xs text-[#27AE60] font-semibold mt-1 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> {filled} kolom terisi dari KTP terakhir.</p>}
+            <h4 className="font-display font-bold text-[#1F2937] flex items-center gap-2">Isi Otomatis dari {cfg.label} <span className="px-2 py-0.5 rounded-full bg-[#27AE60] text-white text-[10px] font-bold">AI</span></h4>
+            <p className="text-sm text-[#6B7280] mt-0.5">{cfg.desc}</p>
+            {filled > 0 && !loading && <p className="text-xs text-[#27AE60] font-semibold mt-1 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> {filled} kolom terisi dari {cfg.label} terakhir.</p>}
           </div>
         </div>
-        <button onClick={() => inputRef.current?.click()} disabled={loading} data-testid="ktp-upload-btn"
+        <button onClick={() => inputRef.current?.click()} disabled={loading} data-testid={`${cfg.testId}-upload-btn`}
           className="px-5 py-2.5 bg-[#27AE60] hover:bg-[#0B6B3A] disabled:opacity-60 text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-colors shrink-0">
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Membaca KTP...</> : <><UploadCloud className="w-4 h-4" /> Unggah KTP</>}
+          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Membaca {cfg.label}...</> : <><UploadCloud className="w-4 h-4" /> Unggah {cfg.label}</>}
         </button>
-        <input ref={inputRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf" data-testid="ktp-file-input" onChange={(e) => handle(e.target.files[0])} />
+        <input ref={inputRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf" data-testid={`${cfg.testId}-file-input`} onChange={(e) => handle(e.target.files[0])} />
       </div>
     </div>
   );

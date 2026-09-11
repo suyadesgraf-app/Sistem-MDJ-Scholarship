@@ -67,3 +67,8 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
 
 ## Test Credentials
 See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin tersedia otomatis.
+
+
+## 2026-06 — Scan AI Kartu Keluarga
+- Endpoint `POST /api/profile/extract-kk` (Gemini 3.1 Pro, mengembalikan `noKK` saja sesuai pilihan user).
+- Kartu 'Isi Otomatis dari Kartu Keluarga' di tab Data Pribadi, di bawah kartu KTP (`DocScanUploader` generik di StudentProfile.jsx). Tested via curl + screenshot.

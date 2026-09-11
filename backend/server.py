@@ -687,8 +687,17 @@ Aturan: gunakan null untuk field yang tidak terbaca. Jangan mengarang data.
 Jika file bukan KTP, kembalikan {"error": "bukan_ktp"}."""
 
 
-@api_router.post("/profile/extract-ktp")
-async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+KK_SYSTEM_PROMPT = """Anda adalah mesin OCR ahli untuk Kartu Keluarga (KK) Indonesia.
+Ekstrak data dari gambar/PDF Kartu Keluarga yang diberikan dan kembalikan HANYA objek JSON valid,
+tanpa penjelasan, tanpa markdown fence. Gunakan skema kunci PERSIS berikut:
+{
+  "noKK": string                  // Nomor Kartu Keluarga, 16 digit angka saja (tertera di bagian atas dokumen, "No. ...")
+}
+Aturan: gunakan null jika tidak terbaca. Jangan mengarang data.
+Jika file bukan Kartu Keluarga, kembalikan {"error": "bukan_dokumen"}."""
+
+
+async def _extract_document(file: UploadFile, user: dict, label: str, system_prompt: str, allowed: set):
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
     if ext not in ("jpg", "jpeg", "png", "webp", "pdf"):
         raise HTTPException(status_code=400, detail="Format harus JPG, PNG, atau PDF.")
@@ -703,17 +712,17 @@ async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_cur
             tmp_path = tmp.name
         chat = LlmChat(
             api_key=EMERGENT_KEY,
-            session_id=f"ktp-{user['user_id']}-{uuid.uuid4()}",
-            system_message=KTP_SYSTEM_PROMPT,
+            session_id=f"ocr-{user['user_id']}-{uuid.uuid4()}",
+            system_message=system_prompt,
         ).with_model("gemini", "gemini-3.1-pro-preview")
         fc = FileContentWithMimeType(mime_type=mime, file_path=tmp_path)
         raw = await chat.send_message(UserMessage(
-            text="Ekstrak seluruh data dari KTP ini dan kembalikan HANYA JSON sesuai skema.",
+            text=f"Ekstrak seluruh data dari {label} ini dan kembalikan HANYA JSON sesuai skema.",
             file_contents=[fc],
         ))
     except Exception as e:
-        logger.error(f"KTP extraction failed: {e}")
-        raise HTTPException(status_code=502, detail="Gagal membaca KTP. Coba lagi dengan foto yang lebih jelas.")
+        logger.error(f"{label} extraction failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Gagal membaca {label}. Coba lagi dengan foto yang lebih jelas.")
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
@@ -723,21 +732,32 @@ async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_cur
         cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", cleaned, flags=re.DOTALL).strip()
     match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
     if not match:
-        raise HTTPException(status_code=422, detail="Data KTP tidak dapat dikenali. Pastikan foto jelas.")
+        raise HTTPException(status_code=422, detail=f"Data {label} tidak dapat dikenali. Pastikan foto jelas.")
     try:
         parsed = json.loads(match.group(0))
     except json.JSONDecodeError:
-        raise HTTPException(status_code=422, detail="Data KTP tidak dapat dikenali. Pastikan foto jelas.")
-    if parsed.get("error") == "bukan_ktp":
-        raise HTTPException(status_code=422, detail="File yang diunggah bukan KTP yang valid.")
+        raise HTTPException(status_code=422, detail=f"Data {label} tidak dapat dikenali. Pastikan foto jelas.")
+    if parsed.get("error") in ("bukan_ktp", "bukan_dokumen"):
+        raise HTTPException(status_code=422, detail=f"File yang diunggah bukan {label} yang valid.")
 
+    mapped = {k: str(v).strip() for k, v in parsed.items() if k in allowed and v not in (None, "", "null")}
+    for key in ("nik", "noKK"):
+        if mapped.get(key):
+            mapped[key] = re.sub(r"\D", "", mapped[key])[:16]
+    return {"data": mapped}
+
+
+@api_router.post("/profile/extract-ktp")
+async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
     allowed = {"namaLengkap", "nik", "tempatLahir", "tanggalLahir", "jenisKelamin",
                "agama", "statusPerkawinan", "alamatLengkap", "rt", "rw",
                "kelurahan", "kecamatan", "kota", "provinsi"}
-    mapped = {k: str(v).strip() for k, v in parsed.items() if k in allowed and v not in (None, "", "null")}
-    if mapped.get("nik"):
-        mapped["nik"] = re.sub(r"\D", "", mapped["nik"])[:16]
-    return {"data": mapped}
+    return await _extract_document(file, user, "KTP", KTP_SYSTEM_PROMPT, allowed)
+
+
+@api_router.post("/profile/extract-kk")
+async def extract_kk(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    return await _extract_document(file, user, "Kartu Keluarga", KK_SYSTEM_PROMPT, {"noKK"})
 
 
 @api_router.get("/files/{path:path}")
