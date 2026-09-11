@@ -72,3 +72,7 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 ## 2026-06 — Scan AI Kartu Keluarga
 - Endpoint `POST /api/profile/extract-kk` (Gemini 3.1 Pro, mengembalikan `noKK` saja sesuai pilihan user).
 - Kartu 'Isi Otomatis dari Kartu Keluarga' di tab Data Pribadi, di bawah kartu KTP (`DocScanUploader` generik di StudentProfile.jsx). Tested via curl + screenshot.
+
+## 2026-06 — Auto-simpan file scan KTP/KK
+- `extract-ktp`/`extract-kk` kini juga menyimpan file ke Object Storage + `documents` (doc_type "KTP DKI Jakarta"/"Kartu Keluarga (KK)", mengganti dokumen lama). Response berisi `document`.
+- Kartu scan di Profil menampilkan "Dokumen tersimpan: <nama file>"; daftar Dokumen Pendaftaran ikut terupdate. Tested via curl + screenshot.

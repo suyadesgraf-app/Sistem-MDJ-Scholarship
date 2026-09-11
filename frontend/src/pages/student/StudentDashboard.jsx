@@ -112,7 +112,7 @@ export default function StudentDashboard() {
       )}
 
       {active === "profil" && (
-        <StudentProfile data={data} set={set} setData={setData} docs={docs} uploadDoc={uploadDoc} deleteDoc={deleteDoc} />
+        <StudentProfile data={data} set={set} setData={setData} docs={docs} uploadDoc={uploadDoc} deleteDoc={deleteDoc} onDocSaved={(d) => setDocs((p) => [...p.filter((x) => x.doc_type !== d.doc_type), d])} />
       )}
 
       {active === "daftar" && (

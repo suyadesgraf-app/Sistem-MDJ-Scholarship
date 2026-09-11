@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import {
   User, MapPin, Image as ImageIcon, ShieldCheck,
-  ScanLine, Loader2, CheckCircle2, UploadCloud, Info, Trash2, Camera,
+  ScanLine, Loader2, CheckCircle2, UploadCloud, Info, Trash2, Camera, FileCheck,
 } from "lucide-react";
 
 // Field configuration per sub-tab
@@ -61,7 +61,7 @@ const TABS = [
   { id: "foto", label: "Foto Profil", icon: ImageIcon },
 ];
 
-export default function StudentProfile({ data, set, setData, docs, uploadDoc, deleteDoc }) {
+export default function StudentProfile({ data, set, setData, docs, uploadDoc, deleteDoc, onDocSaved }) {
   const [tab, setTab] = useState("pribadi");
   const progress = profileProgress(data);
 
@@ -125,8 +125,8 @@ export default function StudentProfile({ data, set, setData, docs, uploadDoc, de
       {/* Panels */}
       {tab === "pribadi" && (
         <div className="space-y-6">
-          <DocScanUploader type="ktp" setData={setData} />
-          <DocScanUploader type="kk" setData={setData} />
+          <DocScanUploader type="ktp" setData={setData} docs={docs} onDocSaved={onDocSaved} />
+          <DocScanUploader type="kk" setData={setData} docs={docs} onDocSaved={onDocSaved} />
           <SectionCard title="Data Pribadi" desc="Isi data sesuai KTP, Kartu Keluarga, atau dokumen identitas resmi.">
             <FieldGrid fields={PRIBADI} data={data} set={set} />
           </SectionCard>
@@ -153,15 +153,17 @@ export default function StudentProfile({ data, set, setData, docs, uploadDoc, de
 
 // ---- AI document auto-fill uploader (KTP / KK) ----
 const SCAN_DOCS = {
-  ktp: { label: "KTP", endpoint: "/profile/extract-ktp", desc: "Unggah foto/PDF KTP, AI akan mengisi data pribadi Anda otomatis. Semua data tetap dapat diperiksa & diedit.", testId: "ktp" },
-  kk: { label: "Kartu Keluarga", endpoint: "/profile/extract-kk", desc: "Unggah foto/PDF Kartu Keluarga, AI akan mengisi Nomor KK Anda otomatis.", testId: "kk" },
+  ktp: { label: "KTP", endpoint: "/profile/extract-ktp", desc: "Unggah foto/PDF KTP, AI akan mengisi data pribadi Anda otomatis dan file langsung tersimpan sebagai dokumen pendaftaran.", testId: "ktp", docType: "KTP DKI Jakarta" },
+  kk: { label: "Kartu Keluarga", endpoint: "/profile/extract-kk", desc: "Unggah foto/PDF Kartu Keluarga, AI akan mengisi Nomor KK otomatis dan file langsung tersimpan sebagai dokumen pendaftaran.", testId: "kk", docType: "Kartu Keluarga (KK)" },
 };
 
-function DocScanUploader({ type, setData }) {
+function DocScanUploader({ type, setData, docs, onDocSaved }) {
   const cfg = SCAN_DOCS[type];
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [filled, setFilled] = useState(0);
+  const [savedDoc, setSavedDoc] = useState(null);
+  const existing = savedDoc || (docs || []).find((d) => d.doc_type === cfg.docType);
 
   const handle = async (file) => {
     if (!file) return;
@@ -177,7 +179,8 @@ function DocScanUploader({ type, setData }) {
       if (count === 0) { toast.error(`Tidak ada data yang terbaca dari ${cfg.label}.`); return; }
       setData((p) => ({ ...p, ...mapped }));
       setFilled(count);
-      toast.success(`Berhasil! ${count} kolom terisi otomatis dari ${cfg.label}. Silakan periksa kembali.`);
+      if (res.document && onDocSaved) { onDocSaved(res.document); setSavedDoc(res.document); }
+      toast.success(`Berhasil! ${count} kolom terisi otomatis dari ${cfg.label}${res.document ? " dan file tersimpan di Dokumen Pendaftaran" : ""}.`);
     } catch (e) {
       toast.error(e?.response?.data?.detail || `Gagal membaca ${cfg.label}. Coba lagi dengan foto yang lebih jelas.`);
     } finally {
@@ -195,6 +198,7 @@ function DocScanUploader({ type, setData }) {
             <h4 className="font-display font-bold text-[#1F2937] flex items-center gap-2">Isi Otomatis dari {cfg.label} <span className="px-2 py-0.5 rounded-full bg-[#27AE60] text-white text-[10px] font-bold">AI</span></h4>
             <p className="text-sm text-[#6B7280] mt-0.5">{cfg.desc}</p>
             {filled > 0 && !loading && <p className="text-xs text-[#27AE60] font-semibold mt-1 flex items-center gap-1"><CheckCircle2 className="w-3.5 h-3.5" /> {filled} kolom terisi dari {cfg.label} terakhir.</p>}
+            {existing && !loading && <p className="text-xs text-[#6B7280] mt-1 flex items-center gap-1" data-testid={`${cfg.testId}-saved-doc`}><FileCheck className="w-3.5 h-3.5 text-[#27AE60]" /> Dokumen tersimpan: {existing.original_filename}</p>}
           </div>
         </div>
         <button onClick={() => inputRef.current?.click()} disabled={loading} data-testid={`${cfg.testId}-upload-btn`}

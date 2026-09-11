@@ -697,7 +697,25 @@ Aturan: gunakan null jika tidak terbaca. Jangan mengarang data.
 Jika file bukan Kartu Keluarga, kembalikan {"error": "bukan_dokumen"}."""
 
 
-async def _extract_document(file: UploadFile, user: dict, label: str, system_prompt: str, allowed: set):
+async def _save_scanned_doc(user: dict, doc_type: str, filename: str, ext: str, data: bytes, content_type: str):
+    path = f"{APP_NAME}/uploads/{user['user_id']}/{uuid.uuid4()}.{ext}"
+    result = put_object(path, data, content_type)
+    await db.documents.update_many(
+        {"user_id": user["user_id"], "doc_type": doc_type, "is_deleted": False},
+        {"$set": {"is_deleted": True}},
+    )
+    record = {
+        "id": str(uuid.uuid4()), "user_id": user["user_id"], "doc_type": doc_type,
+        "storage_path": result["path"], "original_filename": filename,
+        "content_type": content_type, "size": result["size"], "is_deleted": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.documents.insert_one(record)
+    record.pop("_id", None)
+    return record
+
+
+async def _extract_document(file: UploadFile, user: dict, label: str, system_prompt: str, allowed: set, doc_type: str):
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
     if ext not in ("jpg", "jpeg", "png", "webp", "pdf"):
         raise HTTPException(status_code=400, detail="Format harus JPG, PNG, atau PDF.")
@@ -744,7 +762,12 @@ async def _extract_document(file: UploadFile, user: dict, label: str, system_pro
     for key in ("nik", "noKK"):
         if mapped.get(key):
             mapped[key] = re.sub(r"\D", "", mapped[key])[:16]
-    return {"data": mapped}
+    document = None
+    try:
+        document = await _save_scanned_doc(user, doc_type, file.filename, ext, data, mime)
+    except Exception as e:
+        logger.error(f"Auto-save scanned {label} failed: {e}")
+    return {"data": mapped, "document": document}
 
 
 @api_router.post("/profile/extract-ktp")
@@ -752,12 +775,12 @@ async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_cur
     allowed = {"namaLengkap", "nik", "tempatLahir", "tanggalLahir", "jenisKelamin",
                "agama", "statusPerkawinan", "alamatLengkap", "rt", "rw",
                "kelurahan", "kecamatan", "kota", "provinsi"}
-    return await _extract_document(file, user, "KTP", KTP_SYSTEM_PROMPT, allowed)
+    return await _extract_document(file, user, "KTP", KTP_SYSTEM_PROMPT, allowed, "KTP DKI Jakarta")
 
 
 @api_router.post("/profile/extract-kk")
 async def extract_kk(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
-    return await _extract_document(file, user, "Kartu Keluarga", KK_SYSTEM_PROMPT, {"noKK"})
+    return await _extract_document(file, user, "Kartu Keluarga", KK_SYSTEM_PROMPT, {"noKK"}, "Kartu Keluarga (KK)")
 
 
 @api_router.get("/files/{path:path}")
