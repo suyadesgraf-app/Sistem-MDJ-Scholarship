@@ -1,0 +1,52 @@
+{
+  "summary": "Full backend + frontend verification of student notifications (bell popover, red dot, mark-read, mark-all-read, selection_progress on admin status change, announcement fan-out, mobile responsive, admin scope isolation). All 6 pytest cases and all frontend acceptance criteria pass.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_notifications.py",
+    "/app/test_reports/pytest/notifications_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 1482 lines — still growing; strongly recommend splitting into feature modules (notifications, admin, site_content, auth) for maintainability.",
+    "notify_new_announcements deduplicates by (date|category|title|summary) signature — editing an existing announcement (e.g., correcting a typo) will re-notify all students. Consider adding a stable announcement id in the payload.",
+    "notify_new_announcements fans out to all registrations (up to 5000). For large audiences, replace insert_many blocking loop with a background task; also add insert_many(ordered=False) for resilience.",
+    "openNotification in StudentDashboard.jsx maps type -> tab via setActive; if new notification types are added later, unknown types silently fall back to 'status'. Add an explicit default (dashboard) or a mapping table.",
+    "HeaderNotifications shows only slice(0,5); there is no 'view all' / pagination — students with many notifications cannot access older ones."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_notifications.py"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100%"},
+  "test_credentials": "Student mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!, Admin admin.mdj@baznasbazisdki.id / AdminMDJ2026!, Super Admin supri@baznasbazisdki.id / MdjSuper2026! (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Tests create TEST_-prefixed announcements (via PUT /api/site/content) and status changes; all restored to original values after each test. One TEST_ANN_* notification remains in student inbox (no delete API exists) — considered harmless. Final student status left at 'lolos_administrasi' from frontend seeding; original was 'verifikasi'. If main agent needs pristine state, revert via admin PUT /api/admin/participants/{uid}/status.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression suite /app/backend/tests/test_notifications.py covers: (1) GET /api/notifications shape + no Mongo _id, (2) PUT admin status → selection_progress notification created with target status label; identical status update is a no-op (no duplicate notif), (3) POST /notifications/{id}/read marks single, (4) 404 for wrong-user id, (5) POST /notifications/read-all is scope-isolated (admin unread untouched), (6) PUT /api/site/content with new announcement generates 'announcement' notification for registered students with correct title/message, then restored. Run with: pytest /app/backend/tests/test_notifications.py -v -o addopts=''. Frontend verified: red dot appears iff unread_count>0, popover shows title+message+icon per type, click marks read + sets active tab to 'status' (announcement->'pengumuman'), mark-all-read clears both dot and unread text to 'Semua sudah dibaca'. Mobile 390px shows no horizontal overflow with popover open (uses w-[min(22rem,calc(100vw-2rem))]). Admin header does NOT render HeaderNotifications or CandidateIdentity — confirmed absent.",
+  "verified_results": {
+    "backend_pytest": "6 passed in 10.08s",
+    "student_desktop": {
+      "baseline_no_unread_red_dot": "absent as expected",
+      "after_status_change_via_python_admin": "red dot present, unread_count='1 belum dibaca'",
+      "popover_first_item": "'Perkembangan seleksi diperbarui — Status seleksi Anda diperbarui menjadi Lolos Administrasi.'",
+      "click_item_marks_read": "unread='Semua sudah dibaca' after click; navigates to Status tab (setActive('status') within /dashboard route)",
+      "mark_all_read": "clears red dot, no admin scope leakage"
+    },
+    "student_mobile_390": {
+      "no_popover": "scrollWidth==clientWidth==390",
+      "popover_open": "scrollWidth==clientWidth==390 (uses w-[min(22rem,calc(100vw-2rem))])"
+    },
+    "admin_desktop": {
+      "candidate-identity": "absent (correct)",
+      "notification-bell": "absent (correct — admin uses different header without candidate popover)"
+    },
+    "no_object_id_leakage": "verified — all notification objects exclude _id"
+  }
+}

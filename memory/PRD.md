@@ -143,3 +143,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Pas foto yang diunggah pada Profil Saya kini otomatis menjadi avatar mahasiswa di header dashboard.
 - Avatar mengambil file privat melalui URL bertoken; inisial nama tetap muncul sebagai cadangan bila foto gagal dimuat.
 - Diuji melalui browser: foto profil tersimpan dimuat sebagai avatar pada sudut kanan atas dashboard.
+
+## 2026-09 — Notifikasi mahasiswa
+- Lonceng pada header mahasiswa kini menampilkan notifikasi tersimpan untuk progres seleksi dan
+  pengumuman baru dari Admin/Super Admin.
+- Admin yang mengubah status peserta otomatis mengirim notifikasi ke peserta terkait; pengumuman baru
+  dari CMS otomatis dikirim ke seluruh mahasiswa yang memiliki pendaftaran.
+- Mahasiswa dapat membuka detail, menandai satu notifikasi atau seluruhnya sebagai sudah dibaca;
+  daftar diperbarui kembali setiap 30 detik.
+- Diuji menyeluruh: 6/6 pengujian backend lulus, popover, titik belum dibaca, akses per pengguna,
+  tautan ke menu relevan, dan tampilan mobile seluruhnya terverifikasi.

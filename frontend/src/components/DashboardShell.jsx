@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { GraduationCap, Menu, X, LogOut, ChevronDown } from "lucide-react";
+import HeaderNotifications from "@/components/HeaderNotifications";
 
 const STATUS_META = {
   draft: { label: "Draft", cls: "bg-gray-100 text-gray-600" },
@@ -30,6 +31,11 @@ export default function DashboardShell({
   children,
   brandLabel,
   avatarUrl,
+  candidateId,
+  notifications = [],
+  unreadNotificationCount = 0,
+  onNotificationClick,
+  onReadAllNotifications,
 }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -92,34 +98,95 @@ export default function DashboardShell({
           </div>
           <div className="flex items-center gap-3">
             {actions}
-            <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-              <div
-                className={[
-                  "relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full",
-                  "bg-[#E8F6EE] text-sm font-bold text-[#0B6B3A]",
-                ].join(" ")}
-                data-testid="header-profile-avatar"
-              >
-                <span data-testid="header-profile-initial">
-                  {(user?.name || "?").charAt(0).toUpperCase()}
-                </span>
-                {avatarUrl && (
-                  <img
-                    src={avatarUrl}
-                    alt={`Foto profil ${user?.name || "mahasiswa"}`}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    data-testid="header-profile-photo"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                    }}
-                  />
-                )}
-              </div>
-              <div className="hidden sm:block leading-tight"><p className="text-sm font-semibold text-[#1F2937] max-w-[140px] truncate">{user?.name}</p><p className="text-[11px] text-[#6B7280] capitalize">{(user?.role || "").replace("_", " ")}</p></div>
-            </div>
+            {candidateId ? (
+              <CandidateIdentity
+                avatarUrl={avatarUrl}
+                candidateId={candidateId}
+                user={user}
+                notifications={notifications}
+                unreadNotificationCount={unreadNotificationCount}
+                onNotificationClick={onNotificationClick}
+                onReadAllNotifications={onReadAllNotifications}
+              />
+            ) : (
+              <AccountIdentity avatarUrl={avatarUrl} user={user} />
+            )}
           </div>
         </header>
         <main className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto">{children}</main>
+      </div>
+    </div>
+  );
+}
+
+function Avatar({ avatarUrl, user }) {
+  return (
+    <div
+      className={[
+        "relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full",
+        "bg-[#E8F6EE] text-sm font-bold text-[#0B6B3A]",
+      ].join(" ")}
+      data-testid="header-profile-avatar"
+    >
+      <span data-testid="header-profile-initial">
+        {(user?.name || "?").charAt(0).toUpperCase()}
+      </span>
+      {avatarUrl && (
+        <img
+          src={avatarUrl}
+          alt={`Foto profil ${user?.name || "mahasiswa"}`}
+          className="absolute inset-0 h-full w-full object-cover"
+          data-testid="header-profile-photo"
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function CandidateIdentity({
+  avatarUrl,
+  candidateId,
+  user,
+  notifications,
+  unreadNotificationCount,
+  onNotificationClick,
+  onReadAllNotifications,
+}) {
+  return (
+    <div className="flex items-center gap-3" data-testid="header-candidate-identity">
+      <HeaderNotifications
+        notifications={notifications}
+        unreadCount={unreadNotificationCount}
+        onNotificationClick={onNotificationClick}
+        onReadAll={onReadAllNotifications}
+      />
+      <div className="hidden min-w-0 border-l border-gray-200 pl-4 sm:block">
+        <p className="truncate text-sm font-bold text-[#1F2937]" data-testid="candidate-role-label">
+          Calon Penerima Manfaat
+        </p>
+        <p className="text-xs text-[#6B7280]" data-testid="candidate-id-value">
+          ID: {candidateId}
+        </p>
+      </div>
+      <Avatar avatarUrl={avatarUrl} user={user} />
+    </div>
+  );
+}
+
+function AccountIdentity({ avatarUrl, user }) {
+  return (
+    <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
+      <Avatar avatarUrl={avatarUrl} user={user} />
+      <div className="hidden leading-tight sm:block">
+        <p className="max-w-[140px] truncate text-sm font-semibold text-[#1F2937]">
+          {user?.name}
+        </p>
+        <p className="text-[11px] capitalize text-[#6B7280]">
+          {(user?.role || "").replace("_", " ")}
+        </p>
       </div>
     </div>
   );

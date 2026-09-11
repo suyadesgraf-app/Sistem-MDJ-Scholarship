@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -35,14 +35,30 @@ export default function StudentDashboard() {
   const [reg, setReg] = useState({});
   const [docs, setDocs] = useState([]);
   const [content, setContent] = useState({});
+  const [notifications, setNotifications] = useState([]);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [saving, setSaving] = useState(false);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const response = await api.get("/notifications");
+      setNotifications(response.data.notifications || []);
+      setUnreadNotificationCount(response.data.unread_count || 0);
+    } catch {
+      setNotifications([]);
+      setUnreadNotificationCount(0);
+    }
+  }, []);
 
   useEffect(() => {
     api.get("/profile").then((r) => setData(r.data.data || {}));
     api.get("/registration").then((r) => setReg(r.data || {}));
     api.get("/documents").then((r) => setDocs(r.data));
     api.get("/site/content").then((r) => setContent(r.data));
-  }, []);
+    loadNotifications();
+    const pollNotifications = window.setInterval(loadNotifications, 30000);
+    return () => window.clearInterval(pollNotifications);
+  }, [loadNotifications]);
 
   const progress = useMemo(() => profileProgress(data), [data]);
   const uploadedDocumentCount = useMemo(
@@ -87,6 +103,23 @@ export default function StudentDashboard() {
     toast.success("Dokumen dihapus.");
   };
 
+  const openNotification = async (notification) => {
+    if (!notification.is_read) {
+      await api.post(`/notifications/${notification.id}/read`);
+      setNotifications((previous) => previous.map((item) => (
+        item.id === notification.id ? { ...item, is_read: true } : item
+      )));
+      setUnreadNotificationCount((previous) => Math.max(previous - 1, 0));
+    }
+    setActive(notification.type === "announcement" ? "pengumuman" : "status");
+  };
+
+  const markAllNotificationsRead = async () => {
+    await api.post("/notifications/read-all");
+    setNotifications((previous) => previous.map((item) => ({ ...item, is_read: true })));
+    setUnreadNotificationCount(0);
+  };
+
   const submitRegistration = async (action) => {
     if (!reg.category) return toast.error("Pilih kategori program terlebih dahulu.");
     if (action === "submit" && progress < 100) return toast.error("Lengkapi seluruh data wajib pada Profil sebelum mengirim.");
@@ -105,6 +138,11 @@ export default function StudentDashboard() {
     <DashboardShell menu={MENU} active={active} onSelect={setActive} brandLabel="Portal Pendaftar"
       title={MENU.find((m) => m.id === active)?.label} subtitle="Program Masa Depan Jakarta 2026"
       avatarUrl={avatarUrl}
+      candidateId={reg.cpm_id}
+      notifications={notifications}
+      unreadNotificationCount={unreadNotificationCount}
+      onNotificationClick={openNotification}
+      onReadAllNotifications={markAllNotificationsRead}
       actions={active === "profil" && <button onClick={saveProfile} disabled={saving} data-testid="save-profile-btn" className="px-4 py-2 bg-[#27AE60] hover:bg-[#0B6B3A] text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-colors">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Simpan</button>}>
 
       {active === "ringkasan" && (

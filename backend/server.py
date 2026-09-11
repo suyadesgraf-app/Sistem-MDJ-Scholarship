@@ -9,6 +9,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depend
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import Response as StarletteResponse
 from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import ReturnDocument
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
@@ -622,10 +623,103 @@ async def update_profile(payload: ProfileInput, user: dict = Depends(get_current
 # ---------------------------------------------------------------------------
 # Registration (student)
 # ---------------------------------------------------------------------------
+STATUS_LABELS = {
+    "draft": "Draft",
+    "submitted": "Terkirim",
+    "verifikasi": "Verifikasi Administrasi",
+    "lolos_administrasi": "Lolos Administrasi",
+    "wawancara": "Wawancara Assessment",
+    "verifikasi_faktual": "Verifikasi Faktual",
+    "lolos": "Lolos / Penerima Manfaat",
+    "ditolak": "Tidak Lolos",
+}
+
+
+async def create_notification(
+    user_id: str,
+    notification_type: str,
+    title: str,
+    message: str,
+) -> None:
+    await db.notifications.insert_one({
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "type": notification_type,
+        "title": title,
+        "message": message,
+        "is_read": False,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+
+def announcement_signature(announcement: dict) -> str:
+    fields = ("date", "category", "title", "summary")
+    return "|".join(str(announcement.get(field, "")).strip() for field in fields)
+
+
+async def notify_new_announcements(announcements: List[dict]) -> None:
+    if not announcements:
+        return
+    registrations = await db.registrations.find({}, {"_id": 0, "user_id": 1}).to_list(5000)
+    recipients = {registration.get("user_id") for registration in registrations}
+    notifications = []
+    for announcement in announcements:
+        for user_id in recipients:
+            if not user_id:
+                continue
+            notifications.append({
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "type": "announcement",
+                "title": announcement.get("title") or "Pengumuman MDJ Scholarship",
+                "message": announcement.get("summary") or "Ada pengumuman baru dari Admin MDJ.",
+                "is_read": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+    if notifications:
+        await db.notifications.insert_many(notifications)
+
+
+async def create_cpm_id(registered_at: Optional[str] = None) -> str:
+    year = str(datetime.now(timezone.utc).year)
+    if registered_at:
+        year = registered_at[:4]
+    counter = await db.counters.find_one_and_update(
+        {"key": f"cpm-{year}"},
+        {"$inc": {"sequence": 1}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    sequence = max(int(counter["sequence"]) - 1, 0)
+    return f"CPM-MDJ/{year}/{sequence:06d}"
+
+
+async def ensure_cpm_id(registration: Optional[dict]) -> Optional[dict]:
+    if not registration or registration.get("cpm_id"):
+        return registration
+
+    cpm_id = await create_cpm_id(registration.get("created_at"))
+    updated = await db.registrations.find_one_and_update(
+        {
+            "user_id": registration["user_id"],
+            "$or": [{"cpm_id": {"$exists": False}}, {"cpm_id": None}],
+        },
+        {"$set": {"cpm_id": cpm_id}},
+        return_document=ReturnDocument.AFTER,
+        projection={"_id": 0},
+    )
+    if updated:
+        return updated
+    return await db.registrations.find_one(
+        {"user_id": registration["user_id"]},
+        {"_id": 0},
+    )
+
+
 @api_router.get("/registration")
 async def get_registration(user: dict = Depends(get_current_user)):
     reg = await db.registrations.find_one({"user_id": user["user_id"]}, {"_id": 0})
-    return reg or {}
+    return await ensure_cpm_id(reg) or {}
 
 
 @api_router.post("/registration")
@@ -634,6 +728,7 @@ async def submit_registration(payload: RegistrationInput, user: dict = Depends(g
     existing = await db.registrations.find_one({"user_id": user["user_id"]})
     now = datetime.now(timezone.utc).isoformat()
     if existing:
+        await ensure_cpm_id(existing)
         update = {"category": payload.category, "updated_at": now}
         if payload.action == "submit" and existing.get("status") == "draft":
             update["status"] = "submitted"
@@ -644,12 +739,46 @@ async def submit_registration(payload: RegistrationInput, user: dict = Depends(g
     reg = {
         "id": str(uuid.uuid4()), "user_id": user["user_id"], "name": user.get("name"),
         "email": user.get("email"), "category": payload.category, "status": status,
+        "cpm_id": await create_cpm_id(now),
         "history": [{"status": status, "note": "Pendaftaran dibuat", "at": now}],
         "created_at": now, "submitted_at": now if status == "submitted" else None, "updated_at": now,
     }
     await db.registrations.insert_one(reg)
     reg.pop("_id", None)
     return reg
+
+
+@api_router.get("/notifications")
+async def list_notifications(user: dict = Depends(get_current_user)):
+    notifications = await db.notifications.find(
+        {"user_id": user["user_id"]},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(30)
+    unread_count = sum(1 for notification in notifications if not notification.get("is_read"))
+    return {"notifications": notifications, "unread_count": unread_count}
+
+
+@api_router.post("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    user: dict = Depends(get_current_user),
+):
+    result = await db.notifications.update_one(
+        {"id": notification_id, "user_id": user["user_id"]},
+        {"$set": {"is_read": True}},
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Notifikasi tidak ditemukan.")
+    return {"message": "Notifikasi ditandai sudah dibaca."}
+
+
+@api_router.post("/notifications/read-all")
+async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
+    await db.notifications.update_many(
+        {"user_id": user["user_id"], "is_read": False},
+        {"$set": {"is_read": True}},
+    )
+    return {"message": "Semua notifikasi ditandai sudah dibaca."}
 
 
 # ---------------------------------------------------------------------------
@@ -993,11 +1122,25 @@ async def get_site_content():
 
 @api_router.put("/site/content")
 async def update_site_content(payload: SiteContentInput, user: dict = Depends(require_roles("super_admin"))):
+    current = await db.site_content.find_one({"key": "main"}, {"_id": 0}) or {}
+    incoming_announcements = payload.content.get("announcements")
+    new_announcements = []
+    if isinstance(incoming_announcements, list):
+        existing_signatures = {
+            announcement_signature(announcement)
+            for announcement in current.get("announcements", [])
+        }
+        new_announcements = [
+            announcement
+            for announcement in incoming_announcements
+            if announcement_signature(announcement) not in existing_signatures
+        ]
     await db.site_content.update_one(
         {"key": "main"},
         {"$set": {**payload.content, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True,
     )
+    await notify_new_announcements(new_announcements)
     content = await db.site_content.find_one({"key": "main"}, {"_id": 0})
     content.pop("key", None)
     return content
@@ -1170,6 +1313,14 @@ async def update_participant_status(user_id: str, payload: StatusUpdateInput,
         {"user_id": user_id},
         {"$set": {"status": payload.status, "updated_at": now}, "$push": {"history": entry}},
     )
+    if payload.status != reg.get("status"):
+        label = STATUS_LABELS.get(payload.status, payload.status)
+        await create_notification(
+            user_id,
+            "selection_progress",
+            "Perkembangan seleksi diperbarui",
+            f"Status seleksi Anda diperbarui menjadi {label}.",
+        )
     updated = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
     return updated
 
@@ -1245,6 +1396,7 @@ async def startup():
     await db.users.create_index("user_id")
     await db.user_sessions.create_index("session_token")
     await db.registrations.create_index("user_id")
+    await db.registrations.create_index("cpm_id", unique=True, sparse=True)
     await db.documents.create_index("user_id")
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
