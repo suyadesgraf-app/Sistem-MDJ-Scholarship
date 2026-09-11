@@ -29,6 +29,10 @@ JWT_SECRET = os.environ['JWT_SECRET']
 JWT_ALGORITHM = "HS256"
 ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'supri@baznasbazisdki.id')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'MdjSuper2026!')
+DEMO_ADMIN_EMAIL = os.environ['DEMO_ADMIN_EMAIL']
+DEMO_ADMIN_PASSWORD = os.environ['DEMO_ADMIN_PASSWORD']
+DEMO_STUDENT_EMAIL = os.environ['DEMO_STUDENT_EMAIL']
+DEMO_STUDENT_PASSWORD = os.environ['DEMO_STUDENT_PASSWORD']
 
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
@@ -245,13 +249,15 @@ async def register(payload: RegisterInput, response: Response):
 
 @api_router.post("/auth/login")
 async def login(payload: LoginInput, response: Response):
-    email = payload.email.lower().strip()
-    user = await db.users.find_one({"email": email})
+    identifier = payload.email.lower().strip()
+    user = await db.users.find_one(
+        {"$or": [{"email": identifier}, {"nik": identifier}]},
+    )
     if not user or not user.get("password_hash") or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Akun dinonaktifkan")
-    token = create_access_token(user["user_id"], email)
+    token = create_access_token(user["user_id"], user["email"])
     set_auth_cookie(response, token)
     return {"user": clean_user(user), "token": token}
 
@@ -678,7 +684,50 @@ async def startup():
         })
         logger.info("Seeded super admin")
     elif not verify_password(ADMIN_PASSWORD, existing.get("password_hash") or ""):
-        await db.users.update_one({"email": ADMIN_EMAIL}, {"$set": {"password_hash": hash_password(ADMIN_PASSWORD), "role": "super_admin"}})
+        await db.users.update_one(
+            {"email": ADMIN_EMAIL},
+            {
+                "$set": {
+                    "password_hash": hash_password(ADMIN_PASSWORD),
+                    "role": "super_admin",
+                }
+            },
+        )
+
+    demo_accounts = [
+        {
+            "email": DEMO_STUDENT_EMAIL,
+            "password": DEMO_STUDENT_PASSWORD,
+            "name": "Mahasiswa Demo MDJ",
+            "role": "student",
+        },
+        {
+            "email": DEMO_ADMIN_EMAIL,
+            "password": DEMO_ADMIN_PASSWORD,
+            "name": "Admin Pendaftaran MDJ",
+            "role": "admin",
+        },
+    ]
+    for account in demo_accounts:
+        exists = await db.users.find_one({"email": account["email"]}, {"_id": 0})
+        if exists:
+            continue
+        await db.users.insert_one(
+            {
+                "user_id": f"user_{uuid.uuid4().hex[:12]}",
+                "email": account["email"],
+                "password_hash": hash_password(account["password"]),
+                "name": account["name"],
+                "role": account["role"],
+                "auth_provider": "password",
+                "nik": None,
+                "phone": None,
+                "picture": None,
+                "is_active": True,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        logger.info("Seeded demo %s account", account["role"])
     # Seed site content
     if not await db.site_content.find_one({"key": "main"}):
         await db.site_content.insert_one({"key": "main", **DEFAULT_SITE_CONTENT})

@@ -29,6 +29,10 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
 - Role-based routing & backend role gating (verified). 34/34 backend tests pass.
 - Landing page CTA dan footer diperbarui mengikuti referensi visual: CTA hijau dengan dua aksi,
   footer gelap empat kolom, tautan sosial, legal, kontak, dan baris hak cipta responsif.
+- Halaman login diperbarui sesuai referensi visual: panel informasi hijau, formulir putih,
+  input email/NIK, kontrol visibilitas kata sandi, ingat saya, dan Google login.
+- Akun demo otomatis untuk mahasiswa dan admin ditambahkan di startup; seluruh tiga peran telah
+  diverifikasi melalui API dan antarmuka (100% pengujian login lulus).
 
 ## Backlog / Remaining
 - **P1**: Forgot/reset password flow; brute-force lockout on login.
@@ -38,4 +42,4 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
 - **P2**: Restrict CORS_ORIGINS to frontend origin.
 
 ## Test Credentials
-See /app/memory/test_credentials.md. Super admin: supri@baznasbazisdki.id / MdjSuper2026!
+See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin tersedia otomatis.

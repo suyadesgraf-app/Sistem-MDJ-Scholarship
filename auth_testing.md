@@ -11,6 +11,11 @@ Both are accepted via cookie OR `Authorization: Bearer <token>` header.
 - Password: MdjSuper2026!
 - Role: super_admin
 
+## Automatic demo identities
+- Mahasiswa: mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026! / student
+- Admin Pendaftaran: admin.mdj@baznasbazisdki.id / AdminMDJ2026! / admin
+- Super Admin: supri@baznasbazisdki.id / MdjSuper2026! / super_admin
+
 ## API test (curl)
 ```
 API=$REACT_APP_BACKEND_URL
