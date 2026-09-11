@@ -36,9 +36,9 @@ const CATEGORY_OPTS = [
 ];
 
 const SUBMENU = [
-  { id: "formulir", label: "Formulir", icon: FileText },
   { id: "pendidikan", label: "Data Pendidikan", icon: GraduationCap },
   { id: "dokumen", label: "Dokumen", icon: FileCheck },
+  { id: "formulir", label: "Formulir Pakta Integritas", icon: FileText },
 ];
 
 const inputCls =
@@ -71,7 +71,7 @@ export default function RegistrationSections({
   onDocumentSaved,
   onSubmitRegistration,
 }) {
-  const [tab, setTab] = useState("formulir");
+  const [tab, setTab] = useState("pendidikan");
   const [preview, setPreview] = useState(null);
   const set = (key, value) => setData((previous) => ({ ...previous, [key]: value }));
 

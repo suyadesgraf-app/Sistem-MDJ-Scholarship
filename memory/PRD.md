@@ -126,3 +126,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Panel Kelengkapan Pendaftaran kini memiliki progress bar terpisah untuk Profil dan Berkas.
 - Perhitungan hanya menggunakan 10 jenis berkas persyaratan resmi dan diperbarui setelah unggah/hapus.
 - Diuji melalui browser: akun demo menampilkan 20% untuk 2 dari 10 berkas yang telah diunggah.
+
+## 2026-09 — Urutan tab Pendaftaran
+- Tab Pendaftaran diurutkan menjadi **Data Pendidikan**, **Dokumen**, lalu
+  **Formulir Pakta Integritas**.
+- Data Pendidikan menjadi tab awal saat mahasiswa membuka menu Pendaftaran.
+- Diuji melalui browser: urutan dan tab aktif awal sesuai arahan pengguna.
