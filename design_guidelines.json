@@ -1,0 +1,137 @@
+{
+  "theme": "light",
+  "typography": {
+    "headings": {
+      "family": "Outfit, sans-serif",
+      "weights": ["600", "700", "800"],
+      "strategy": "Expressive and modern. Use tracking-tight for H1 and H2. Do NOT use Inter. For the main tagline, use font-black."
+    },
+    "body": {
+      "family": "'Plus Jakarta Sans', sans-serif",
+      "weights": ["400", "500", "600"],
+      "strategy": "Clean, highly legible body text that inherently connects to the Jakarta theme. Use leading-relaxed for paragraphs."
+    }
+  },
+  "colors": {
+    "primary": {
+      "DEFAULT": "#27AE60",
+      "hover": "#0B6B3A",
+      "light": "#E8F6EE",
+      "text_contrast": "#FFFFFF"
+    },
+    "accent": {
+      "DEFAULT": "#F2C94C",
+      "hover": "#D4AC2B",
+      "text_contrast": "#1F2937"
+    },
+    "text": {
+      "primary": "#1F2937",
+      "muted": "#6B7280",
+      "inverse": "#FFFFFF"
+    },
+    "danger": {
+      "DEFAULT": "#DC2626",
+      "hover": "#B91C1C",
+      "light": "#FEE2E2"
+    },
+    "background": {
+      "page": "#F9FAFB",
+      "card": "#FFFFFF",
+      "surface": "#F3F4F6",
+      "overlay": "rgba(31, 41, 55, 0.5)"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "card": "0 4px 20px -2px rgba(39, 174, 96, 0.05)",
+      "dropdown": "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)",
+      "button_glow": "0 0 15px rgba(39, 174, 96, 0.3)"
+    },
+    "radii": {
+      "card": "1rem",
+      "button": "9999px",
+      "input": "0.75rem",
+      "badge": "9999px"
+    },
+    "surfaces": {
+      "header": "backdrop-blur-xl bg-white/90 border-b border-gray-100",
+      "dashboard_card": "bg-white border border-gray-100 rounded-2xl shadow-[0_4px_20px_-2px_rgba(39,174,96,0.04)]",
+      "sidebar": "bg-white border-r border-gray-100"
+    }
+  },
+  "layouts": {
+    "landing_page": {
+      "hero": "Asymmetric split or Bento grid. Left: Text block with H1 (Outfit text-5xl tracking-tight), primary CTA (green), secondary CTA (gold). Right/Background: Jakarta cityscape with light overlay. Soft floating stats cards (glassmorphism) overlapping the image.",
+      "timeline": "Vertical stepper layout, distinct active (primary green) vs inactive (gray) states.",
+      "about_stats": "Dense bento grid for statistics, large numbers (text-5xl text-primary) with muted labels.",
+      "spacing": "Generous. Use py-20 or py-24 for main sections. gap-8 or gap-12 between grid items."
+    },
+    "auth_pages": {
+      "container": "Split screen. Left: Authentication form inside a clean white card (rounded-2xl) centered in a light gray/green-tinted pane. Right: Beautiful imagery of students studying with a primary green transparent overlay and the BAZNAS/MDJ branding.",
+      "social_login": "Outlined button for Google login with standard icon, distinct from primary action."
+    },
+    "dashboards_general": {
+      "structure": "Sidebar navigation (240px wide on desktop) + Top header (user profile/notifications) + Main content area.",
+      "sidebar_active_state": "bg-primary/10 text-primary-hover font-semibold rounded-lg with a left 4px solid border of #27AE60.",
+      "page_header": "H2 title, breadcrumbs, and primary action button (e.g., 'Upload Document' or 'Export Data') top right."
+    },
+    "student_dashboard": {
+      "widgets": "Profile completion progress bar (green fill). Status tracker (Pending -> Verified -> Approved). Document upload grid."
+    },
+    "admin_pendaftaran_dashboard": {
+      "data_table": "Dense grid layout for table. Stick to text-sm. Include inline status badges (Green = Approved, Yellow = Pending, Red = Rejected). Quick-action dropdowns in the last column."
+    },
+    "super_admin_dashboard": {
+      "analytics": "Top row: 4 summary cards (Total Registrants, Verified, Pending, Total Admins). Followed by recharts/Shadcn charts for registration trends over time.",
+      "content_management": "Forms for uploading banners and editing timelines should use Shadcn forms with rich text/file upload components."
+    }
+  },
+  "component_instructions": {
+    "buttons": "Always explicitly define hover text colors. Use pill-shaped (rounded-full) for landing page CTAs, and rounded-xl for dashboard actions.",
+    "cards": "Avoid overusing card borders. Rely on the subtle green-tinted shadow and rounded-2xl corners to separate from the #F9FAFB background.",
+    "tables": "Use Shadcn Table. Ensure clear horizontal lines but avoid vertical lines for a cleaner, modern look.",
+    "badges": "Status badges must use tint colors (e.g., bg-[#E8F6EE] text-[#0B6B3A] for success/active).",
+    "icons": "Use lucide-react exclusively. Standardize icon sizes (e.g., w-5 h-5 for buttons, w-6 h-6 for sidebar)."
+  },
+  "motion": {
+    "hover": "Subtle transform (-translate-y-0.5) and shadow increase on cards. Color fade on buttons (transition-colors duration-200).",
+    "page_transition": "Simple fade-in (opacity-0 to opacity-100) using framer-motion if possible, or simple CSS animations.",
+    "accordions": "Use Shadcn accordion for FAQs with smooth height expansion."
+  },
+  "accessibility": {
+    "contrast": "Ensure #1F2937 text on all #F2C94C backgrounds. Ensure #FFFFFF text on #27AE60 backgrounds.",
+    "focus": "All interactive elements must have focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2.",
+    "aria": "Use aria-label on icon-only buttons (like the sidebar toggler or action dropdowns)."
+  },
+  "media": {
+    "image_urls": [
+      {
+        "category": "landing_page_hero",
+        "url": "https://images.unsplash.com/photo-1555899434-94d1368aa7af?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTF8MHwxfHNlYXJjaHwxfHxqYWthcnRhJTIwY2l0eXNjYXBlJTIwZGF5dGltZXxlbnwwfHx8fDE3ODkxNTYxNDB8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Jakarta Selamat Datang Monument with skyscrapers, ideal for the hero section background to root the app in Jakarta context."
+      },
+      {
+        "category": "landing_page_about",
+        "url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBzbWlsaW5nJTIwc3R1ZHlpbmd8ZW58MHx8fHwxNzg5MTU2MTM5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Group of diverse students studying and smiling. Great for the 'About Program' or 'Registration' section."
+      },
+      {
+        "category": "auth_background",
+        "url": "https://images.unsplash.com/photo-1758270705518-b61b40527e76?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHw0fHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBzbWlsaW5nJTIwc3R1ZHlpbmd8ZW58MHx8fHwxNzg5MTU2MTM5fDA&ixlib=rb-4.1.0&q=85",
+        "description": "Students collaborating over a laptop. Ideal for the split-screen image on the login and register pages."
+      }
+    ]
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You have .js files not .tsx files. Write React components using .jsx/.js.",
+    "Do NOT use 'Inter', 'Roboto', or 'Open Sans'. Use 'Outfit' for headings and 'Plus Jakarta Sans' for body.",
+    "Do NOT use completely transparent backgrounds for headers, dropdowns, or modals. Use backdrop-blur with semi-transparent white/black.",
+    "All interactive elements (buttons, inputs, links, dropdown items) MUST include a 'data-testid' attribute (e.g., data-testid='login-submit-button').",
+    "Use Shadcn UI components extensively for logic (Tables, Select, Dialog, Calendar), but heavily style them with the MDJ visual identity (green/gold, rounded-xl).",
+    "Create depth using layered design elements and subtle, tinted shadows, not harsh black drop-shadows.",
+    "Use 'sonner' for all toast notifications, placed at the top-center or bottom-right.",
+    "Prioritize 'lucide-react' for all iconography.",
+    "Never use generic AI emojis (🤖💡🎯) as icons.",
+    "Maintain the BAZNAS government-charity tone: clean, professional, accessible, and optimistic."
+  ]
+}
