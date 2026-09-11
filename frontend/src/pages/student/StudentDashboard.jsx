@@ -44,6 +44,14 @@ export default function StudentDashboard() {
   }, []);
 
   const progress = useMemo(() => profileProgress(data), [data]);
+  const uploadedDocumentCount = useMemo(
+    () => DOC_TYPES.filter((type) => docs.some((document) => document.doc_type === type)).length,
+    [docs],
+  );
+  const documentProgress = useMemo(
+    () => Math.round((uploadedDocumentCount / DOC_TYPES.length) * 100),
+    [uploadedDocumentCount],
+  );
 
   const set = (k, v) => setData((p) => ({ ...p, [k]: v }));
 
@@ -100,14 +108,45 @@ export default function StudentDashboard() {
             <p className="text-white/80 text-sm mt-2">Lengkapi profil dan berkas Anda untuk melanjutkan pendaftaran MDJ Scholarship.</p>
           </Card>
           <div className="grid sm:grid-cols-3 gap-4">
-            <StatTile icon={User} label="Kelengkapan Profil" value={`${progress}%`} />
-            <StatTile icon={FileCheck} label="Dokumen Diunggah" value={`${docs.length}/${DOC_TYPES.length}`} />
-            <StatTile icon={Activity} label="Status" value={STATUS_META[reg.status || "draft"].label} />
+            <StatTile
+              icon={User}
+              label="Kelengkapan Profil"
+              value={`${progress}%`}
+              testId="profile-completion"
+            />
+            <StatTile
+              icon={FileCheck}
+              label="Kelengkapan Berkas"
+              value={`${documentProgress}%`}
+              detail={`${uploadedDocumentCount}/${DOC_TYPES.length} dokumen diunggah`}
+              testId="document-completion"
+            />
+            <StatTile
+              icon={Activity}
+              label="Status"
+              value={STATUS_META[reg.status || "draft"].label}
+              testId="registration-status"
+            />
           </div>
           <Card>
-            <div className="flex items-center justify-between mb-2"><h3 className="font-display font-bold text-[#1F2937]">Kelengkapan Profil</h3><span className="text-sm font-bold text-[#27AE60]">{progress}%</span></div>
-            <div className="h-3 rounded-full bg-gray-100 overflow-hidden"><div className="h-full bg-[#27AE60] transition-all" style={{ width: `${progress}%` }} /></div>
-            <p className="text-sm text-[#6B7280] mt-3">Isi seluruh data wajib pada menu Profil Saya, unggah dokumen, lalu kirim pendaftaran Anda.</p>
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="font-display font-bold text-[#1F2937]">Kelengkapan Pendaftaran</h3>
+              <span className="text-xs font-semibold text-[#6B7280]">Perbarui seiring data disimpan</span>
+            </div>
+            <CompletionBar
+              label="Kelengkapan Profil"
+              value={progress}
+              testId="profile-completion-progress"
+            />
+            <CompletionBar
+              label="Kelengkapan Berkas"
+              value={documentProgress}
+              detail={`${uploadedDocumentCount} dari ${DOC_TYPES.length} berkas telah diunggah`}
+              testId="document-completion-progress"
+            />
+            <p className="mt-4 text-sm text-[#6B7280]">
+              Isi seluruh data wajib pada menu Profil Saya, unggah dokumen, lalu kirim pendaftaran Anda.
+            </p>
           </Card>
         </div>
       )}
@@ -190,6 +229,35 @@ export default function StudentDashboard() {
 }
 
 const Card = ({ children, className = "" }) => <div className={`bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_-2px_rgba(39,174,96,0.05)] ${className}`}>{children}</div>;
-const StatTile = ({ icon: Icon, label, value }) => (
-  <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm"><div className="w-10 h-10 rounded-xl bg-[#E8F6EE] flex items-center justify-center mb-3"><Icon className="w-5 h-5 text-[#27AE60]" /></div><p className="text-xs text-[#6B7280]">{label}</p><p className="font-display font-extrabold text-xl text-[#1F2937] mt-0.5">{value}</p></div>
+const StatTile = ({ icon: Icon, label, value, detail, testId }) => (
+  <div
+    className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm"
+    data-testid={testId}
+  >
+    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-[#E8F6EE]">
+      <Icon className="h-5 w-5 text-[#27AE60]" />
+    </div>
+    <p className="text-xs text-[#6B7280]" data-testid={`${testId}-label`}>{label}</p>
+    <p className="mt-0.5 font-display text-xl font-extrabold text-[#1F2937]" data-testid={`${testId}-value`}>
+      {value}
+    </p>
+    {detail && <p className="mt-1 text-xs text-[#6B7280]" data-testid={`${testId}-detail`}>{detail}</p>}
+  </div>
+);
+
+const CompletionBar = ({ label, value, detail, testId }) => (
+  <div className="mt-5" data-testid={testId}>
+    <div className="mb-2 flex items-center justify-between gap-4">
+      <p className="text-sm font-semibold text-[#1F2937]" data-testid={`${testId}-label`}>{label}</p>
+      <span className="text-sm font-bold text-[#27AE60]" data-testid={`${testId}-value`}>{value}%</span>
+    </div>
+    <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+      <div
+        className="h-full rounded-full bg-[#27AE60] transition-[width] duration-300"
+        style={{ width: `${value}%` }}
+        data-testid={`${testId}-bar`}
+      />
+    </div>
+    {detail && <p className="mt-2 text-xs text-[#6B7280]" data-testid={`${testId}-detail`}>{detail}</p>}
+  </div>
 );

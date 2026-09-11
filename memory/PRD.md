@@ -119,3 +119,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   konsisten di sisi kanan pada layar desktop.
 - Informasi hasil scan dan tautan dokumen tersimpan tetap berada rapi pada area konten kiri.
 - Diuji melalui browser: kedua tombol unggah berada sejajar di sisi kanan tanpa overflow.
+
+## 2026-09 — Indikator kelengkapan berkas dashboard
+- Ringkasan mahasiswa kini menampilkan persentase kelengkapan berkas pada kartu statistik,
+  beserta hitungan dokumen yang sudah diunggah.
+- Panel Kelengkapan Pendaftaran kini memiliki progress bar terpisah untuk Profil dan Berkas.
+- Perhitungan hanya menggunakan 10 jenis berkas persyaratan resmi dan diperbarui setelah unggah/hapus.
+- Diuji melalui browser: akun demo menampilkan 20% untuk 2 dari 10 berkas yang telah diunggah.
