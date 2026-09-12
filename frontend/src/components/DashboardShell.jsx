@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { GraduationCap, Menu, X, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, LogOut, ChevronDown } from "lucide-react";
 import HeaderNotifications from "@/components/HeaderNotifications";
+import api, { API } from "@/lib/api";
 
 const STATUS_META = {
   draft: { label: "Draft", cls: "bg-gray-100 text-gray-600" },
@@ -40,13 +41,36 @@ export default function DashboardShell({
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(null);
+
+  useEffect(() => {
+    api.get("/site/content")
+      .then((response) => {
+        const path = response.data.logo_url;
+        setLogoUrl(path ? `${API.replace("/api", "")}${path}` : null);
+      })
+      .catch(() => setLogoUrl(null));
+  }, []);
 
   const doLogout = async () => { await logout(); navigate("/", { replace: true }); };
 
   const Sidebar = ({ mobile = false }) => (
     <div className="flex flex-col h-full">
       <div className="h-16 flex items-center gap-2.5 px-5 border-b border-gray-100">
-        <div className="w-9 h-9 rounded-xl bg-[#27AE60] flex items-center justify-center"><GraduationCap className="w-5 h-5 text-white" /></div>
+        <div className="h-9 w-9 overflow-hidden rounded-lg bg-[#27AE60]">
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt="Logo MDJ Scholarship"
+              className="h-full w-full object-contain"
+              data-testid={mobile ? "mobile-sidebar-brand-logo" : "sidebar-brand-logo"}
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-xs font-black text-white">
+              MDJ
+            </span>
+          )}
+        </div>
         <div className="leading-tight">
           <p className="font-display font-extrabold text-sm text-[#1F2937]">MDJ Scholarship</p>
           <p className="text-[10px] font-semibold text-[#6B7280]">{brandLabel}</p>

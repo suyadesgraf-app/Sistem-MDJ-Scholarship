@@ -45,7 +45,9 @@ const Logo = ({ light, logoUrl }) => (
           data-testid="mdj-header-logo-image"
         />
       ) : (
-        <GraduationCap className="mx-auto h-6 w-6 translate-y-[7px] text-white" />
+        <span className="flex h-full w-full items-center justify-center text-xs font-black text-white">
+          MDJ
+        </span>
       )}
     </div>
     <div className="leading-tight">

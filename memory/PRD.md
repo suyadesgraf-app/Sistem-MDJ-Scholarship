@@ -181,3 +181,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Sebanyak 50 mahasiswa data uji telah dibuat dari kampus terdaftar dan tersebar di enam wilayah DKI,
   dengan 12 penerima manfaat lulusan untuk mengisi grafik Dashboard. Semua ditandai Data Uji MDJ.
 - Diuji menyeluruh: 10/10 backend dan 8/8 alur Data Peserta lulus, termasuk filter wilayah serta mobile.
+
+## 2026-09 — Penyatuan logo resmi MDJ
+- Logo resmi Masa Depan Jakarta Scholarship yang diunggah pengguna disimpan ulang pada CMS sebagai
+  sumber merek tunggal.
+- Header beranda dan sidebar seluruh dashboard kini memuat logo resmi yang sama, menggantikan ikon topi
+  wisuda yang sebelumnya dipakai sebagai identitas merek.
+- Diuji melalui browser: URL logo beranda dan sidebar Admin identik serta gambar tampil dengan benar.
