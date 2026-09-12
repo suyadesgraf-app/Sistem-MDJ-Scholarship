@@ -188,3 +188,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Header beranda dan sidebar seluruh dashboard kini memuat logo resmi yang sama, menggantikan ikon topi
   wisuda yang sebelumnya dipakai sebagai identitas merek.
 - Diuji melalui browser: URL logo beranda dan sidebar Admin identik serta gambar tampil dengan benar.
+
+## 2026-09 — Tombol Daftar pada navigasi beranda
+- Tombol kanan atas navigasi desktop dan mobile diubah dari **Masuk** menjadi **Daftar** dengan latar
+  hijau MDJ, menuju halaman `/register`.
+- CTA utama **Daftar Beasiswa** di hero tetap tersedia dan tidak diubah.
+- Diuji testing agent: seluruh kriteria desktop dan mobile lulus, termasuk warna hijau, rute, dan tidak
+  ada horizontal overflow.

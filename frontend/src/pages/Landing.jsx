@@ -79,8 +79,6 @@ const Navbar = ({ onNavigate, logoUrl }) => {
             ))}
           </div>
           <div className="hidden lg:flex items-center gap-3">
-            <button onClick={() => onNavigate("/login")} data-testid="nav-login-btn"
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-colors ${scrolled ? "text-[#0B6B3A] hover:bg-[#E8F6EE]" : "text-white hover:bg-white/10"}`}>Masuk</button>
             <button onClick={() => onNavigate("/register")} data-testid="nav-register-btn"
               className="px-5 py-2.5 text-sm font-bold text-white bg-[#27AE60] hover:bg-[#0B6B3A] rounded-xl transition-colors shadow-md shadow-[#27AE60]/20">Daftar</button>
           </div>
@@ -94,9 +92,8 @@ const Navbar = ({ onNavigate, logoUrl }) => {
           {NAV_LINKS.map((l) => (
             <a key={l.name} href={l.href} onClick={() => setOpen(false)} className="block px-3 py-2.5 text-sm font-semibold text-[#1F2937] rounded-lg hover:bg-[#E8F6EE]">{l.name}</a>
           ))}
-          <div className="flex gap-2 pt-2">
-            <button onClick={() => onNavigate("/login")} className="flex-1 px-4 py-2.5 text-sm font-bold text-[#0B6B3A] border border-gray-200 rounded-xl">Masuk</button>
-            <button onClick={() => onNavigate("/register")} className="flex-1 px-4 py-2.5 text-sm font-bold text-white bg-[#27AE60] rounded-xl">Daftar</button>
+          <div className="pt-2">
+            <button onClick={() => onNavigate("/register")} data-testid="nav-mobile-register-btn" className="w-full px-4 py-2.5 text-sm font-bold text-white bg-[#27AE60] hover:bg-[#0B6B3A] rounded-xl transition-colors">Daftar</button>
           </div>
         </div>
       )}
