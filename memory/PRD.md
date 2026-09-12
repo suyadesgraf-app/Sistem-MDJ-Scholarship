@@ -189,14 +189,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   wisuda yang sebelumnya dipakai sebagai identitas merek.
 - Diuji melalui browser: URL logo beranda dan sidebar Admin identik serta gambar tampil dengan benar.
 
-## 2026-09 — Tombol Daftar pada navigasi beranda
-- Tombol kanan atas navigasi desktop dan mobile diubah dari **Masuk** menjadi **Daftar** dengan latar
-  hijau MDJ, menuju halaman `/register`.
-- CTA utama **Daftar Beasiswa** di hero tetap tersedia dan tidak diubah.
-- Diuji testing agent: seluruh kriteria desktop dan mobile lulus, termasuk warna hijau, rute, dan tidak
-  ada horizontal overflow.
+## 2026-09 — Akses login dari navigasi dan hero beranda
+- Tombol kanan atas navigasi desktop dan mobile kembali menjadi **Masuk** dan membuka halaman `/login`.
+- Tombol utama **Daftar Beasiswa** pada hero juga membuka halaman Login yang berisi pilihan akun demo
+  dengan pengisian otomatis.
+- Diuji melalui browser: kedua tombol membuka halaman Login yang sama dan daftar akun demo tersedia.
 
 ## 2026-09 — Penyamaan alur tombol pendaftaran
-- Tombol hero **Daftar Beasiswa** dikonfirmasi memakai tujuan yang sama dengan tombol navigasi
-  **Daftar**, yaitu halaman `/register`.
-- Diuji melalui browser: klik tombol hero berhasil membuka formulir Buat Akun Pendaftar.
+- Arah tombol hero diperbarui sesuai klarifikasi pengguna: tombol hero dan navigasi sama-sama mengarah
+  ke halaman Login, bukan ke formulir pendaftaran langsung.

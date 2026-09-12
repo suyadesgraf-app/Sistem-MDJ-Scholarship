@@ -79,8 +79,8 @@ const Navbar = ({ onNavigate, logoUrl }) => {
             ))}
           </div>
           <div className="hidden lg:flex items-center gap-3">
-            <button onClick={() => onNavigate("/register")} data-testid="nav-register-btn"
-              className="px-5 py-2.5 text-sm font-bold text-white bg-[#27AE60] hover:bg-[#0B6B3A] rounded-xl transition-colors shadow-md shadow-[#27AE60]/20">Daftar</button>
+            <button onClick={() => onNavigate("/login")} data-testid="nav-login-btn"
+              className={`px-4 py-2 text-sm font-bold rounded-xl transition-colors ${scrolled ? "text-[#0B6B3A] hover:bg-[#E8F6EE]" : "text-white hover:bg-white/10"}`}>Masuk</button>
           </div>
           <button className={`lg:hidden p-2 rounded-lg ${scrolled ? "text-[#1F2937]" : "text-white"}`} onClick={() => setOpen(!open)} data-testid="nav-mobile-toggle">
             {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -93,7 +93,7 @@ const Navbar = ({ onNavigate, logoUrl }) => {
             <a key={l.name} href={l.href} onClick={() => setOpen(false)} className="block px-3 py-2.5 text-sm font-semibold text-[#1F2937] rounded-lg hover:bg-[#E8F6EE]">{l.name}</a>
           ))}
           <div className="pt-2">
-            <button onClick={() => onNavigate("/register")} data-testid="nav-mobile-register-btn" className="w-full px-4 py-2.5 text-sm font-bold text-white bg-[#27AE60] hover:bg-[#0B6B3A] rounded-xl transition-colors">Daftar</button>
+            <button onClick={() => onNavigate("/login")} data-testid="nav-mobile-login-btn" className="w-full px-4 py-2.5 text-sm font-bold text-[#0B6B3A] border border-gray-200 rounded-xl">Masuk</button>
           </div>
         </div>
       )}
@@ -145,7 +145,7 @@ export default function Landing() {
               {hero.subtitle || "Program Masa Depan Jakarta (MDJ) hadir sebagai wujud nyata dukungan BAZNAS (BAZIS) Provinsi DKI Jakarta. Muda dengan Zakat, Bahagia dengan Manfaat."}
             </p>
             <div className="flex flex-wrap gap-3">
-              <button onClick={() => go("/register")} data-testid="hero-register-btn"
+              <button onClick={() => go("/login")} data-testid="hero-register-btn"
                 className="px-8 py-3.5 text-base font-bold text-[#0B6B3A] bg-[#F2C94C] rounded-full hover:bg-[#D4AC2B] shadow-lg shadow-black/20 transition-colors flex items-center gap-2">
                 Daftar Beasiswa <ArrowRight className="w-5 h-5" />
               </button>
