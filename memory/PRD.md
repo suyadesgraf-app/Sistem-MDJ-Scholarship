@@ -195,3 +195,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - CTA utama **Daftar Beasiswa** di hero tetap tersedia dan tidak diubah.
 - Diuji testing agent: seluruh kriteria desktop dan mobile lulus, termasuk warna hijau, rute, dan tidak
   ada horizontal overflow.
+
+## 2026-09 — Penyamaan alur tombol pendaftaran
+- Tombol hero **Daftar Beasiswa** dikonfirmasi memakai tujuan yang sama dengan tombol navigasi
+  **Daftar**, yaitu halaman `/register`.
+- Diuji melalui browser: klik tombol hero berhasil membuka formulir Buat Akun Pendaftar.
