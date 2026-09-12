@@ -23,6 +23,7 @@ import re
 import tempfile
 import io
 from PIL import Image as PILImage
+from openpyxl import load_workbook
 import secrets
 import asyncio
 import ipaddress
@@ -389,6 +390,11 @@ class SiteContentInput(BaseModel):
     content: Dict[str, Any]
 
 
+class CampusInput(BaseModel):
+    name: str
+    code: Optional[str] = None
+
+
 REG_STATUSES = ["draft", "submitted", "verifikasi", "lolos_administrasi", "wawancara",
                 "verifikasi_faktual", "lolos", "ditolak"]
 
@@ -612,12 +618,15 @@ async def get_profile(user: dict = Depends(get_current_user)):
 
 @api_router.put("/profile")
 async def update_profile(payload: ProfileInput, user: dict = Depends(get_current_user)):
+    student_campus = None
+    if user.get("role") == "student":
+        student_campus = await register_student_campus(payload.data.get("institusi"))
     await db.profiles.update_one(
         {"user_id": user["user_id"]},
         {"$set": {"data": payload.data, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True,
     )
-    return {"message": "Profil disimpan", "data": payload.data}
+    return {"message": "Profil disimpan", "data": payload.data, "campus": student_campus}
 
 
 # ---------------------------------------------------------------------------
@@ -1053,6 +1062,178 @@ async def download_file(path: str, request: Request, auth: str = Query(None)):
 # ---------------------------------------------------------------------------
 # Site content (public + super admin)
 # ---------------------------------------------------------------------------
+def clean_campus_value(value: Any) -> str:
+    return str(value or "").strip()
+
+
+async def create_student_campus_code() -> str:
+    counter = await db.counters.find_one_and_update(
+        {"key": "student-campus-code"},
+        {"$inc": {"sequence": 1}},
+        upsert=True,
+        return_document=ReturnDocument.AFTER,
+    )
+    return f"MDJ-KMP-{int(counter['sequence']):06d}"
+
+
+async def register_student_campus(value: Any) -> Optional[dict]:
+    name = clean_campus_value(value)
+    if len(name) < 2:
+        return None
+    existing = await db.campuses.find_one(
+        {"name": {"$regex": f"^{re.escape(name)}$", "$options": "i"}},
+        {"_id": 0},
+    )
+    if existing:
+        return None
+    campus = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "code": await create_student_campus_code(),
+        "source": "student_submission",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.campuses.insert_one(dict(campus))
+    return campus
+
+
+@api_router.get("/campuses")
+async def list_campuses(user: dict = Depends(get_current_user)):
+    campuses = await db.campuses.find({}, {"_id": 0}).sort("name", 1).to_list(5000)
+    return campuses
+
+
+@api_router.post("/campuses")
+async def create_campus(
+    payload: CampusInput,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    name = clean_campus_value(payload.name)
+    code = clean_campus_value(payload.code)
+    if len(name) < 2:
+        raise HTTPException(status_code=400, detail="Nama kampus minimal 2 karakter.")
+    if code and await db.campuses.find_one({"code": code}, {"_id": 0, "id": 1}):
+        raise HTTPException(status_code=400, detail="Kode kampus sudah terdaftar.")
+    if await db.campuses.find_one({"name": name}, {"_id": 0, "id": 1}):
+        raise HTTPException(status_code=400, detail="Nama kampus sudah terdaftar.")
+    campus = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if code:
+        campus["code"] = code
+    await db.campuses.insert_one(dict(campus))
+    return campus
+
+
+@api_router.put("/campuses/{campus_id}")
+async def update_campus(
+    campus_id: str,
+    payload: CampusInput,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    name = clean_campus_value(payload.name)
+    code = clean_campus_value(payload.code)
+    if len(name) < 2:
+        raise HTTPException(status_code=400, detail="Nama kampus minimal 2 karakter.")
+    existing = await db.campuses.find_one({"id": campus_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Data kampus tidak ditemukan.")
+    duplicate = await db.campuses.find_one(
+        {"id": {"$ne": campus_id}, "$or": [{"name": name}, {"code": code}]},
+        {"_id": 0, "id": 1},
+    )
+    if duplicate and (duplicate.get("name") == name or (code and duplicate.get("code") == code)):
+        raise HTTPException(status_code=400, detail="Nama atau kode kampus sudah terdaftar.")
+    update = {
+        "name": name,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    operations = {"$set": update}
+    if code:
+        update["code"] = code
+    else:
+        operations["$unset"] = {"code": ""}
+    await db.campuses.update_one({"id": campus_id}, operations)
+    return {"id": campus_id, **update, "code": code or None}
+
+
+@api_router.delete("/campuses/{campus_id}")
+async def delete_campus(
+    campus_id: str,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    result = await db.campuses.delete_one({"id": campus_id})
+    if not result.deleted_count:
+        raise HTTPException(status_code=404, detail="Data kampus tidak ditemukan.")
+    return {"message": "Data kampus dihapus."}
+
+
+@api_router.post("/campuses/import")
+async def import_campuses(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    if not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="File import harus berformat XLSX.")
+    data = await file.read()
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran file XLSX maksimal 5MB.")
+    try:
+        workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+        worksheet = workbook.active
+        rows = worksheet.iter_rows(values_only=True)
+        name_index = None
+        code_index = None
+        for header_row in rows:
+            headers = [clean_campus_value(value).lower() for value in header_row]
+            if "nama kampus" in headers and "kode kampus" in headers:
+                name_index = headers.index("nama kampus")
+                code_index = headers.index("kode kampus")
+                break
+        if name_index is None or code_index is None:
+            raise ValueError("Kolom kampus tidak ditemukan")
+    except (StopIteration, ValueError, OSError) as error:
+        raise HTTPException(
+            status_code=400,
+            detail="XLSX harus memiliki kolom 'Nama Kampus' dan 'Kode Kampus'.",
+        ) from error
+
+    inserted = 0
+    updated = 0
+    now = datetime.now(timezone.utc).isoformat()
+    for row in rows:
+        name = clean_campus_value(row[name_index] if len(row) > name_index else "")
+        code = clean_campus_value(row[code_index] if len(row) > code_index else "")
+        if not name:
+            continue
+        query = {"code": code} if code else {"name": name}
+        existing = await db.campuses.find_one(query, {"_id": 0, "id": 1})
+        campus_id = existing["id"] if existing else str(uuid.uuid4())
+        operations = {
+            "$set": {"name": name, "updated_at": now},
+            "$setOnInsert": {"id": campus_id, "created_at": now},
+        }
+        if code:
+            operations["$set"]["code"] = code
+        else:
+            operations["$unset"] = {"code": ""}
+        await db.campuses.update_one(
+            query,
+            operations,
+            upsert=True,
+        )
+        if existing:
+            updated += 1
+        else:
+            inserted += 1
+    workbook.close()
+    return {"inserted": inserted, "updated": updated, "total": inserted + updated}
+
+
 DEFAULT_SITE_CONTENT = {
     "settings": {
         "registration_open": True,
@@ -1252,11 +1433,27 @@ async def admin_stats(user: dict = Depends(require_roles("admin", "super_admin")
             month = ts[:7]
             trend[month] = trend.get(month, 0) + 1
     trend_list = [{"month": k, "count": v} for k, v in sorted(trend.items())]
+    passed_by_region = {}
+    for registration in regs:
+        if registration.get("status") != "lolos":
+            continue
+        profile = await db.profiles.find_one(
+            {"user_id": registration["user_id"]},
+            {"_id": 0, "data": 1},
+        )
+        data = (profile or {}).get("data", {})
+        region = str(data.get("kota") or data.get("provinsi") or "Belum diisi").strip()
+        passed_by_region[region] = passed_by_region.get(region, 0) + 1
+    passed_region_data = [
+        {"region": region, "count": count}
+        for region, count in sorted(passed_by_region.items(), key=lambda item: (-item[1], item[0]))
+    ]
     return {
         "total_registrations": total, "total_students": total_students, "total_admins": total_admins,
         "by_status": by_status, "trend": trend_list,
         "verified": by_status.get("lolos", 0),
         "pending": by_status.get("submitted", 0) + by_status.get("verifikasi", 0),
+        "passed_by_region": passed_region_data,
     }
 
 
@@ -1398,6 +1595,8 @@ async def startup():
     await db.registrations.create_index("user_id")
     await db.registrations.create_index("cpm_id", unique=True, sparse=True)
     await db.documents.create_index("user_id")
+    await db.campuses.create_index("id", unique=True)
+    await db.campuses.create_index("code", unique=True, sparse=True)
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:

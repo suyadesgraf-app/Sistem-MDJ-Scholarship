@@ -1,0 +1,43 @@
+{
+  "summary": "Verified Admin Dashboard (replaces Ringkasan) end-to-end. Backend GET /api/admin/stats returns required keys (total_registrations, by_status, verified, pending, passed_by_region) with no MongoDB _id leakage; forbidden for student. Controlled-data test: set demo student kota='TEST_REGION_JKT_XYZ' and status='lolos' via admin PUT /api/admin/participants/{user_id}/status → passed_by_region correctly includes new region with count>=1 and verified count incremented; state fully restored afterwards. Frontend: Admin sidebar shows 'Dashboard' (no 'Ringkasan'), opens as default active page. Tiles Total Pendaftar=3, Dalam Proses Seleksi=2, Mahasiswa Lulus=0, Wilayah Mahasiswa Lulus=0 render correctly. All 6 stage cards present with correct labels (Pendaftaran Terkirim, Verifikasi Administrasi, Lolos Administrasi, Wawancara Assessment, Verifikasi Faktual, Penerima Manfaat) and counts. passed-summary shows 0% with 0/3 helper text, passed-rate-bar present, passed-region-chart shows passed-region-empty state ('Belum ada mahasiswa yang lulus...'). Mobile 390x844: scrollWidth==clientWidth==390 → no horizontal overflow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_admin_dashboard_stats.py",
+    "/app/test_reports/pytest/admin_dashboard_stats.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py now 1681 lines — continued growth (see prior iterations). Split into feature modules (admin_stats, participants, campuses, profile, auth, site_content).",
+    "admin_stats loops registrations then does a per-registration profiles.find_one for each 'lolos' record → N+1 query pattern. Acceptable at current scale but should switch to a single $lookup aggregation or bulk find({'user_id': {'$in': lolos_user_ids}}) if lolos count grows.",
+    "passed_by_region uses kota → falls back to provinsi → 'Belum diisi'. If a student has both kota+provinsi, only kota is used. Consider concatenating 'kota, provinsi' for clarity, and normalizing casing to avoid split buckets like 'Jakarta' vs 'JAKARTA'.",
+    "AdminSelectionDashboard sets stats={} on error (silent). Should surface an error banner with retry so failed /admin/stats doesn't leave the page in an ambiguous 'all zero' state indistinguishable from real empty data."
+  ],
+  "updated_files": ["/app/backend/tests/test_admin_dashboard_stats.py"],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% for validated flows"},
+  "test_credentials": "Admin admin.mdj@baznasbazisdki.id / AdminMDJ2026!, Student mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026! (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Temporarily set demo student status='lolos' and profile.kota='TEST_REGION_JKT_XYZ' to validate passed_by_region aggregation. Restored to original status and kota in same test (finally block).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: `pytest /app/backend/tests/test_admin_dashboard_stats.py -v -o addopts=''`. It covers /api/admin/stats shape/no-_id, 403 for student, and passed_by_region aggregation via admin PUT /api/admin/participants/{user_id}/status endpoint (line 1499 server.py) with automatic restore. Frontend admin dashboard uses data-testid: menu-dashboard, admin-selection-dashboard, dashboard-total-applicants|in-progress|passed-students|passed-regions, selection-stages, selection-stage-{submitted,verifikasi,lolos_administrasi,wawancara,verifikasi_faktual,lolos}, passed-summary, passed-rate, passed-rate-bar, passed-region-chart, passed-region-empty. Login inputs: data-testid=login-email-input (type=text, accepts email or NIK) and login-password-input.",
+  "verified_results": {
+    "pytest": "4 passed in 1.77s (test_admin_dashboard_stats.py)",
+    "endpoints": {
+      "GET /api/admin/stats (admin)": "200, all keys present, no _id",
+      "GET /api/admin/stats (student)": "401/403",
+      "PUT /api/admin/participants/{user_id}/status → lolos": "200, passed_by_region updated",
+      "restore original status": "200"
+    },
+    "frontend_desktop_1920": {
+      "menu-dashboard": "text='Dashboard', 'Ringkasan' occurrences=0",
+      "default_active": "dashboard",
+      "tiles": "Total Pendaftar=3, Dalam Proses Seleksi=2, Mahasiswa Lulus=0, Wilayah Mahasiswa Lulus=0",
+      "stages": "6/6 present with tahap 1-6 labels and counts (1,1,1,0,0,0)",
+      "passed_summary": "0% with '0 mahasiswa lulus dari 3 pendaftar.'",
+      "passed_region_empty": "shown with empty-state copy"
+    },
+    "frontend_mobile_390": {
+      "horizontal_overflow": "none (scrollWidth==clientWidth==390)"
+    }
+  }
+}

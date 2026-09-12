@@ -4,12 +4,14 @@ import StatsOverview from "@/components/StatsOverview";
 import ParticipantsPanel from "@/components/ParticipantsPanel";
 import AdminUsers from "@/components/AdminUsers";
 import SiteManager from "@/components/SiteManager";
-import { Home, Users, ShieldCheck, LayoutDashboard } from "lucide-react";
+import CampusManager from "@/components/CampusManager";
+import { Building2, Home, Users, ShieldCheck, LayoutDashboard } from "lucide-react";
 
 const MENU = [
   { id: "ringkasan", label: "Ringkasan", icon: Home },
   { id: "peserta", label: "Data Pendaftar", icon: Users },
   { id: "admin", label: "Akun Admin", icon: ShieldCheck },
+  { id: "kampus", label: "Kampus", icon: Building2 },
   { id: "website", label: "Kelola Website", icon: LayoutDashboard },
 ];
 
@@ -21,6 +23,7 @@ export default function SuperAdminDashboard() {
       {active === "ringkasan" && <StatsOverview showAdmins />}
       {active === "peserta" && <ParticipantsPanel />}
       {active === "admin" && <AdminUsers />}
+      {active === "kampus" && <CampusManager />}
       {active === "website" && <SiteManager />}
     </DashboardShell>
   );

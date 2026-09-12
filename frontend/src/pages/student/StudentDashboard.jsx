@@ -34,6 +34,7 @@ export default function StudentDashboard() {
   const [data, setData] = useState({});
   const [reg, setReg] = useState({});
   const [docs, setDocs] = useState([]);
+  const [campuses, setCampuses] = useState([]);
   const [content, setContent] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
@@ -54,6 +55,7 @@ export default function StudentDashboard() {
     api.get("/profile").then((r) => setData(r.data.data || {}));
     api.get("/registration").then((r) => setReg(r.data || {}));
     api.get("/documents").then((r) => setDocs(r.data));
+    api.get("/campuses").then((r) => setCampuses(r.data || []));
     api.get("/site/content").then((r) => setContent(r.data));
     loadNotifications();
     const pollNotifications = window.setInterval(loadNotifications, 30000);
@@ -79,7 +81,16 @@ export default function StudentDashboard() {
 
   const saveProfile = async () => {
     setSaving(true);
-    try { await api.put("/profile", { data }); toast.success("Profil berhasil disimpan."); }
+    try {
+      const response = await api.put("/profile", { data });
+      const campus = response.data.campus;
+      if (campus) {
+        setCampuses((previous) => [...previous, campus].sort((a, b) => a.name.localeCompare(b.name)));
+        toast.success(`Kampus baru ditambahkan dengan kode ${campus.code}.`);
+      } else {
+        toast.success("Profil berhasil disimpan.");
+      }
+    }
     catch { toast.error("Gagal menyimpan profil."); }
     finally { setSaving(false); }
   };
@@ -217,6 +228,7 @@ export default function StudentDashboard() {
             document,
           ])}
           onSubmitRegistration={submitRegistration}
+          campuses={campuses}
         />
       )}
 

@@ -34,7 +34,7 @@ const ALAMAT = [
 ];
 export const PENDIDIKAN = [
   { k: "jenjang", l: "Jenjang", req: true, opts: [["D3", "D3"], ["D4", "D4"], ["S1", "S1"]] },
-  { k: "institusi", l: "Perguruan Tinggi", req: true, ph: "Masukkan nama perguruan tinggi" },
+  { k: "institusi", l: "Perguruan Tinggi", req: true, campus: true },
   { k: "jurusan", l: "Program Studi", ph: "Masukkan program studi" },
   { k: "nim", l: "NIM", req: true, ph: "Masukkan NIM" },
   { k: "semester", l: "Semester", digits: true, max: 2, ph: "Contoh: 5" },
@@ -279,7 +279,11 @@ const SectionCard = ({ title, desc, children }) => (
     {children}
   </div>
 );
-export const FieldGrid = ({ fields, data, set }) => (
+export const FieldGrid = ({ fields, data, set, campuses = [] }) => {
+  const [otherCampusFields, setOtherCampusFields] = useState({});
+  const campusNames = campuses.map((campus) => campus.name.trim().toLowerCase());
+
+  return (
   <div className="grid sm:grid-cols-2 gap-x-5 gap-y-4">
     {fields.map((f) => (
       <div key={f.k} className={f.full ? "sm:col-span-2" : ""}>
@@ -292,6 +296,21 @@ export const FieldGrid = ({ fields, data, set }) => (
             <option value="">Pilih salah satu...</option>
             {f.opts.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
+        ) : f.campus ? (
+          <CampusField
+            field={f}
+            data={data}
+            set={set}
+            campuses={campuses}
+            isOther={
+              otherCampusFields[f.k] ||
+              (!campusNames.includes(String(data[f.k] || "").trim().toLowerCase()) && !!data[f.k])
+            }
+            setOther={(value) => setOtherCampusFields((previous) => ({
+              ...previous,
+              [f.k]: value,
+            }))}
+          />
         ) : f.area ? (
           <textarea value={data[f.k] || ""} onChange={(e) => set(f.k, e.target.value)} data-testid={`field-${f.k}`} rows={2} placeholder={f.ph} className={inputCls} />
         ) : f.currency ? (
@@ -320,4 +339,48 @@ export const FieldGrid = ({ fields, data, set }) => (
       </div>
     ))}
   </div>
-);
+  );
+};
+
+function CampusField({ field, data, set, campuses, isOther, setOther }) {
+  const knownCampus = campuses.find((campus) => (
+    campus.name.trim().toLowerCase() === String(data[field.k] || "").trim().toLowerCase()
+  ));
+  const selectValue = isOther ? "__other__" : (knownCampus?.name || data[field.k] || "");
+
+  return (
+    <div className="space-y-2">
+      <select
+        value={selectValue}
+        onChange={(event) => {
+          if (event.target.value === "__other__") {
+            setOther(true);
+            set(field.k, "");
+            return;
+          }
+          setOther(false);
+          set(field.k, event.target.value);
+        }}
+        data-testid={`field-${field.k}`}
+        className={inputCls + " bg-white"}
+      >
+        <option value="">Pilih kampus terdaftar...</option>
+        {campuses.map((campus) => (
+          <option key={campus.id} value={campus.name}>
+            {campus.name}{campus.code ? ` — ${campus.code}` : ""}
+          </option>
+        ))}
+        <option value="__other__">Kampus Lainnya</option>
+      </select>
+      {isOther && (
+        <input
+          value={data[field.k] || ""}
+          onChange={(event) => set(field.k, event.target.value)}
+          placeholder="Masukkan nama kampus"
+          data-testid={`field-${field.k}-other`}
+          className={inputCls}
+        />
+      )}
+    </div>
+  );
+}

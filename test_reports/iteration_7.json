@@ -1,0 +1,48 @@
+{
+  "summary": "Full backend + frontend verification of the Kampus (Campus) admin feature: 377-campus dataset load, admin CRUD, XLSX import idempotency, student access, Data Pendidikan dropdown + Kampus Lainnya, case-insensitive matching, 403 for student mutations, mobile responsiveness. All 4 pytest cases and all frontend acceptance criteria pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_campuses.py",
+    "/app/test_reports/pytest/campuses_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1630 lines — split into feature modules (campuses, notifications, admin, auth, site_content) before it grows further.",
+    "campuses collection has unique index on code (sparse). Import uses query={'code': code} if code else {'name': name}. If two rows in XLSX share the same name but no code, only the first inserts and second becomes an update — matches idempotency but silently drops distinct rows. Consider raising validation error instead.",
+    "CampusField's knownCampus lookup runs O(n) on every render for a 377-item array. Fine now but memoise or index by lowercase-name if campus count grows.",
+    "POST /api/campuses returns campus dict but PUT returns {'id', 'name', 'updated_at', 'code': code or None}. Shape inconsistency between endpoints — align return payloads (both should include created_at).",
+    "import_campuses reads entire XLSX into memory (5MB limit ok) but processes rows sequentially with per-row DB round-trip. For 400+ rows this is fine, but consider bulk_write for scalability."
+  ],
+  "updated_files": ["/app/backend/tests/test_campuses.py"],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100%"},
+  "test_credentials": "Admin admin.mdj@baznasbazisdki.id / AdminMDJ2026!, Student mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026! (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "Test file uses TEST_ prefix (TEST_Kampus Unit Alpha/Beta) — created and cleaned up within test_admin_full_crud_cycle. UI test creates TEST_UI_Kampus_ABC → renames to XYZ → deletes; final GET /campuses returns 377 (verified). One stray TEST_UI_Kampus_ABC from a mid-run failure was cleaned via curl DELETE before re-running (id=9a54ac3d-4562-456a-a091-13db0fa417d0). Final DB state: 377 unique campuses.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression suite /app/backend/tests/test_campuses.py — run with `pytest /app/backend/tests/test_campuses.py -v -o addopts=''`. Covers: (1) GET /api/campuses returns 377 unique, no _id, includes STIKES RS Husada Jakarta 01-JK1-001; (2) Admin CRUD + duplicate-code/name 400 + GET-verify persistence + delete-verify removal; (3) Re-import /tmp/cms-masa-depan-jakarta.xlsx is idempotent (inserted=0, total stays 377); (4) Student receives 403 on POST/PUT/DELETE/import. Frontend verified via Playwright at REACT_APP_BACKEND_URL: admin /admin route menu-kampus opens CampusManager showing '377 kampus terdaftar'; full add→edit→search→delete flow succeeds with POST 200, PUT 200, DELETE 200 (verified via response interception). Student /dashboard menu-daftar → Data Pendidikan → field-institusi is SELECT with 379 options (placeholder + 377 + __other__), Husada option renders 'name — 01-JK1-001'; selecting 'Kampus Lainnya' reveals field-institusi-other input which accepts text. Mobile 390x844: both admin Kampus menu and student registration selector have scrollWidth==clientWidth==390 (no page overflow — inner table wrapper scrolls independently via overflow-x-auto). Capitalization matching is done in CampusField via .trim().toLowerCase() comparison; verified selection maps to canonical option not __other__.",
+  "verified_results": {
+    "backend_pytest": "4 passed in 0.76s",
+    "endpoint_returns": {
+      "GET /api/campuses (student)": "200, len=377, has 01-JK1-001, no _id",
+      "POST /api/campuses (admin, TEST_)": "200",
+      "POST /api/campuses duplicate": "400",
+      "PUT /api/campuses/{id}": "200",
+      "DELETE /api/campuses/{id}": "200",
+      "POST /api/campuses/import re-run": "200, inserted=0, total 377 preserved",
+      "POST/PUT/DELETE/import as student": "403"
+    },
+    "frontend_flows": {
+      "admin_kampus_menu": "menu-kampus visible, opens campus-manager, campus-total='377 kampus terdaftar'",
+      "admin_crud_cycle_ui": "POST 200 → search 1 row → PUT 200 → search rename 1 row → DELETE 200 → search 0 rows → total back to 377",
+      "student_dropdown": "field-institusi is SELECT with 379 options; Husada '— 01-JK1-001' present",
+      "kampus_lainnya": "select __other__ reveals field-institusi-other; text 'TEST_Kampus_Lainnya_Custom' accepted",
+      "capitalization_matching": "selecting official name keeps select on that option, other-input hidden (CampusField uses toLowerCase comparison)"
+    },
+    "mobile_390": {
+      "admin_kampus": "scrollWidth==clientWidth==390",
+      "student_registration": "scrollWidth==clientWidth==390"
+    },
+    "no_object_id_leakage": "verified — GET /api/campuses excludes _id"
+  }
+}

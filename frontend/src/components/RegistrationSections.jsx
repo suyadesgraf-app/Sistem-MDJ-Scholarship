@@ -70,6 +70,7 @@ export default function RegistrationSections({
   onDeleteDoc,
   onDocumentSaved,
   onSubmitRegistration,
+  campuses,
 }) {
   const [tab, setTab] = useState("pendidikan");
   const [preview, setPreview] = useState(null);
@@ -194,7 +195,7 @@ export default function RegistrationSections({
           <p className="mt-5 text-xs leading-relaxed text-[#6B7280]">
             Tinjau hasil AI, perbaiki bila perlu, lalu simpan data pendidikan.
           </p>
-          <FieldGrid fields={PENDIDIKAN} data={data} set={set} />
+          <FieldGrid fields={PENDIDIKAN} data={data} set={set} campuses={campuses} />
           <div className="mt-6 flex justify-end">
             <button
               type="button"

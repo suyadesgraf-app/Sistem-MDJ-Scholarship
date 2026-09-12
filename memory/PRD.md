@@ -153,3 +153,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   daftar diperbarui kembali setiap 30 detik.
 - Diuji menyeluruh: 6/6 pengujian backend lulus, popover, titik belum dibaca, akses per pengguna,
   tautan ke menu relevan, dan tampilan mobile seluruhnya terverifikasi.
+
+## 2026-09 — Dashboard tahapan seleksi Admin
+- Menu Ringkasan akun Admin diganti menjadi **Dashboard** untuk memantau tahapan penerimaan Calon
+  Penerima Manfaat, dari pendaftaran terkirim hingga penerima manfaat/lulus.
+- Dashboard menampilkan total pendaftar, mahasiswa dalam proses, total mahasiswa lulus, cakupan
+  wilayah lulusan, tingkat kelulusan keseluruhan, serta grafik kelulusan menurut kota/kabupaten.
+- Endpoint `GET /api/admin/stats` kini mengembalikan `passed_by_region` dari data profil pendaftar.
+- Diuji menyeluruh: 4/4 backend lulus; enam tahap, data wilayah, keadaan kosong, dan tampilan mobile
+  telah diverifikasi tanpa overflow.
