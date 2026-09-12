@@ -162,3 +162,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Endpoint `GET /api/admin/stats` kini mengembalikan `passed_by_region` dari data profil pendaftar.
 - Diuji menyeluruh: 4/4 backend lulus; enam tahap, data wilayah, keadaan kosong, dan tampilan mobile
   telah diverifikasi tanpa overflow.
+
+## 2026-09 — Pemisahan Dashboard dan Ringkasan Admin
+- Sidebar Admin kini memiliki urutan **Dashboard → Ringkasan → Data Peserta → Kampus**; Ringkasan
+  menjadi halaman awal Admin saat login.
+- **Dashboard** khusus menampilkan penerima manfaat yang berstatus Lolos seluruh tahap, total penerima,
+  cakupan wilayah, serta infografis dan daftar penerima manfaat per wilayah.
+- **Ringkasan** menampilkan jumlah peserta mendaftar dari awal, pendaftaran terkirim, proses seleksi,
+  pengumuman aktif, enam tahap proses hingga pengumuman penerima, dan grafik proses seleksi.
+- Ringkasan memiliki filter Keseluruhan Wilayah atau wilayah tertentu. Diuji menyeluruh: 4/4 backend,
+  kedua menu, filter, kondisi kosong, dan tampilan mobile lulus tanpa overflow.

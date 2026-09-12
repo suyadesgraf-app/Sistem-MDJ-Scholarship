@@ -1417,8 +1417,29 @@ async def upload_site_logo(
 # Admin: participants management
 # ---------------------------------------------------------------------------
 @api_router.get("/admin/stats")
-async def admin_stats(user: dict = Depends(require_roles("admin", "super_admin"))):
-    regs = await db.registrations.find({}, {"_id": 0}).to_list(5000)
+async def admin_stats(
+    region: Optional[str] = None,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    all_regs = await db.registrations.find({}, {"_id": 0}).to_list(5000)
+    user_ids = [registration["user_id"] for registration in all_regs]
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "data": 1},
+    ).to_list(5000)
+    profile_data = {
+        profile["user_id"]: profile.get("data", {})
+        for profile in profiles
+    }
+
+    def region_name(registration: dict) -> str:
+        data = profile_data.get(registration["user_id"], {})
+        return str(data.get("kota") or data.get("provinsi") or "Belum diisi").strip()
+
+    available_regions = sorted({region_name(registration) for registration in all_regs})
+    regs = all_regs
+    if region and region != "all":
+        regs = [registration for registration in all_regs if region_name(registration) == region]
     total = len(regs)
     by_status = {}
     for r in regs:
@@ -1437,23 +1458,22 @@ async def admin_stats(user: dict = Depends(require_roles("admin", "super_admin")
     for registration in regs:
         if registration.get("status") != "lolos":
             continue
-        profile = await db.profiles.find_one(
-            {"user_id": registration["user_id"]},
-            {"_id": 0, "data": 1},
-        )
-        data = (profile or {}).get("data", {})
-        region = str(data.get("kota") or data.get("provinsi") or "Belum diisi").strip()
-        passed_by_region[region] = passed_by_region.get(region, 0) + 1
+        passed_region = region_name(registration)
+        passed_by_region[passed_region] = passed_by_region.get(passed_region, 0) + 1
     passed_region_data = [
         {"region": region, "count": count}
         for region, count in sorted(passed_by_region.items(), key=lambda item: (-item[1], item[0]))
     ]
+    site_content = await db.site_content.find_one({"key": "main"}, {"_id": 0}) or {}
     return {
         "total_registrations": total, "total_students": total_students, "total_admins": total_admins,
         "by_status": by_status, "trend": trend_list,
         "verified": by_status.get("lolos", 0),
         "pending": by_status.get("submitted", 0) + by_status.get("verifikasi", 0),
         "passed_by_region": passed_region_data,
+        "available_regions": available_regions,
+        "announcement_count": len(site_content.get("announcements", [])),
+        "selected_region": region or "all",
     }
 
 

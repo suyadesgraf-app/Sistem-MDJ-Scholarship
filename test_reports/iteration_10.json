@@ -1,0 +1,45 @@
+{
+  "summary": "Verified new Admin split: Dashboard (penerima manfaat) + Ringkasan (proses pendaftaran/seleksi). Menu order Dashboard → Ringkasan → Data Peserta → Kampus confirmed; Ringkasan is default active. Backend GET /api/admin/stats returns all required keys including selected_region, available_regions, announcement_count, passed_by_region with no _id leakage; region filter reduces total_registrations correctly; endpoint 403 for student role. Frontend Ringkasan shows all 4 tiles, 6 stage cards, process chart, and region select filter. Dashboard shows only recipient tiles and region chart/list; does NOT render summary-selection-stages. Controlled data test: setting demo student kota=TEST_REGION_SUMMARY_XYZ made region appear in available_regions and filter with count=1; state restored after test. Empty state (0 lulus) visible on Dashboard as expected. Mobile 390px: no horizontal overflow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_admin_summary_stats.py",
+    "/app/backend/tests/test_admin_dashboard_stats.py",
+    "/app/test_reports/pytest/admin_summary_stats.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py at 1701 lines still not split — recommend extracting admin_stats/participants/campuses/profile/auth into modules.",
+    "admin_stats keeps N+1 pattern for profiles (already fixed to single $in but still loops in Python). Consider Mongo $lookup aggregation for scale.",
+    "region_name falls back only to kota → provinsi → 'Belum diisi'. Casing normalization (Jakarta vs JAKARTA) still missing.",
+    "AdminRegistrationSummary and AdminRecipientDashboard duplicate LoadingState/ErrorState patterns; consider extracting shared components (DRY).",
+    "AdminRegistrationSummary omits selected_region echo in UI — filter state is only from local `region` state; consider syncing from response for consistency with backend truth."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin_summary_stats.py"
+  ],
+  "success_rate": {"backend": "100% (4/4 new + 4/4 existing)", "frontend": "100% for validated flows"},
+  "test_credentials": "Admin admin.mdj@baznasbazisdki.id / AdminMDJ2026!, Student mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!.",
+  "seed_data_creation": "Temporarily set demo student profile.kota='TEST_REGION_SUMMARY_XYZ' to validate region filter; restored in finally block.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: pytest /app/backend/tests/test_admin_summary_stats.py /app/backend/tests/test_admin_dashboard_stats.py -v -o addopts=''. Admin menu ids: menu-dashboard, menu-ringkasan, menu-peserta, menu-kampus (order enforced). Ringkasan testids: admin-registration-summary, summary-region-filter, summary-total-applicants, summary-submitted, summary-in-process, summary-announcements, summary-selection-stages, summary-stage-{submitted,verifikasi,lolos_administrasi,wawancara,verifikasi_faktual,lolos}, summary-process-chart. Dashboard testids: recipient-dashboard, dashboard-recipient-total, dashboard-recipient-regions, dashboard-recipient-distributed, recipient-region-chart, recipient-region-list, recipient-region-empty. Default active tab is 'ringkasan'. On desktop sidebar visible; on mobile it is behind a hamburger — click hamburger first before menu items.",
+  "verified_results": {
+    "backend": {
+      "GET /api/admin/stats (admin)": "200 with selected_region=all, available_regions[], announcement_count, no _id",
+      "GET /api/admin/stats?region=all": "matches unfiltered",
+      "GET /api/admin/stats?region=TEST_REGION_SUMMARY_XYZ": "total_registrations=1, selected_region echoed",
+      "GET /api/admin/stats (student)": "403"
+    },
+    "frontend_desktop_1920": {
+      "menu_order": "['Dashboard','Ringkasan','Data Peserta','Kampus'] top-to-bottom",
+      "default_active": "ringkasan → admin-registration-summary visible",
+      "tiles": "summary-total-applicants=3, submitted, in-process, announcements all rendered",
+      "stages": "all 6 stage testids present",
+      "region_filter": "options=['all','Belum diisi']; select filters and switching back to all works",
+      "dashboard_no_stages": "summary-selection-stages absent when Dashboard active",
+      "recipient_region_empty": "visible (0 lulus)"
+    },
+    "mobile_390": {"scrollWidth": 390, "clientWidth": 390, "overflow": "none"}
+  }
+}
