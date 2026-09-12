@@ -5,12 +5,16 @@ import ParticipantsPanel from "@/components/ParticipantsPanel";
 import AdminUsers from "@/components/AdminUsers";
 import SiteManager from "@/components/SiteManager";
 import CampusManager from "@/components/CampusManager";
-import { Building2, Home, Users, ShieldCheck, LayoutDashboard } from "lucide-react";
+import SelectionImportManager from "@/components/SelectionImportManager";
+import AiAdministrativeVerification from "@/components/AiAdministrativeVerification";
+import { Building2, FileSpreadsheet, Home, Users, ShieldCheck, LayoutDashboard, Sparkles } from "lucide-react";
 
 const MENU = [
   { id: "ringkasan", label: "Ringkasan", icon: Home },
   { id: "peserta", label: "Data Pendaftar", icon: Users },
   { id: "admin", label: "Akun Admin", icon: ShieldCheck },
+  { id: "verifikasi-ai", label: "Verifikasi AI", icon: Sparkles },
+  { id: "import-seleksi", label: "Import Seleksi", icon: FileSpreadsheet },
   { id: "kampus", label: "Kampus", icon: Building2 },
   { id: "website", label: "Kelola Website", icon: LayoutDashboard },
 ];
@@ -23,6 +27,8 @@ export default function SuperAdminDashboard() {
       {active === "ringkasan" && <StatsOverview showAdmins />}
       {active === "peserta" && <ParticipantsPanel />}
       {active === "admin" && <AdminUsers />}
+      {active === "verifikasi-ai" && <AiAdministrativeVerification />}
+      {active === "import-seleksi" && <SelectionImportManager />}
       {active === "kampus" && <CampusManager />}
       {active === "website" && <SiteManager />}
     </DashboardShell>

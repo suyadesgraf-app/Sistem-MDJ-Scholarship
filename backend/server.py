@@ -80,6 +80,7 @@ EMERGENT_AUTH_URL = "https://demobackend.emergentagent.com/auth/v1/env/oauth/ses
 MIME_TYPES = {
     "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
     "gif": "image/gif", "webp": "image/webp", "pdf": "application/pdf",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 }
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -395,6 +396,11 @@ class SiteContentInput(BaseModel):
 class CampusInput(BaseModel):
     name: str
     code: Optional[str] = None
+
+
+class VerificationApprovalInput(BaseModel):
+    recommendation_ids: List[str] = []
+    approve_all: bool = False
 
 
 REG_STATUSES = ["draft", "submitted", "verifikasi", "lolos_administrasi", "wawancara",
@@ -1418,6 +1424,675 @@ async def upload_site_logo(
 # ---------------------------------------------------------------------------
 # Admin: participants management
 # ---------------------------------------------------------------------------
+IMPORT_STAGE_CONFIG = {
+    "wawancara_lolos": {
+        "label": "Hasil Lolos Wawancara",
+        "target_status": "verifikasi_faktual",
+    },
+    "kelulusan_akhir": {
+        "label": "Hasil Kelulusan Akhir",
+        "target_status": "lolos",
+    },
+}
+
+REQUIRED_VERIFICATION_DOCUMENTS = [
+    "KTP DKI Jakarta",
+    "Kartu Keluarga (KK)",
+    "Pas Foto 3x4",
+    "Kartu Tanda Mahasiswa (KTM)",
+    "KRS / KHS / Transkrip Nilai",
+    "Surat Keterangan Mahasiswa Aktif",
+    "SKTM / Surat Rekomendasi",
+    "Surat Persetujuan Orang Tua",
+    "Surat Keterangan Tidak Menerima Beasiswa Lain",
+    "Pakta Integritas",
+]
+
+REQUIRED_VERIFICATION_FIELDS = {
+    "namaLengkap": "Nama lengkap",
+    "email": "Email",
+    "nik": "NIK",
+    "noTelp": "Nomor telepon",
+    "alamatLengkap": "Alamat lengkap",
+    "kota": "Wilayah/kota domisili",
+    "provinsi": "Provinsi",
+    "institusi": "Perguruan tinggi",
+    "nim": "NIM",
+    "jenjang": "Jenjang pendidikan",
+    "jurusan": "Program studi",
+    "semester": "Semester",
+    "ipk": "IPK",
+    "biayaPendidikanSemester": "Biaya pendidikan per semester",
+}
+
+IMPORT_FIELD_ALIASES = {
+    "cpm_id": {"idcpm", "cpmid", "nomorcpm", "idcalonpenerimamanfaat"},
+    "nik": {"nik", "nomorindukkependudukan"},
+    "email": {"email", "emailmahasiswa", "alamatemail"},
+    "name": {"nama", "namamahasiswa", "namalengkap", "peserta"},
+    "campus": {"kampus", "namakampus", "perguruantinggi", "universitas"},
+    "region": {"wilayah", "kota", "kotakabupaten", "domisili", "kabupaten"},
+}
+
+STATUS_RANK = {
+    "draft": 0,
+    "submitted": 1,
+    "verifikasi": 2,
+    "lolos_administrasi": 3,
+    "wawancara": 4,
+    "verifikasi_faktual": 5,
+    "lolos": 6,
+    "ditolak": -1,
+}
+
+
+def normalized_import_value(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
+
+
+def normalized_name(value: Any) -> str:
+    return re.sub(r"\s+", " ", str(value or "").strip().lower())
+
+
+def normalized_cpm(value: Any) -> str:
+    match = re.search(r"CPM-MDJ/\d{4}/\d{6}", str(value or "").upper())
+    return match.group(0) if match else ""
+
+
+def find_import_header_row(rows: List[tuple]) -> int:
+    best_index = 0
+    best_score = -1
+    for index, row in enumerate(rows[:10]):
+        score = sum(
+            normalized_import_value(value) in aliases
+            for value in row
+            for aliases in IMPORT_FIELD_ALIASES.values()
+        )
+        if score > best_score:
+            best_index = index
+            best_score = score
+    return best_index
+
+
+def deterministic_import_mapping(headers: List[str]) -> Dict[str, Optional[str]]:
+    mapping = {}
+    for field, aliases in IMPORT_FIELD_ALIASES.items():
+        mapping[field] = next(
+            (header for header in headers if normalized_import_value(header) in aliases),
+            None,
+        )
+    return mapping
+
+
+async def ai_import_mapping(headers: List[str], sample_rows: List[dict]) -> Dict[str, Optional[str]]:
+    if not EMERGENT_KEY:
+        return {}
+    prompt = (
+        "Anda membantu import hasil seleksi beasiswa Indonesia. Petakan nama kolom sumber ke field "
+        "berikut: cpm_id, nik, email, name, campus, region. Gunakan hanya nama kolom yang persis "
+        "ada pada daftar headers atau null jika tidak ada. Kembalikan HANYA JSON object.\n"
+        f"Headers: {json.dumps(headers, ensure_ascii=False)}\n"
+        f"Contoh baris: {json.dumps(sample_rows[:5], ensure_ascii=False)}"
+    )
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_KEY,
+            session_id=f"selection-import-map-{uuid.uuid4()}",
+            system_message="Anda adalah asisten pemetaan kolom data yang teliti.",
+        ).with_model("gemini", "gemini-3.1-pro-preview")
+        chunks = []
+        async for event in chat.stream_message(UserMessage(text=prompt)):
+            if isinstance(event, TextDelta):
+                chunks.append(event.content)
+            elif isinstance(event, StreamDone):
+                break
+        match = re.search(r"\{.*\}", "".join(chunks), flags=re.DOTALL)
+        parsed = json.loads(match.group(0)) if match else {}
+        return {
+            field: value
+            for field, value in parsed.items()
+            if field in IMPORT_FIELD_ALIASES and value in headers
+        }
+    except Exception as error:
+        logger.warning(f"AI import mapping skipped: {error}")
+        return {}
+
+
+async def ai_review_notes(items: List[dict]) -> Dict[int, str]:
+    if not EMERGENT_KEY or not items:
+        return {}
+    prompt_items = [
+        {
+            "row_number": item["row_number"],
+            "kind": item["kind"],
+            "reason": item["reason"],
+            "data": item["imported_data"],
+        }
+        for item in items[:25]
+    ]
+    prompt = (
+        "Berikan catatan singkat Bahasa Indonesia untuk tiap data import beasiswa yang perlu ditinjau. "
+        "Jangan mengubah atau menyimpulkan kecocokan peserta. Kembalikan HANYA JSON object dengan "
+        "format {\"notes\":[{\"row_number\":2,\"note\":\"...\"}]}. Data: "
+        f"{json.dumps(prompt_items, ensure_ascii=False)}"
+    )
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_KEY,
+            session_id=f"selection-import-review-{uuid.uuid4()}",
+            system_message="Anda adalah asisten pemeriksaan data seleksi beasiswa.",
+        ).with_model("gemini", "gemini-3.1-pro-preview")
+        chunks = []
+        async for event in chat.stream_message(UserMessage(text=prompt)):
+            if isinstance(event, TextDelta):
+                chunks.append(event.content)
+            elif isinstance(event, StreamDone):
+                break
+        match = re.search(r"\{.*\}", "".join(chunks), flags=re.DOTALL)
+        notes = json.loads(match.group(0)).get("notes", []) if match else []
+        return {int(note["row_number"]): str(note["note"]) for note in notes if note.get("note")}
+    except Exception as error:
+        logger.warning(f"AI import review skipped: {error}")
+        return {}
+
+
+async def build_participant_match_indexes() -> Dict[str, Dict[str, List[dict]]]:
+    registrations = await db.registrations.find({}, {"_id": 0}).to_list(5000)
+    user_ids = [registration["user_id"] for registration in registrations]
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "data": 1},
+    ).to_list(5000)
+    profile_data = {profile["user_id"]: profile.get("data", {}) for profile in profiles}
+    indexes = {"cpm_id": {}, "nik": {}, "email": {}, "name_campus_region": {}}
+    for registration in registrations:
+        data = profile_data.get(registration["user_id"], {})
+        candidate = {"registration": registration, "profile": data}
+        keys = {
+            "cpm_id": normalized_cpm(registration.get("cpm_id")),
+            "nik": re.sub(r"\D", "", str(data.get("nik", ""))),
+            "email": normalized_name(registration.get("email") or data.get("email")),
+            "name_campus_region": "|".join([
+                normalized_name(registration.get("name") or data.get("namaLengkap")),
+                normalized_name(data.get("institusi")),
+                normalized_name(data.get("kota") or data.get("provinsi")),
+            ]),
+        }
+        for index_name, key in keys.items():
+            if key:
+                indexes[index_name].setdefault(key, []).append(candidate)
+    return indexes
+
+
+def match_imported_participant(data: dict, indexes: Dict[str, Dict[str, List[dict]]]) -> tuple:
+    checks = [
+        ("cpm_id", normalized_cpm(data.get("cpm_id"))),
+        ("nik", re.sub(r"\D", "", str(data.get("nik", "")))),
+        ("email", normalized_name(data.get("email"))),
+        ("name_campus_region", "|".join([
+            normalized_name(data.get("name")),
+            normalized_name(data.get("campus")),
+            normalized_name(data.get("region")),
+        ])),
+    ]
+    for index_name, key in checks:
+        if not key or (index_name == "name_campus_region" and key.count("|") != 2):
+            continue
+        candidates = indexes[index_name].get(key, [])
+        if len(candidates) == 1:
+            return candidates[0], index_name, None
+        if len(candidates) > 1:
+            return None, index_name, "Data identitas cocok ke lebih dari satu peserta."
+    return None, None, None
+
+
+def imported_differences(imported: dict, candidate: dict) -> List[str]:
+    registration = candidate["registration"]
+    profile = candidate["profile"]
+    comparisons = [
+        ("Nama", imported.get("name"), registration.get("name") or profile.get("namaLengkap")),
+        ("Kampus", imported.get("campus"), profile.get("institusi")),
+        ("Wilayah", imported.get("region"), profile.get("kota") or profile.get("provinsi")),
+    ]
+    return [
+        label
+        for label, source, saved in comparisons
+        if source and saved and normalized_name(source) != normalized_name(saved)
+    ]
+
+
+def verification_issues(profile: dict, document_types: set, campus_names: set) -> List[str]:
+    issues = [
+        label
+        for key, label in REQUIRED_VERIFICATION_FIELDS.items()
+        if not str(profile.get(key, "")).strip()
+    ]
+    nik = re.sub(r"\D", "", str(profile.get("nik", "")))
+    if nik and len(nik) != 16:
+        issues.append("Format NIK tidak 16 digit")
+    try:
+        ipk = float(str(profile.get("ipk", "")).replace(",", "."))
+        if not 0 <= ipk <= 4:
+            issues.append("IPK di luar rentang 0 sampai 4")
+    except (TypeError, ValueError):
+        if profile.get("ipk"):
+            issues.append("Format IPK tidak valid")
+    biaya = re.sub(r"\D", "", str(profile.get("biayaPendidikanSemester", "")))
+    if profile.get("biayaPendidikanSemester") and not biaya:
+        issues.append("Format biaya pendidikan tidak valid")
+    institution = normalized_name(profile.get("institusi"))
+    if institution and institution not in campus_names:
+        issues.append("Kampus belum terdaftar pada data kampus")
+    missing_documents = [
+        document
+        for document in REQUIRED_VERIFICATION_DOCUMENTS
+        if document not in document_types
+    ]
+    if missing_documents:
+        issues.append(f"Berkas belum lengkap: {', '.join(missing_documents)}")
+    return issues
+
+
+async def ai_administration_recommendations(candidates: List[dict]) -> Dict[str, dict]:
+    if not EMERGENT_KEY or not candidates:
+        return {}
+    results = {}
+    for start in range(0, len(candidates), 20):
+        batch = candidates[start:start + 20]
+        prompt = (
+            "Anda membantu verifikasi administrasi beasiswa. Data berikut sudah lulus pemeriksaan "
+            "kelengkapan aturan sistem. Nilai kewajaran data administratif secara konservatif tanpa "
+            "mengubah data. Kembalikan HANYA JSON {\"results\":[{\"user_id\":\"...\","
+            "\"recommend\":\"recommended|review\",\"summary\":\"...\",\"issues\":[\"...\"]}]}. "
+            "Gunakan recommended jika tidak ada konflik eksplisit di data yang diberikan. Jangan menebak "
+            "bahwa data fiktif dari pola nama, domain email, nomor, atau alamat. Gunakan review hanya jika "
+            "ada kontradiksi eksplisit. Catatan: Anda tidak memeriksa keaslian visual dokumen. Data: "
+            f"{json.dumps(batch, ensure_ascii=False)}"
+        )
+        try:
+            chat = LlmChat(
+                api_key=EMERGENT_KEY,
+                session_id=f"admin-verification-{uuid.uuid4()}",
+                system_message="Anda adalah asisten verifikasi administrasi beasiswa yang teliti.",
+            ).with_model("gemini", "gemini-3.1-pro-preview")
+            chunks = []
+            async for event in chat.stream_message(UserMessage(text=prompt)):
+                if isinstance(event, TextDelta):
+                    chunks.append(event.content)
+                elif isinstance(event, StreamDone):
+                    break
+            match = re.search(r"\{.*\}", "".join(chunks), flags=re.DOTALL)
+            parsed = json.loads(match.group(0)).get("results", []) if match else []
+            for item in parsed:
+                user_id = item.get("user_id")
+                if user_id:
+                    results[user_id] = item
+        except Exception as error:
+            logger.warning(f"AI administrative verification skipped: {error}")
+    return results
+
+
+@api_router.post("/admin/verification-recommendations/generate")
+async def generate_verification_recommendations(
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    registrations = await db.registrations.find(
+        {"status": {"$in": ["submitted", "verifikasi"]}},
+        {"_id": 0},
+    ).to_list(5000)
+    user_ids = [registration["user_id"] for registration in registrations]
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "data": 1},
+    ).to_list(5000)
+    documents = await db.documents.find(
+        {"user_id": {"$in": user_ids}, "is_deleted": {"$ne": True}},
+        {"_id": 0, "user_id": 1, "doc_type": 1},
+    ).to_list(100000)
+    campuses = await db.campuses.find({}, {"_id": 0, "name": 1}).to_list(5000)
+    profiles_by_user = {profile["user_id"]: profile.get("data", {}) for profile in profiles}
+    documents_by_user = {}
+    for document in documents:
+        documents_by_user.setdefault(document["user_id"], set()).add(document["doc_type"])
+    campus_names = {normalized_name(campus.get("name")) for campus in campuses}
+
+    candidate_checks = []
+    ai_candidates = []
+    for registration in registrations:
+        profile = profiles_by_user.get(registration["user_id"], {})
+        document_types = documents_by_user.get(registration["user_id"], set())
+        issues = verification_issues(profile, document_types, campus_names)
+        candidate = {
+            "user_id": registration["user_id"],
+            "name": registration.get("name") or profile.get("namaLengkap", "-"),
+            "cpm_id": registration.get("cpm_id", "-"),
+            "profile": profile,
+            "documents": sorted(document_types),
+            "issues": issues,
+        }
+        candidate_checks.append(candidate)
+        if not issues:
+            ai_candidates.append(candidate)
+
+    ai_results = await ai_administration_recommendations(ai_candidates)
+    now = datetime.now(timezone.utc).isoformat()
+    recommendations = []
+    for candidate in candidate_checks:
+        ai_result = ai_results.get(candidate["user_id"], {})
+        issues = candidate["issues"] + ai_result.get("issues", [])
+        is_recommended = not candidate["issues"] and ai_result.get("recommend") == "recommended"
+        recommendation = {
+            "id": str(uuid.uuid4()),
+            "user_id": candidate["user_id"],
+            "name": candidate["name"],
+            "cpm_id": candidate["cpm_id"],
+            "recommendation": "recommended" if is_recommended else "review",
+            "approval_status": "pending",
+            "score": 100 if is_recommended else max(0, 100 - len(issues) * 8),
+            "issues": issues,
+            "ai_summary": ai_result.get("summary") or (
+                "Pemeriksaan aturan menemukan data yang perlu dilengkapi."
+                if candidate["issues"]
+                else "AI belum dapat memberikan rekomendasi otomatis."
+            ),
+            "document_count": len(candidate["documents"]),
+            "analyzed_at": now,
+            "analyzed_by": user["user_id"],
+        }
+        existing = await db.verification_recommendations.find_one(
+            {"user_id": candidate["user_id"]},
+            {"_id": 0, "id": 1},
+        )
+        if existing:
+            recommendation["id"] = existing["id"]
+        await db.verification_recommendations.update_one(
+            {"user_id": candidate["user_id"]},
+            {"$set": recommendation},
+            upsert=True,
+        )
+        recommendations.append(recommendation)
+
+    return {
+        "total": len(recommendations),
+        "recommended": sum(item["recommendation"] == "recommended" for item in recommendations),
+        "review": sum(item["recommendation"] == "review" for item in recommendations),
+    }
+
+
+@api_router.get("/admin/verification-recommendations")
+async def list_verification_recommendations(
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    return await db.verification_recommendations.find(
+        {"approval_status": "pending"},
+        {"_id": 0},
+    ).sort("analyzed_at", -1).to_list(5000)
+
+
+@api_router.post("/admin/verification-recommendations/approve")
+async def approve_verification_recommendations(
+    payload: VerificationApprovalInput,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    if not payload.approve_all and not payload.recommendation_ids:
+        raise HTTPException(status_code=400, detail="Pilih minimal satu rekomendasi untuk disetujui.")
+    query = {"recommendation": "recommended", "approval_status": "pending"}
+    if not payload.approve_all:
+        query["id"] = {"$in": payload.recommendation_ids}
+    recommendations = await db.verification_recommendations.find(query, {"_id": 0}).to_list(5000)
+    now = datetime.now(timezone.utc).isoformat()
+    approved = 0
+    for recommendation in recommendations:
+        result = await db.registrations.update_one(
+            {
+                "user_id": recommendation["user_id"],
+                "status": {"$in": ["submitted", "verifikasi"]},
+            },
+            {
+                "$set": {"status": "lolos_administrasi", "updated_at": now},
+                "$push": {
+                    "history": {
+                        "status": "lolos_administrasi",
+                        "note": "Lolos Administrasi disetujui Admin dari rekomendasi AI.",
+                        "at": now,
+                    },
+                },
+            },
+        )
+        if not result.modified_count:
+            continue
+        await db.verification_recommendations.update_one(
+            {"id": recommendation["id"]},
+            {"$set": {"approval_status": "approved", "approved_at": now, "approved_by": user["user_id"]}},
+        )
+        await create_notification(
+            recommendation["user_id"],
+            "selection_progress",
+            "Perkembangan seleksi diperbarui",
+            "Anda dinyatakan Lolos Administrasi setelah verifikasi oleh Admin.",
+        )
+        approved += 1
+    return {"message": "Rekomendasi berhasil disetujui.", "approved": approved}
+
+
+@api_router.post("/admin/selection-imports")
+async def import_selection_results(
+    stage: str = Form(...),
+    file: UploadFile = File(...),
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    if stage not in IMPORT_STAGE_CONFIG:
+        raise HTTPException(status_code=400, detail="Jenis hasil import tidak valid.")
+    if not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="File hasil seleksi harus berformat XLSX.")
+    file_data = await file.read()
+    if len(file_data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran file XLSX maksimal 10MB.")
+    try:
+        workbook = load_workbook(io.BytesIO(file_data), read_only=True, data_only=True)
+        worksheet = workbook.active
+        rows = list(worksheet.iter_rows(values_only=True))
+        workbook.close()
+    except Exception as error:
+        raise HTTPException(status_code=400, detail="File XLSX tidak dapat dibaca.") from error
+    if len(rows) < 2:
+        raise HTTPException(status_code=400, detail="File XLSX belum memiliki data peserta.")
+
+    header_index = find_import_header_row(rows)
+    headers = [str(value or "").strip() for value in rows[header_index]]
+    if not any(headers):
+        raise HTTPException(status_code=400, detail="Header kolom XLSX tidak ditemukan.")
+    raw_rows = rows[header_index + 1:header_index + 1001]
+    sample_rows = [
+        {headers[index]: str(value or "").strip() for index, value in enumerate(row) if index < len(headers)}
+        for row in raw_rows[:5]
+    ]
+    mapping = deterministic_import_mapping(headers)
+    ai_mapping = await ai_import_mapping(headers, sample_rows)
+    for field, header in ai_mapping.items():
+        if not mapping.get(field):
+            mapping[field] = header
+
+    import_id = str(uuid.uuid4())
+    path = f"{APP_NAME}/selection-imports/{import_id}.xlsx"
+    try:
+        storage_result = put_object(path, file_data, MIME_TYPES["xlsx"])
+    except Exception as error:
+        logger.error(f"Selection import storage failed: {error}")
+        raise HTTPException(status_code=502, detail="File import belum dapat disimpan untuk audit.")
+
+    header_positions = {header: index for index, header in enumerate(headers)}
+    indexes = await build_participant_match_indexes()
+    target_status = IMPORT_STAGE_CONFIG[stage]["target_status"]
+    summary = {"matched": 0, "updated": 0, "unchanged": 0, "review": 0, "new": 0, "invalid": 0}
+    review_items = []
+    now = datetime.now(timezone.utc).isoformat()
+
+    for offset, row in enumerate(raw_rows, start=header_index + 2):
+        raw_data = {
+            header: str(row[index] or "").strip()
+            for header, index in header_positions.items()
+            if index < len(row) and row[index] not in (None, "")
+        }
+        if not raw_data:
+            continue
+        imported = {
+            field: raw_data.get(header, "")
+            for field, header in mapping.items()
+            if header
+        }
+        candidate, matched_by, matching_error = match_imported_participant(imported, indexes)
+        review_base = {
+            "id": str(uuid.uuid4()),
+            "import_id": import_id,
+            "stage": stage,
+            "status": "pending",
+            "row_number": offset,
+            "imported_data": imported,
+            "raw_data": raw_data,
+            "created_at": now,
+        }
+        if matching_error:
+            review_items.append({
+                **review_base,
+                "kind": "mismatch",
+                "reason": matching_error,
+                "differences": [],
+            })
+            summary["review"] += 1
+            continue
+        if not candidate:
+            identity_values = [imported.get(key) for key in ("cpm_id", "nik", "email", "name")]
+            kind = "new_participant" if any(identity_values) else "invalid"
+            reason = (
+                "Peserta belum ditemukan di data pendaftaran."
+                if kind == "new_participant"
+                else "Tidak ada data identitas yang dapat dipakai untuk mencocokkan peserta."
+            )
+            review_items.append({
+                **review_base,
+                "kind": kind,
+                "reason": reason,
+                "differences": [],
+            })
+            summary["new" if kind == "new_participant" else "invalid"] += 1
+            continue
+
+        differences = imported_differences(imported, candidate)
+        if differences:
+            review_items.append({
+                **review_base,
+                "kind": "mismatch",
+                "reason": "Data import tidak sesuai dengan data pendaftaran.",
+                "differences": differences,
+                "matched_user_id": candidate["registration"]["user_id"],
+                "matched_by": matched_by,
+            })
+            summary["review"] += 1
+            continue
+
+        registration = candidate["registration"]
+        summary["matched"] += 1
+        if STATUS_RANK.get(registration.get("status"), 0) >= STATUS_RANK[target_status]:
+            summary["unchanged"] += 1
+            continue
+        entry = {
+            "status": target_status,
+            "note": f"{IMPORT_STAGE_CONFIG[stage]['label']} diimpor oleh Admin.",
+            "at": now,
+        }
+        await db.registrations.update_one(
+            {"user_id": registration["user_id"]},
+            {
+                "$set": {"status": target_status, "updated_at": now},
+                "$push": {"history": entry},
+            },
+        )
+        await create_notification(
+            registration["user_id"],
+            "selection_progress",
+            "Perkembangan seleksi diperbarui",
+            f"{IMPORT_STAGE_CONFIG[stage]['label']} telah diperbarui dari hasil import Admin.",
+        )
+        summary["updated"] += 1
+
+    ai_notes = await ai_review_notes(review_items)
+    for item in review_items:
+        item["ai_note"] = ai_notes.get(item["row_number"], "")
+    if review_items:
+        await db.selection_import_review.insert_many([dict(item) for item in review_items])
+
+    import_record = {
+        "id": import_id,
+        "stage": stage,
+        "stage_label": IMPORT_STAGE_CONFIG[stage]["label"],
+        "original_filename": file.filename,
+        "storage_path": storage_result["path"],
+        "content_type": MIME_TYPES["xlsx"],
+        "size": storage_result["size"],
+        "mapping": mapping,
+        "summary": summary,
+        "review_count": len(review_items),
+        "imported_by": user["user_id"],
+        "created_at": now,
+    }
+    await db.selection_imports.insert_one(dict(import_record))
+    return {
+        "import_id": import_id,
+        "stage": stage,
+        "mapping": mapping,
+        "summary": summary,
+        "review_count": len(review_items),
+    }
+
+
+@api_router.get("/admin/selection-imports")
+async def list_selection_imports(
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    return await db.selection_imports.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+
+
+@api_router.get("/admin/selection-import-review")
+async def list_selection_import_review(
+    kind: Optional[str] = None,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    query = {"status": "pending"}
+    if kind == "new":
+        query["kind"] = "new_participant"
+    elif kind == "review":
+        query["kind"] = {"$in": ["mismatch", "invalid"]}
+    return await db.selection_import_review.find(query, {"_id": 0}).sort("created_at", -1).to_list(300)
+
+
+@api_router.delete("/admin/selection-import-review/{item_id}")
+async def dismiss_selection_import_review(
+    item_id: str,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    result = await db.selection_import_review.update_one(
+        {"id": item_id, "status": "pending"},
+        {"$set": {"status": "dismissed", "dismissed_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Data tinjauan tidak ditemukan.")
+    return {"message": "Data dihapus dari daftar tinjauan."}
+
+
+@api_router.get("/admin/selection-imports/{import_id}/file")
+async def download_selection_import_file(
+    import_id: str,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    record = await db.selection_imports.find_one({"id": import_id}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="Riwayat import tidak ditemukan.")
+    data, content_type = get_object(record["storage_path"])
+    headers = {"Content-Disposition": f'attachment; filename="{record["original_filename"]}"'}
+    return StarletteResponse(content=data, media_type=content_type, headers=headers)
+
+
 @api_router.get("/admin/stats")
 async def admin_stats(
     region: Optional[str] = None,
@@ -1847,6 +2522,10 @@ async def startup():
     await db.documents.create_index("user_id")
     await db.campuses.create_index("id", unique=True)
     await db.campuses.create_index("code", unique=True, sparse=True)
+    await db.selection_imports.create_index("id", unique=True)
+    await db.selection_import_review.create_index([("status", 1), ("created_at", -1)])
+    await db.verification_recommendations.create_index("user_id", unique=True)
+    await db.verification_recommendations.create_index([("approval_status", 1), ("analyzed_at", -1)])
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:

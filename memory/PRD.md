@@ -207,3 +207,23 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   akses mahasiswa ditolak dengan benar.
 - Google Spreadsheet langsung ditunda sesuai arahan pengguna hingga `GOOGLE_CLIENT_ID` dan
   `GOOGLE_CLIENT_SECRET` OAuth diberikan untuk akun `pendaftaranmdj@baznasbazisdki.id`.
+
+## 2026-09 — Import hasil wawancara dan kelulusan
+- Menu **Import Seleksi** menerima XLSX fleksibel untuk hasil Lolos Wawancara dan Kelulusan Akhir,
+  menyimpan berkas audit privat, serta memperbarui status peserta yang cocok secara aman.
+- Pencocokan memakai urutan ID CPM → NIK → email → nama, kampus, dan wilayah. Data baru, data tanpa
+  identitas, atau data tidak sesuai tidak mengubah status dan dipisahkan dalam daftar tinjauan.
+- Gemini 3.1 Pro membantu memetakan header sumber dan memberi catatan bagi data janggal; Admin dapat
+  menghapus item dari daftar tinjauan serta mengunduh berkas import dari riwayat.
+- Diuji testing agent: 8/8 backend dan alur UI lulus, termasuk status wawancara/kelulusan, notifikasi,
+  unduhan audit, karantina data, RBAC, serta pembersihan data uji.
+
+## 2026-09 — Verifikasi Administrasi berbantuan AI
+- Menu **Verifikasi AI** tersedia bagi Admin dan Super Admin untuk memeriksa peserta berstatus Terkirim
+  atau Verifikasi Administrasi.
+- Pemeriksaan mencakup seluruh 10 berkas, seluruh data profil wajib, kampus pada master kampus, NIK 16
+  digit, NIM, IPK, serta biaya pendidikan per semester. Gemini 3.1 Pro memberi rekomendasi konservatif.
+- Admin dapat menyetujui rekomendasi satu per satu atau seluruhnya melalui dialog konfirmasi; hanya saat
+  disetujui status berubah menjadi Lolos Administrasi dan mahasiswa menerima notifikasi.
+- Diuji testing agent: 6/6 backend lulus, akses student ditolak, rekomendasi lengkap/kurang tepat,
+  persetujuan terpilih/massal berhasil, mobile tidak overflow, dan seluruh data uji sementara dibersihkan.
