@@ -227,3 +227,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   disetujui status berubah menjadi Lolos Administrasi dan mahasiswa menerima notifikasi.
 - Diuji testing agent: 6/6 backend lulus, akses student ditolak, rekomendasi lengkap/kurang tepat,
   persetujuan terpilih/massal berhasil, mobile tidak overflow, dan seluruh data uji sementara dibersihkan.
+
+## 2026-09 — Contoh rekomendasi AI
+- Lima mahasiswa contoh berlabel **Contoh Rekomendasi AI 01–05** ditambahkan sebagai data uji permanen
+  untuk memperlihatkan hasil rekomendasi Verifikasi AI.
+- Masing-masing memiliki profil pendidikan lengkap, 10 berkas metadata, kampus terdaftar, dan status
+  Terkirim; Gemini 3.1 Pro merekomendasikan kelimanya untuk Lolos Administrasi.
+- Status kelima contoh tetap Terkirim hingga Admin menyetujui secara eksplisit melalui halaman Verifikasi AI.
