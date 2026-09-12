@@ -1,0 +1,21 @@
+{
+  "summary": "Verified bug fix: 'Belum diisi' removed from summary-region-filter dropdown. Backend /api/admin/stats and frontend AdminRegistrationSummary both validated. 9/9 backend pytest passes; frontend Playwright confirms exact 7-option dropdown (Keseluruhan Wilayah + 6 Jakarta regions), region-scoped stats render correctly, chart renders per region, and no mobile overflow at 390px viewport. Sum of per-region participants = 50, matching seed. Seed data mdj-student-sample-2026 preserved.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_admin_summary_regions.py",
+    "/app/test_reports/pytest/admin_summary_regions.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Defensive frontend filter (item !== 'Belum diisi') is redundant now that backend excludes it in available_regions; consider removing frontend filter later to keep single source of truth, but harmless."
+  ],
+  "updated_files": ["/app/backend/tests/test_admin_summary_regions.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin.mdj@baznasbazisdki.id / AdminMDJ2026!",
+  "seed_data_creation": "None (existing seed of 50 students preserved; region distribution 8/9/8/8/9/8 sums to 50)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "test_admin_summary_regions.py can serve as regression for available_regions filter and by-region stats. Login demo autofill button 'Admin / PIC' auto-submits and redirects to /admin (Ringkasan) directly.",
+  "rca of the issue": "Fixed: backend admin_stats builds available_regions excluding 'Belum diisi' (server.py ~1440); frontend also filters defensively (AdminRegistrationSummary.jsx line 86)."
+}

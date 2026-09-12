@@ -15,6 +15,8 @@ const STATUS_OPTS = ["submitted", "verifikasi", "lolos_administrasi", "wawancara
 export default function ParticipantsPanel() {
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("all");
+  const [region, setRegion] = useState("all");
+  const [regions, setRegions] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
@@ -22,17 +24,49 @@ export default function ParticipantsPanel() {
   const load = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get("/admin/participants", { params: { status, search: search || undefined } });
+      const { data } = await api.get("/admin/participants", {
+        params: {
+          status,
+          region: region === "all" ? undefined : region,
+          search: search || undefined,
+        },
+      });
       setItems(data);
     } catch { toast.error("Gagal memuat data peserta."); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [status]);
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, region]);
+  useEffect(() => {
+    api.get("/admin/stats")
+      .then((response) => setRegions(response.data.available_regions || []))
+      .catch(() => setRegions([]));
+  }, []);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+          <p className="text-sm font-bold text-[#1F2937]" data-testid="participant-total">
+            Jumlah Mahasiswa: {items.length} peserta
+          </p>
+          <label className="flex items-center gap-2 text-sm font-semibold text-[#6B7280]">
+            Wilayah
+            <select
+              value={region}
+              onChange={(event) => setRegion(event.target.value)}
+              data-testid="participant-region-filter"
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#1F2937] outline-none focus:border-[#27AE60]"
+            >
+              <option value="all">Keseluruhan Wilayah</option>
+              {regions.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} data-testid="participant-search"
@@ -44,29 +78,49 @@ export default function ParticipantsPanel() {
               className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${status === v ? "bg-[#27AE60] text-white" : "bg-white border border-gray-200 text-[#6B7280] hover:bg-gray-50"}`}>{l}</button>
           ))}
         </div>
+        </div>
       </div>
 
       <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto mdj-scrollbar">
           <table className="w-full text-sm" data-testid="participants-table">
             <thead><tr className="text-left text-xs text-[#6B7280] border-b border-gray-100 bg-[#F9FAFB]">
+              <th className="px-4 py-3 font-semibold">No.</th>
               <th className="px-4 py-3 font-semibold">Nama</th>
               <th className="px-4 py-3 font-semibold">Kampus</th>
-              <th className="px-4 py-3 font-semibold">Kategori</th>
+              <th className="px-4 py-3 font-semibold">Wilayah</th>
               <th className="px-4 py-3 font-semibold">Dok.</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 font-semibold text-right">Aksi</th>
             </tr></thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">Belum ada pendaftar.</td></tr>
-              ) : items.map((p) => (
+                <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">Belum ada pendaftar.</td></tr>
+              ) : items.map((p, index) => (
                 <tr key={p.user_id} className="border-b border-gray-50 hover:bg-[#F9FAFB] transition-colors">
-                  <td className="px-4 py-3"><p className="font-semibold text-[#1F2937]">{p.name}</p><p className="text-xs text-[#6B7280]">{p.email}</p></td>
+                  <td className="px-4 py-3 text-sm font-semibold text-[#6B7280]" data-testid={`participant-sequence-${p.user_id}`}>
+                    {index + 1}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-[#1F2937]">{p.name}</p>
+                      {p.is_test_data && (
+                        <span
+                          className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#92400E]"
+                          data-testid={`test-data-badge-${p.user_id}`}
+                        >
+                          Data Uji MDJ
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[#6B7280]">{p.email}</p>
+                  </td>
                   <td className="px-4 py-3 text-[#6B7280]">{p.institusi} <span className="block text-xs">{p.jenjang}</span></td>
-                  <td className="px-4 py-3 text-[#6B7280]">{p.category}</td>
+                  <td className="px-4 py-3 text-[#6B7280]" data-testid={`participant-region-${p.user_id}`}>
+                    {p.wilayah}
+                  </td>
                   <td className="px-4 py-3 text-[#6B7280]">{p.doc_count}</td>
                   <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                   <td className="px-4 py-3 text-right">

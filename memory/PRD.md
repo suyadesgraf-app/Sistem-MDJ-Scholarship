@@ -172,3 +172,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   pengumuman aktif, enam tahap proses hingga pengumuman penerima, dan grafik proses seleksi.
 - Ringkasan memiliki filter Keseluruhan Wilayah atau wilayah tertentu. Diuji menyeluruh: 4/4 backend,
   kedua menu, filter, kondisi kosong, dan tampilan mobile lulus tanpa overflow.
+
+## 2026-09 — Data kampus dan data peserta Admin
+- Admin/Super Admin dapat mengimpor XLSX, menambah, mengubah, dan menghapus kampus; 377 kampus dari
+  lampiran telah diimpor. Mahasiswa dapat memilih Kampus Lainnya yang kemudian mendapat kode otomatis.
+- Tabel Data Peserta kini memiliki nomor urut, total mahasiswa, kolom Wilayah, serta filter keseluruhan
+  atau enam wilayah DKI; opsi Belum diisi dihapus dari filter.
+- Sebanyak 50 mahasiswa data uji telah dibuat dari kampus terdaftar dan tersebar di enam wilayah DKI,
+  dengan 12 penerima manfaat lulusan untuk mengisi grafik Dashboard. Semua ditandai Data Uji MDJ.
+- Diuji menyeluruh: 10/10 backend dan 8/8 alur Data Peserta lulus, termasuk filter wilayah serta mobile.

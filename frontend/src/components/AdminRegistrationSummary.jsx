@@ -82,7 +82,9 @@ export default function AdminRegistrationSummary() {
           <span className="sr-only">Filter wilayah</span>
           <select value={region} onChange={(event) => setRegion(event.target.value)} data-testid="summary-region-filter" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#27AE60]">
             <option value="all">Keseluruhan Wilayah</option>
-            {(stats.available_regions || []).map((item) => <option key={item} value={item}>{item}</option>)}
+            {(stats.available_regions || [])
+              .filter((item) => item !== "Belum diisi")
+              .map((item) => <option key={item} value={item}>{item}</option>)}
           </select>
         </label>
       </section>

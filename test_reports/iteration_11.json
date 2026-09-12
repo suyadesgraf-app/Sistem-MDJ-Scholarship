@@ -1,0 +1,49 @@
+{
+  "summary": "Validated 50-student demo seed for MDJ dashboard. Backend: 9/9 pytest tests pass — seed endpoint is super_admin-only (403 for admin & student), idempotent (created=0, skipped=50, total=50, by_status matches target 12/8/8/7/6/5/4, all 6 DKI regions present in response, all 50 profiles have registered campus institusi). Fetched profile per user via /api/admin/participants/{user_id}: all 6 regions covered and all 12 'lolos' spread across all 6 regions. /api/admin/stats returns passed_by_region covering all 6 regions with total lolos=12, total_registrations>=53. Frontend (Admin): Dashboard tile shows Total Penerima Manfaat=12 and Wilayah=6; recipient-region-list renders all 6 regions (J.Selatan=4, J.Barat=2, J.Utara=2, Kep.Seribu=2, J.Pusat=1, J.Timur=1 = 12). Menu Data Peserta lists 53 rows (>=53 confirmed). ISSUE: seeded rows do NOT display a 'Mahasiswa Uji MDJ' badge/marker although backend records carry is_test_data=true & seed_batch='mdj-student-sample-2026' — grep on /app/frontend/src returned no match. Requirement #7 not satisfied on UI.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AdminParticipants (Data Peserta list)", "issue": "No visible 'Mahasiswa Uji MDJ' marker/badge next to names of seeded test records. Backend flags is_test_data=true and seed_batch='mdj-student-sample-2026' are available but unused by frontend.", "selector": "table row within menu-peserta view", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_demo_students_seed.py",
+    "/app/test_reports/pytest/demo_students_seed.xml"
+  ],
+  "action_items": [
+    "Add visible 'Mahasiswa Uji MDJ' badge in AdminParticipants (and possibly participant detail) when registration.is_test_data===true OR registration.seed_batch==='mdj-student-sample-2026'. Ensure the participants list API returns is_test_data / seed_batch fields to the frontend (they are stored on registrations and can be projected in the list endpoint)."
+  ],
+  "critical_code_review_comments": [
+    "seed_demo_students inserts rows without a transaction; a partial failure mid-loop could leave DB inconsistent (users/profiles created without registration or vice versa). Consider try/except with cleanup or bulk_write.",
+    "seed status distribution is generated deterministically with random.Random(20260912) but statuses[region_index] swap loop can pick the same passed_index repeatedly if regions[0..5] already contain a 'lolos'; verify swap correctness with unit test.",
+    "Participants list endpoint does not project is_test_data / seed_batch to frontend row data, so no way for UI to mark test rows.",
+    "server.py still >1830 lines; recommend modularization (admin routes, auth, seed) into separate routers."
+  ],
+  "updated_files": ["/app/backend/tests/test_demo_students_seed.py"],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "~90% — badge/marker missing"},
+  "test_credentials": "Super Admin: supri@baznasbazisdki.id / MdjSuper2026!. Admin: admin.mdj@baznasbazisdki.id / AdminMDJ2026!. Student: mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!.",
+  "seed_data_creation": "50 demo students already present with seed_batch='mdj-student-sample-2026'. Re-running seed is idempotent (created=0, skipped=50).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=<preview> pytest /app/backend/tests/test_demo_students_seed.py -v -o addopts=''. Region info NOT in /api/admin/participants list — must fetch /api/admin/participants/{user_id} for profile.kota. Dashboard testids used: dashboard-recipient-total, dashboard-recipient-regions, recipient-region-list. Data Peserta testids: menu-peserta. Login inputs use data-testid=login-email-input / login-password-input (type=text for email). Frontend hero page requires clicking 'Masuk' first OR navigate to /login directly.",
+  "verified_results": {
+    "backend": {
+      "POST /api/admin/demo-students/seed (super_admin, rerun)": "200 created=0 skipped=50 total=50 by_status={lolos:12,submitted:8,verifikasi:8,lolos_administrasi:7,wawancara:6,verifikasi_faktual:5,ditolak:4}",
+      "POST /api/admin/demo-students/seed (admin)": "403",
+      "POST /api/admin/demo-students/seed (student)": "403",
+      "GET /api/admin/participants + per-user profiles": "50 seeded; regions cover all 6; lolos across all 6 regions",
+      "GET /api/admin/stats (admin)": "passed_by_region covers 6 regions, total lolos=12, total_registrations>=53"
+    },
+    "frontend_admin_dashboard": {
+      "dashboard-recipient-total": "12",
+      "dashboard-recipient-regions": "6",
+      "recipient-region-list": "J.Selatan=4, J.Barat=2, J.Utara=2, Kep.Seribu=2, J.Pusat=1, J.Timur=1"
+    },
+    "frontend_data_peserta": {
+      "row_count_visible": 53,
+      "mahasiswa_uji_mdj_badge_occurrences": 0
+    }
+  }
+}

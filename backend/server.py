@@ -27,6 +27,7 @@ from openpyxl import load_workbook
 import secrets
 import asyncio
 import ipaddress
+import random
 import httpx
 from html import escape
 from html.parser import HTMLParser
@@ -1436,7 +1437,11 @@ async def admin_stats(
         data = profile_data.get(registration["user_id"], {})
         return str(data.get("kota") or data.get("provinsi") or "Belum diisi").strip()
 
-    available_regions = sorted({region_name(registration) for registration in all_regs})
+    available_regions = sorted({
+        region_name(registration)
+        for registration in all_regs
+        if region_name(registration) != "Belum diisi"
+    })
     regs = all_regs
     if region and region != "all":
         regs = [registration for registration in all_regs if region_name(registration) == region]
@@ -1478,8 +1483,12 @@ async def admin_stats(
 
 
 @api_router.get("/admin/participants")
-async def list_participants(status: Optional[str] = None, search: Optional[str] = None,
-                            user: dict = Depends(require_roles("admin", "super_admin"))):
+async def list_participants(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    region: Optional[str] = None,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
     query = {}
     if status and status != "all":
         query["status"] = status
@@ -1493,15 +1502,155 @@ async def list_participants(status: Optional[str] = None, search: Optional[str] 
             **r,
             "institusi": pdata.get("institusi", "-"),
             "jenjang": pdata.get("jenjang", "-"),
+            "wilayah": pdata.get("kota") or pdata.get("provinsi") or "-",
             "phone": pdata.get("noTelp", "-"),
             "doc_count": doc_count,
         }
+        if region and item["wilayah"] != region:
+            continue
         if search:
             s = search.lower()
             if s not in (r.get("name", "").lower() + r.get("email", "").lower() + pdata.get("institusi", "").lower()):
                 continue
         result.append(item)
     return result
+
+
+@api_router.post("/admin/demo-students/seed")
+async def seed_demo_students(
+    user: dict = Depends(require_roles("super_admin")),
+):
+    seed_batch = "mdj-student-sample-2026"
+    campuses = await db.campuses.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(5000)
+    if not campuses:
+        raise HTTPException(status_code=400, detail="Impor data kampus sebelum membuat data uji.")
+
+    statuses = (
+        ["lolos"] * 12
+        + ["submitted"] * 8
+        + ["verifikasi"] * 8
+        + ["lolos_administrasi"] * 7
+        + ["wawancara"] * 6
+        + ["verifikasi_faktual"] * 5
+        + ["ditolak"] * 4
+    )
+    regions = [
+        "Jakarta Pusat",
+        "Jakarta Utara",
+        "Jakarta Barat",
+        "Jakarta Selatan",
+        "Jakarta Timur",
+        "Kepulauan Seribu",
+    ]
+    majors = [
+        "Ilmu Komputer",
+        "Akuntansi",
+        "Manajemen",
+        "Ilmu Komunikasi",
+        "Kesehatan Masyarakat",
+        "Teknik Informatika",
+    ]
+    first_names = [
+        "Alya", "Bagas", "Citra", "Dimas", "Erika", "Fajar", "Gita", "Hafiz", "Indah", "Jihan",
+    ]
+    last_names = ["Pratama", "Lestari", "Saputra", "Permata", "Nugroho"]
+    generator = random.Random(20260912)
+    generator.shuffle(statuses)
+    generator.shuffle(campuses)
+    for region_index in range(len(regions)):
+        if statuses[region_index] == "lolos":
+            continue
+        passed_index = statuses.index("lolos", len(regions))
+        statuses[region_index], statuses[passed_index] = statuses[passed_index], statuses[region_index]
+
+    created = 0
+    skipped = 0
+    by_status = {}
+    for index in range(50):
+        user_id = f"student_uji_mdj_{index + 1:03d}"
+        existing = await db.registrations.find_one({"user_id": user_id}, {"_id": 0, "id": 1})
+        if existing:
+            await db.registrations.update_one(
+                {"user_id": user_id},
+                {
+                    "$set": {
+                        "status": statuses[index],
+                        "updated_at": datetime.now(timezone.utc).isoformat(),
+                    },
+                },
+            )
+            by_status[statuses[index]] = by_status.get(statuses[index], 0) + 1
+            skipped += 1
+            continue
+
+        status = statuses[index]
+        region = regions[index % len(regions)]
+        campus = campuses[index % len(campuses)]
+        name = f"{first_names[index % len(first_names)]} {last_names[index % len(last_names)]}"
+        email = f"uji.mdj.{index + 1:03d}@contoh.invalid"
+        created_at = datetime(2026, 8, 1, tzinfo=timezone.utc) + timedelta(days=index)
+        timestamp = created_at.isoformat()
+        user_record = await db.users.find_one({"user_id": user_id}, {"_id": 0, "user_id": 1})
+        if not user_record:
+            await db.users.insert_one({
+                "user_id": user_id,
+                "email": email,
+                "password_hash": hash_password(secrets.token_urlsafe(32)),
+                "name": name,
+                "role": "student",
+                "auth_provider": "demo_seed",
+                "is_active": True,
+                "is_test_data": True,
+                "seed_batch": seed_batch,
+                "created_at": timestamp,
+            })
+
+        profile = {
+            "namaLengkap": name,
+            "email": email,
+            "noTelp": f"+62812{index + 1000000:07d}",
+            "institusi": campus["name"],
+            "jurusan": majors[index % len(majors)],
+            "jenjang": "S1",
+            "semester": str((index % 8) + 1),
+            "ipk": f"{3.10 + ((index * 7) % 80) / 100:.2f}",
+            "biayaPendidikanSemester": str(2500000 + (index % 7) * 500000),
+            "kota": region,
+            "provinsi": "DKI Jakarta",
+        }
+        await db.profiles.update_one(
+            {"user_id": user_id},
+            {"$set": {"data": profile, "updated_at": timestamp, "is_test_data": True}},
+            upsert=True,
+        )
+        cpm_id = await create_cpm_id(timestamp)
+        registration = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "name": name,
+            "email": email,
+            "category": "Mahasiswa Sarjana (S1)",
+            "status": status,
+            "cpm_id": cpm_id,
+            "history": [{"status": status, "note": "Data uji dibuat", "at": timestamp}],
+            "created_at": timestamp,
+            "submitted_at": timestamp,
+            "updated_at": timestamp,
+            "is_test_data": True,
+            "seed_batch": seed_batch,
+        }
+        await db.registrations.insert_one(registration)
+        created += 1
+        by_status[status] = by_status.get(status, 0) + 1
+
+    return {
+        "message": "Data uji mahasiswa berhasil disiapkan.",
+        "created": created,
+        "skipped": skipped,
+        "total": created + skipped,
+        "by_status": by_status,
+        "regions": regions,
+    }
 
 
 @api_router.get("/admin/participants/{user_id}")

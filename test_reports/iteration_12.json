@@ -1,0 +1,36 @@
+{
+  "summary": "Retest of 'Data Uji MDJ' badge fix on Admin Data Peserta. All 5 acceptance criteria verified. Backend pytest 9/9 pass (seed idempotent created=0 skipped=50, 6 regions, status distribution 12/8/8/7/6/5/4, dashboard passed_by_region covers 6 regions with total lolos=12, total_registrations>=53). Frontend: exactly 50 badges data-testid=test-data-badge-student_uji_mdj_* rendered with text 'Data Uji MDJ' in menu Data Peserta; no badge on demo/non-test rows (verified mahasiswa_mdj demo has none). Total table rows = 53. filter-lolos shows 12 rows all badged (all lolos are seeded test data). Detail modal opens for a seeded participant. Mobile viewport 390x844: no horizontal page overflow (body.scrollWidth == documentElement.clientWidth == 390). Seed data preserved intact.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_demo_students_seed.py",
+    "/app/test_reports/pytest/demo_students_seed.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py still ~1839 lines; recommend modularizing admin routes, auth, seed into routers.",
+    "list_participants endpoint spreads full registration doc (**r) which exposes internal fields (seed_batch, is_test_data) to clients — acceptable here since UI needs them, but consider explicit projection for future-proof API contract.",
+    "seed_demo_students still lacks transactional rollback across users/profiles/registrations inserts (unchanged from prior review)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100% — all 5 acceptance criteria met"},
+  "test_credentials": "Super Admin: supri@baznasbazisdki.id / MdjSuper2026!. Admin: admin.mdj@baznasbazisdki.id / AdminMDJ2026!. Student demo: mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!.",
+  "seed_data_creation": "50 demo students preserved (seed_batch='mdj-student-sample-2026'); seed remains idempotent.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fix verified. Badge selector: [data-testid^=\"test-data-badge-student_uji_mdj_\"] (50 matches). ParticipantsPanel.jsx renders <span>Data Uji MDJ</span> when p.is_test_data === true. Backend /api/admin/participants returns is_test_data & seed_batch via **r spread. filter-lolos yields 12 rows all seeded. Mobile 390px: badge uses flex-wrap so no overflow.",
+  "verified_results": {
+    "backend_pytest": "9/9 pass in 5.5s",
+    "frontend_admin_data_peserta": {
+      "test-data-badge-student_uji_mdj_* count": 50,
+      "all test-data-badge-* count": 50,
+      "first badge text": "Data Uji MDJ",
+      "total rows": 53,
+      "demo student badge present": false,
+      "filter-lolos rows": 12,
+      "filter-lolos badges": 12,
+      "detail modal opens": true
+    },
+    "mobile_390x844": {"bodyScrollWidth": 390, "docClientWidth": 390, "overflowX": false}
+  }
+}
