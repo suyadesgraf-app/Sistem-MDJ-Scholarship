@@ -198,3 +198,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 ## 2026-09 — Penyamaan alur tombol pendaftaran
 - Arah tombol hero diperbarui sesuai klarifikasi pengguna: tombol hero dan navigasi sama-sama mengarah
   ke halaman Login, bukan ke formulir pendaftaran langsung.
+
+## 2026-09 — Ekspor data peserta Excel
+- Admin dapat mengekspor Data Peserta ke XLSX yang mengikuti pencarian, status, dan filter wilayah aktif.
+- XLSX memuat seluruh data tabel, ID CPM, kontak, serta data pendidikan lengkap: NIM, jurusan, semester,
+  IPK, dan biaya pendidikan per semester.
+- Diuji testing agent: 5/5 backend dan alur unduhan browser lulus; XLSX valid, filter diterapkan, dan
+  akses mahasiswa ditolak dengan benar.
+- Google Spreadsheet langsung ditunda sesuai arahan pengguna hingga `GOOGLE_CLIENT_ID` dan
+  `GOOGLE_CLIENT_SECRET` OAuth diberikan untuk akun `pendaftaranmdj@baznasbazisdki.id`.

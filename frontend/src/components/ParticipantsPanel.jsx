@@ -19,6 +19,7 @@ export default function ParticipantsPanel() {
   const [regions, setRegions] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [detail, setDetail] = useState(null);
 
   const load = async () => {
@@ -46,6 +47,33 @@ export default function ParticipantsPanel() {
       .catch(() => setRegions([]));
   }, []);
 
+  const exportExcel = async () => {
+    setExporting(true);
+    try {
+      const response = await api.get("/admin/participants/export.xlsx", {
+        params: {
+          status,
+          region: region === "all" ? undefined : region,
+          search: search || undefined,
+        },
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "data-peserta-mdj.xlsx";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("Data peserta berhasil diekspor ke Excel.");
+    } catch {
+      toast.error("Gagal mengekspor data peserta.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-3">
@@ -53,18 +81,30 @@ export default function ParticipantsPanel() {
           <p className="text-sm font-bold text-[#1F2937]" data-testid="participant-total">
             Jumlah Mahasiswa: {items.length} peserta
           </p>
-          <label className="flex items-center gap-2 text-sm font-semibold text-[#6B7280]">
-            Wilayah
-            <select
-              value={region}
-              onChange={(event) => setRegion(event.target.value)}
-              data-testid="participant-region-filter"
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#1F2937] outline-none focus:border-[#27AE60]"
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm font-semibold text-[#6B7280]">
+              Wilayah
+              <select
+                value={region}
+                onChange={(event) => setRegion(event.target.value)}
+                data-testid="participant-region-filter"
+                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#1F2937] outline-none focus:border-[#27AE60]"
+              >
+                <option value="all">Keseluruhan Wilayah</option>
+                {regions.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={exportExcel}
+              disabled={exporting}
+              data-testid="export-participants-excel-button"
+              className="inline-flex items-center gap-2 rounded-lg bg-[#0B6B3A] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#07532d] disabled:opacity-60"
             >
-              <option value="all">Keseluruhan Wilayah</option>
-              {regions.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </label>
+              {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {exporting ? "Mengekspor..." : "Export Excel"}
+            </button>
+          </div>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
         <div className="relative flex-1 max-w-sm">

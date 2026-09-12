@@ -7,7 +7,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File, Form, Query, Header
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import Response as StarletteResponse
+from starlette.responses import Response as StarletteResponse, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from pydantic import BaseModel, Field, EmailStr
@@ -23,7 +23,8 @@ import re
 import tempfile
 import io
 from PIL import Image as PILImage
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, PatternFill
 import secrets
 import asyncio
 import ipaddress
@@ -1502,7 +1503,13 @@ async def list_participants(
             **r,
             "institusi": pdata.get("institusi", "-"),
             "jenjang": pdata.get("jenjang", "-"),
+            "nim": pdata.get("nim", "-"),
+            "jurusan": pdata.get("jurusan", "-"),
+            "semester": pdata.get("semester", "-"),
+            "ipk": pdata.get("ipk", "-"),
+            "biaya_pendidikan_semester": pdata.get("biayaPendidikanSemester", "-"),
             "wilayah": pdata.get("kota") or pdata.get("provinsi") or "-",
+            "provinsi": pdata.get("provinsi", "-"),
             "phone": pdata.get("noTelp", "-"),
             "doc_count": doc_count,
         }
@@ -1514,6 +1521,80 @@ async def list_participants(
                 continue
         result.append(item)
     return result
+
+
+@api_router.get("/admin/participants/export.xlsx")
+async def export_participants_excel(
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    region: Optional[str] = None,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    participants = await list_participants(status, search, region, user)
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "Data Peserta MDJ"
+    headers = [
+        "No.",
+        "Nama",
+        "Email",
+        "ID CPM",
+        "Kampus",
+        "NIM",
+        "Jenjang",
+        "Jurusan",
+        "Semester",
+        "IPK",
+        "Biaya Pendidikan / Semester (Rp)",
+        "Wilayah",
+        "Provinsi",
+        "Nomor Telepon",
+        "Dokumen Diunggah",
+        "Status Pendaftaran",
+        "Tanggal Daftar",
+    ]
+    worksheet.append(headers)
+    header_fill = PatternFill("solid", fgColor="0B6B3A")
+    for cell in worksheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+
+    for index, participant in enumerate(participants, start=1):
+        worksheet.append([
+            index,
+            participant.get("name", "-"),
+            participant.get("email", "-"),
+            participant.get("cpm_id", "-"),
+            participant.get("institusi", "-"),
+            participant.get("nim", "-"),
+            participant.get("jenjang", "-"),
+            participant.get("jurusan", "-"),
+            participant.get("semester", "-"),
+            participant.get("ipk", "-"),
+            participant.get("biaya_pendidikan_semester", "-"),
+            participant.get("wilayah", "-"),
+            participant.get("provinsi", "-"),
+            participant.get("phone", "-"),
+            participant.get("doc_count", 0),
+            STATUS_LABELS.get(participant.get("status"), participant.get("status", "-")),
+            participant.get("created_at", "-"),
+        ])
+
+    widths = [6, 28, 34, 24, 34, 18, 12, 24, 12, 10, 30, 20, 16, 20, 18, 28, 24]
+    for index, width in enumerate(widths, start=1):
+        worksheet.column_dimensions[chr(64 + index)].width = width
+    worksheet.freeze_panes = "A2"
+
+    stream = io.BytesIO()
+    workbook.save(stream)
+    stream.seek(0)
+    filename = f"data-peserta-mdj-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}.xlsx"
+    headers_response = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers=headers_response,
+    )
 
 
 @api_router.post("/admin/demo-students/seed")
