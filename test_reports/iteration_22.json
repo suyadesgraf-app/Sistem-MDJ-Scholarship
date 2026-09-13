@@ -1,0 +1,37 @@
+{
+  "summary": "Verified per-tahap disbursement management: default Tahap I, stage switcher swaps every stage-aware widget (upload button label, summary cards, table headers, campus detail modal, upload payload's stage field, review queue). Added 9 new pytest tests to /app/backend/tests/test_campus_disbursements.py (TestStageFiltering) covering: GET /api/admin/beneficiary-reviews stage=1/2 filtering + stage=3 -> 400, GET /api/admin/disbursements/campuses/{k}/audit stage=1/2 filtering + stage=3 -> 400, Tahap I/Tahap II data isolation on the same campus/region (both directions), and admin_wilayah receiving 403 on beneficiary-reviews regardless of stage. Combined suite (58 tests: 28 campus_disbursements + 30 beneficiary_pm) is 58/58 green. Frontend E2E via Admin Provinsi at 1440x900 confirmed: Tahap I is default, switching to Tahap II relabels 'Unggah Bukti Transfer Tahap II', flips table headers to 'Status Tahap II'/'Bukti Tahap II', and opening a campus detail now renders only Tahap II panels (0 stage-1 panels, >=1 stage-2 panels) — and vice-versa when Tahap I is re-selected. Row-number cells (12) still render, active-letter upload does not appear on Pencairan Dana. Ephemeral admin_wilayah (Jakarta Barat) shows scope indicator + upload/review-queue hidden on both Tahap I and Tahap II, table lists only Jakarta Barat campuses, mobile 390px overflow = 0px.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verification_results": {
+    "pytest_all_58_passed": true,
+    "reviews_stage_1_and_2_ok_stage_3_400": true,
+    "audit_stage_1_and_2_ok_stage_3_400": true,
+    "stage_1_and_2_mutations_isolated": true,
+    "admin_wilayah_reviews_403_both_stages": true,
+    "ui_default_stage_is_tahap_i": true,
+    "ui_selector_swaps_upload_label_and_table_headers": true,
+    "ui_campus_detail_shows_only_active_stage_panel": true,
+    "admin_wilayah_read_only_both_stages": true,
+    "admin_wilayah_region_scope_indicator_visible": true,
+    "row_numbers_present_active_letter_upload_hidden": true,
+    "mobile_390px_no_overflow": true
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_campus_disbursements.py",
+    "/app/test_reports/pytest/iter22.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "DisbursementManager.CampusDetail refetches /admin/disbursements/campuses/{campus_key} on every activeStage change (line ~475). Fine functionally but if the user toggles stage rapidly while the modal is open there is no request de-dup / abort — could race and paint stale data. Consider AbortController.",
+    "campus_disbursement_audit filters by detail.stage but audit_beneficiary_action for status transitions may not always populate detail.stage on legacy records; UI shows an empty audit list gracefully. Consider a data-backfill for events pre-stage-field.",
+    "list_beneficiary_reviews currently returns *all* pending reviews when stage is omitted — the frontend always passes stage now, but any older client (or superadmin curl) that omits stage will see both stages mixed. Documented as intentional but worth calling out."
+  ],
+  "updated_files": ["/app/backend/tests/test_campus_disbursements.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026! | admin.mdj@baznasbazisdki.id / AdminMDJ2026! | mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026! | ephemeral admin_wilayah test_iter22_*@example.com / WilayahCD2026! (deleted at teardown)",
+  "seed_data_creation": "No permanent seed. TestStageFiltering::test_stage_1_and_2_are_isolated writes TEST_ISOLATE_S1/S2 to stage_one and stage_two of the first campus/region then reverts both stages back to their pre-test values in the same test. Ephemeral admin_wilayah users were also removed via direct MongoDB cleanup after the browser session held their cookie.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Regression suite is /app/backend/tests/test_campus_disbursements.py (28 tests, ~12s) plus /app/backend/tests/test_beneficiary_pm.py (30 tests). Key stage-aware selectors: disbursement-stage-selector, select-disbursement-stage-{1,2}, upload-disbursement-proof-button (label switches Tahap I/II), campus-disbursements-table, campus-disbursement-row-number-*, view-campus-disbursement-*, campus-disbursement-detail-modal, close-campus-disbursement-detail, campus-stage-{1,2}-*, disbursement-review-queue, disbursement-regional-scope. Login form uses [data-testid=login-email-input] and [data-testid=login-password-input] (not type=email). Closing the campus detail modal requires the [data-testid=close-campus-disbursement-detail] button — Escape does NOT close it.",
+  "rca of the issue": "No new bugs discovered in this iteration; all backend endpoints correctly reject stage=3 with 400 and only return the requested stage rows when stage=1|2. Frontend correctly re-renders every stage-aware widget on activeStage change and never renders the opposite stage panel in CampusDetail."
+}

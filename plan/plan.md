@@ -1,3 +1,39 @@
+# Rencana — Pengelolaan Pencairan per Tahap
+
+## Perilaku halaman
+- Halaman **Pencairan Dana** tetap menampilkan ringkasan per kampus dan wilayah.
+- Pemilihan **Tahap I** atau **Tahap II** menjadi kontrol utama halaman, bukan sekadar pilihan
+  pada tombol unggah.
+- Saat **Tahap I** dipilih, tabel, rincian kampus, formulir status, nominal, referensi, catatan,
+  bukti transfer, dan daftar tinjauan hanya menampilkan data Tahap I.
+- Saat **Tahap II** dipilih, area yang sama hanya menampilkan proses dan data Tahap II.
+- Dua tahap tidak lagi ditampilkan berdampingan pada rincian kampus.
+
+## Unggah dan pengelolaan data
+- Tombol unggah mengikuti tahap aktif: **Unggah Bukti Transfer Tahap I** atau **Unggah Bukti
+  Transfer Tahap II**.
+- Bukti yang diunggah hanya diproses dan ditautkan ke agregat kampus + wilayah pada tahap yang
+  sedang aktif.
+- Perubahan status, nominal kolektif, tanggal, nomor referensi, dan catatan hanya berlaku pada
+  tahap aktif; data tahap lain tidak ditampilkan atau diubah.
+- Daftar tinjauan menampilkan item bukti transfer untuk tahap aktif agar pemetaan mahasiswa tidak
+  tercampur antar tahap.
+
+## Tampilan rincian kampus
+- Membuka kampus memperlihatkan wilayah dan daftar penerima seperti sekarang.
+- Setiap wilayah hanya memiliki satu panel pengelolaan untuk tahap yang dipilih.
+- Label, status, jumlah bukti, riwayat, dan tombol simpan menggunakan nama tahap aktif secara
+  konsisten.
+
+## Hak akses
+- Admin Provinsi dan Super Admin dapat mengunggah serta mengubah data pada tahap aktif.
+- Admin Wilayah tetap hanya membaca data tahap aktif di wilayahnya sendiri, tanpa tombol unggah,
+  simpan, atau pemetaan.
+
+## Asumsi
+- Tahap I dipilih sebagai tampilan awal saat halaman dibuka.
+- Data Tahap I dan Tahap II yang sudah tersimpan tetap dipertahankan sepenuhnya; perubahan ini
+  hanya memisahkan cara melihat dan mengelolanya.
 # Rencana — Pencairan Dana Berbasis Kampus
 
 ## Tujuan

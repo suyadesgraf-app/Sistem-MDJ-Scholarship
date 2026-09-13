@@ -1599,12 +1599,17 @@ async def campus_disbursement_detail(
 @api_router.get("/admin/disbursements/campuses/{campus_key}/audit")
 async def campus_disbursement_audit(
     campus_key: str,
+    stage: Optional[int] = None,
     user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
+    if stage is not None and stage not in (1, 2):
+        raise HTTPException(status_code=400, detail="Tahap pencairan harus 1 atau 2.")
     group = (await visible_campus_groups(user)).get(campus_key)
     if not group:
         raise HTTPException(status_code=404, detail="Kampus atau riwayat tidak ditemukan.")
     query = {"detail.campus_key": campus_key}
+    if stage is not None:
+        query["detail.stage"] = stage
     scope_region = regional_admin_region(user)
     if scope_region:
         query["detail.region"] = scope_region
@@ -1984,10 +1989,16 @@ async def beneficiary_audit(
 
 @api_router.get("/admin/beneficiary-reviews")
 async def list_beneficiary_reviews(
+    stage: Optional[int] = None,
     user: dict = Depends(require_roles(*PM_MANAGERS)),
 ):
+    if stage is not None and stage not in (1, 2):
+        raise HTTPException(status_code=400, detail="Tahap pencairan harus 1 atau 2.")
+    query = {"status": "pending"}
+    if stage is not None:
+        query["stage"] = stage
     return await db.beneficiary_reviews.find(
-        {"status": "pending"},
+        query,
         {"_id": 0},
     ).sort("created_at", -1).to_list(300)
 

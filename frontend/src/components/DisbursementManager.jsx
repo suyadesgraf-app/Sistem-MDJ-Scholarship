@@ -55,10 +55,11 @@ export default function DisbursementManager() {
   const [reviewMapping, setReviewMapping] = useState({});
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("all");
-  const [proofStage, setProofStage] = useState("1");
+  const [activeStage, setActiveStage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [detail, setDetail] = useState(null);
+  const activeStageField = activeStage === 1 ? "stage_one" : "stage_two";
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,7 +69,7 @@ export default function DisbursementManager() {
       setCampuses(response.data || []);
       if (isManager) {
         const [reviewResponse, recipientResponse] = await Promise.all([
-          api.get("/admin/beneficiary-reviews"),
+          api.get("/admin/beneficiary-reviews", { params: { stage: activeStage } }),
           api.get("/admin/beneficiaries"),
         ]);
         setReviews(reviewResponse.data || []);
@@ -79,7 +80,7 @@ export default function DisbursementManager() {
     } finally {
       setLoading(false);
     }
-  }, [isManager, lockedRegion, region]);
+  }, [activeStage, isManager, lockedRegion, region]);
 
   useEffect(() => {
     load();
@@ -91,12 +92,21 @@ export default function DisbursementManager() {
     return campuses.filter((item) => item.campus.toLowerCase().includes(keyword));
   }, [campuses, query]);
 
-  const summary = useMemo(() => ({
-    campuses: campuses.length,
-    recipients: campuses.reduce((total, item) => total + item.recipient_count, 0),
-    stageOnePaid: campuses.filter((item) => item.stage_one.status === "dicairkan").length,
-    proofs: campuses.reduce((total, item) => total + item.proof_count, 0),
-  }), [campuses]);
+  const summary = useMemo(() => {
+    const stageField = activeStage === 1 ? "stage_one" : "stage_two";
+    return {
+      campuses: campuses.length,
+      recipients: campuses.reduce((total, item) => total + item.recipient_count, 0),
+      paid: campuses.filter((item) => item[stageField].status === "dicairkan").length,
+      proofs: campuses.reduce((total, item) => total + (item[stageField].proof_count || 0), 0),
+    };
+  }, [activeStage, campuses]);
+
+  const selectStage = (stage) => {
+    setActiveStage(stage);
+    setDetail(null);
+    setReviewMapping({});
+  };
 
   const openCampus = async (campus) => {
     try {
@@ -168,8 +178,36 @@ export default function DisbursementManager() {
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="disbursement-summary">
         <Metric label="Kampus Terlibat" value={summary.campuses} testId="disbursement-campus-total" />
         <Metric label="Penerima Manfaat" value={summary.recipients} testId="disbursement-recipient-total" />
-        <Metric label="Kampus Tahap I Cair" value={summary.stageOnePaid} testId="disbursement-stage-one-total" />
-        <Metric label="Bukti Terhubung" value={summary.proofs} testId="disbursement-proof-total" />
+        <Metric
+          label={`Kampus ${stageLabel(activeStage)} Cair`}
+          value={summary.paid}
+          testId="disbursement-active-stage-paid-total"
+        />
+        <Metric
+          label={`Bukti ${stageLabel(activeStage)}`}
+          value={summary.proofs}
+          testId="disbursement-active-stage-proof-total"
+        />
+      </section>
+
+      <section className="flex flex-col gap-3 border border-[#B7E4C7] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-[#0B6B3A]">Tahap Aktif</p>
+          <p className="mt-1 text-sm text-[#6B7280]">Pilih tahap untuk melihat dan mengelola pencairan.</p>
+        </div>
+        <div className="inline-flex w-full rounded-lg border border-[#B7E4C7] p-1 sm:w-auto" data-testid="disbursement-stage-selector">
+          {[1, 2].map((stage) => (
+            <button
+              key={stage}
+              type="button"
+              onClick={() => selectStage(stage)}
+              data-testid={`select-disbursement-stage-${stage}`}
+              className={`flex-1 rounded-md px-5 py-2.5 text-sm font-bold transition-colors sm:flex-none ${activeStage === stage ? "bg-[#0B6B3A] text-white" : "text-[#6B7280] hover:bg-[#F0FBF5]"}`}
+            >
+              {stageLabel(stage)}
+            </button>
+          ))}
+        </div>
       </section>
 
       {isManager && (
@@ -181,12 +219,10 @@ export default function DisbursementManager() {
             inputRef={proofInput}
             inputTestId="disbursement-proof-input"
             buttonTestId="upload-disbursement-proof-button"
-            buttonLabel={uploading ? "Memproses..." : "Pilih Bukti Transfer"}
+            buttonLabel={uploading ? "Memproses..." : `Unggah Bukti Transfer ${stageLabel(activeStage)}`}
             disabled={uploading}
-            stage={proofStage}
-            onStageChange={setProofStage}
             onSelect={(files) => upload("/admin/disbursements/transfer-proofs", files, {
-              stage: proofStage,
+              stage: activeStage,
             })}
           />
         </section>
@@ -225,9 +261,8 @@ export default function DisbursementManager() {
                 <th className="px-4 py-3 font-semibold">Kampus</th>
                 <th className="px-4 py-3 font-semibold">Penerima Manfaat</th>
                 <th className="px-4 py-3 font-semibold">Wilayah</th>
-                <th className="px-4 py-3 font-semibold">Tahap I</th>
-                <th className="px-4 py-3 font-semibold">Tahap II</th>
-                <th className="px-4 py-3 font-semibold">Bukti Transfer</th>
+                <th className="px-4 py-3 font-semibold">Status {stageLabel(activeStage)}</th>
+                <th className="px-4 py-3 font-semibold">Bukti {stageLabel(activeStage)}</th>
                 <th className="px-4 py-3 text-right font-semibold">Rincian</th>
               </tr>
             </thead>
@@ -244,9 +279,10 @@ export default function DisbursementManager() {
                     <td className="px-4 py-3.5 font-bold text-[#1F2937]">{campus.campus}</td>
                     <td className="px-4 py-3.5 text-[#6B7280]">{campus.recipient_count} mahasiswa</td>
                     <td className="px-4 py-3.5 text-[#6B7280]">{campus.region_count} wilayah</td>
-                    <td className="px-4 py-3.5"><StatusTag value={campus.stage_one} /></td>
-                    <td className="px-4 py-3.5"><StatusTag value={campus.stage_two} /></td>
-                    <td className="px-4 py-3.5 font-bold text-[#0B6B3A]">{campus.proof_count} berkas</td>
+                    <td className="px-4 py-3.5"><StatusTag value={campus[activeStageField]} /></td>
+                    <td className="px-4 py-3.5 font-bold text-[#0B6B3A]">
+                      {campus[activeStageField].proof_count || 0} berkas
+                    </td>
                     <td className="px-4 py-3.5 text-right">
                       <button
                         type="button"
@@ -268,6 +304,7 @@ export default function DisbursementManager() {
       {isManager && reviews.length > 0 && (
         <ReviewQueue
           reviews={reviews}
+          activeStage={activeStage}
           recipients={reviewRecipients}
           mapping={reviewMapping}
           onMappingChange={(reviewId, userId) => setReviewMapping((current) => ({
@@ -281,6 +318,7 @@ export default function DisbursementManager() {
       {detail && (
         <CampusDetail
           detail={detail}
+          activeStage={activeStage}
           isManager={isManager}
           onClose={() => setDetail(null)}
           onSaved={async () => {
@@ -312,8 +350,6 @@ function UploadAction({
   buttonTestId,
   buttonLabel,
   disabled,
-  stage,
-  onStageChange,
   onSelect,
 }) {
   return (
@@ -328,17 +364,6 @@ function UploadAction({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {stage && (
-          <select
-            value={stage}
-            onChange={(event) => onStageChange(event.target.value)}
-            data-testid="campus-proof-stage-select"
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold"
-          >
-            <option value="1">Tahap I</option>
-            <option value="2">Tahap II</option>
-          </select>
-        )}
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
@@ -377,7 +402,7 @@ function StatusTag({ value }) {
 function LoadingRow() {
   return (
     <tr>
-      <td colSpan={8} className="px-5 py-12 text-center" data-testid="campus-disbursement-loading-state">
+      <td colSpan={7} className="px-5 py-12 text-center" data-testid="campus-disbursement-loading-state">
         <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#27AE60]" />
       </td>
     </tr>
@@ -387,19 +412,21 @@ function LoadingRow() {
 function EmptyRow() {
   return (
     <tr>
-      <td colSpan={8} className="px-5 py-12 text-center text-sm text-[#6B7280]" data-testid="campus-disbursement-empty-state">
+      <td colSpan={7} className="px-5 py-12 text-center text-sm text-[#6B7280]" data-testid="campus-disbursement-empty-state">
         Belum ada kampus dengan Penerima Manfaat lulus akhir.
       </td>
     </tr>
   );
 }
 
-function ReviewQueue({ reviews, recipients, mapping, onMappingChange, onResolve }) {
+function ReviewQueue({ reviews, activeStage, recipients, mapping, onMappingChange, onResolve }) {
   return (
     <section className="border border-[#FDE68A] bg-[#FFFBEB] p-5" data-testid="disbursement-review-queue">
       <div className="flex items-center gap-2">
         <ShieldAlert className="h-5 w-5 text-[#B45309]" />
-        <h3 className="font-display text-lg font-bold text-[#1F2937]">Tinjauan Pemetaan Transfer</h3>
+        <h3 className="font-display text-lg font-bold text-[#1F2937]">
+          Tinjauan Pemetaan Transfer {stageLabel(activeStage)}
+        </h3>
       </div>
       <div className="mt-4 space-y-3">
         {reviews.map((review) => (
@@ -439,12 +466,14 @@ function ReviewQueue({ reviews, recipients, mapping, onMappingChange, onResolve 
   );
 }
 
-function CampusDetail({ detail, isManager, onClose, onSaved }) {
+function CampusDetail({ detail, activeStage, isManager, onClose, onSaved }) {
   const [audit, setAudit] = useState([]);
 
   const loadAudit = async () => {
     try {
-      const response = await api.get(`/admin/disbursements/campuses/${detail.campus_key}/audit`);
+      const response = await api.get(`/admin/disbursements/campuses/${detail.campus_key}/audit`, {
+        params: { stage: activeStage },
+      });
       setAudit(response.data || []);
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -456,7 +485,9 @@ function CampusDetail({ detail, isManager, onClose, onSaved }) {
       <div className="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-xl bg-white shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wide text-[#0B6B3A]">Pencairan per Kampus</p>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#0B6B3A]">
+              Pencairan {stageLabel(activeStage)} per Kampus
+            </p>
             <h3 className="mt-1 font-display text-xl font-bold text-[#1F2937]">{detail.campus}</h3>
           </div>
           <button
@@ -475,6 +506,7 @@ function CampusDetail({ detail, isManager, onClose, onSaved }) {
               key={item.region}
               item={item}
               campusKey={detail.campus_key}
+              activeStage={activeStage}
               isManager={isManager}
               onSaved={onSaved}
             />
@@ -505,7 +537,7 @@ function CampusDetail({ detail, isManager, onClose, onSaved }) {
   );
 }
 
-function RegionDetail({ item, campusKey, isManager, onSaved }) {
+function RegionDetail({ item, campusKey, activeStage, isManager, onSaved }) {
   return (
     <section className="border border-gray-100 bg-[#FAFAFA] p-5" data-testid={`campus-region-${item.region}`}>
       <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
@@ -524,17 +556,14 @@ function RegionDetail({ item, campusKey, isManager, onSaved }) {
           </div>
         </details>
       </div>
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
-        {[item.stage_one, item.stage_two].map((stage) => (
-          <CampusStageCard
-            key={stage.stage}
-            stage={stage}
-            campusKey={campusKey}
-            region={item.region}
-            isManager={isManager}
-            onSaved={onSaved}
-          />
-        ))}
+      <div className="mt-5">
+        <CampusStageCard
+          stage={activeStage === 1 ? item.stage_one : item.stage_two}
+          campusKey={campusKey}
+          region={item.region}
+          isManager={isManager}
+          onSaved={onSaved}
+        />
       </div>
     </section>
   );

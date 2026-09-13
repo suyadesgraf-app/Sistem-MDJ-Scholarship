@@ -472,3 +472,197 @@ class TestCampusAudit:
             timeout=30,
         )
         assert r.status_code == 404
+
+
+
+# ---------------------------------------------------------------------------
+# 7. Stage-scoped filtering for reviews + audit endpoints
+# ---------------------------------------------------------------------------
+class TestStageFiltering:
+    def test_reviews_stage_1_ok(self, prov_token):
+        r = requests.get(
+            f"{API}/admin/beneficiary-reviews",
+            headers=_h(prov_token),
+            params={"stage": 1},
+            timeout=30,
+        )
+        assert r.status_code == 200
+        data = r.json()
+        assert isinstance(data, list)
+        for item in data:
+            # every review returned must be stage=1 when explicitly filtered
+            assert item.get("stage") == 1, item
+
+    def test_reviews_stage_2_ok(self, prov_token):
+        r = requests.get(
+            f"{API}/admin/beneficiary-reviews",
+            headers=_h(prov_token),
+            params={"stage": 2},
+            timeout=30,
+        )
+        assert r.status_code == 200
+        for item in r.json():
+            assert item.get("stage") == 2, item
+
+    def test_reviews_stage_3_rejected(self, prov_token):
+        r = requests.get(
+            f"{API}/admin/beneficiary-reviews",
+            headers=_h(prov_token),
+            params={"stage": 3},
+            timeout=30,
+        )
+        assert r.status_code == 400
+
+    def test_reviews_no_stage_returns_all(self, prov_token):
+        r = requests.get(
+            f"{API}/admin/beneficiary-reviews",
+            headers=_h(prov_token),
+            timeout=30,
+        )
+        assert r.status_code == 200
+        assert isinstance(r.json(), list)
+
+    def test_audit_stage_1_ok(self, prov_token):
+        campuses = requests.get(
+            f"{API}/admin/disbursements/campuses", headers=_h(prov_token), timeout=30
+        ).json()
+        campus_key = campuses[0]["campus_key"]
+        r = requests.get(
+            f"{API}/admin/disbursements/campuses/{campus_key}/audit",
+            headers=_h(prov_token),
+            params={"stage": 1},
+            timeout=30,
+        )
+        assert r.status_code == 200
+        for event in r.json():
+            detail = event.get("detail") or {}
+            # If a stage is recorded in the audit detail it must match filter
+            if "stage" in detail:
+                assert detail["stage"] == 1, event
+
+    def test_audit_stage_2_ok(self, prov_token):
+        campuses = requests.get(
+            f"{API}/admin/disbursements/campuses", headers=_h(prov_token), timeout=30
+        ).json()
+        campus_key = campuses[0]["campus_key"]
+        r = requests.get(
+            f"{API}/admin/disbursements/campuses/{campus_key}/audit",
+            headers=_h(prov_token),
+            params={"stage": 2},
+            timeout=30,
+        )
+        assert r.status_code == 200
+        for event in r.json():
+            detail = event.get("detail") or {}
+            if "stage" in detail:
+                assert detail["stage"] == 2, event
+
+    def test_audit_stage_3_rejected(self, prov_token):
+        campuses = requests.get(
+            f"{API}/admin/disbursements/campuses", headers=_h(prov_token), timeout=30
+        ).json()
+        campus_key = campuses[0]["campus_key"]
+        r = requests.get(
+            f"{API}/admin/disbursements/campuses/{campus_key}/audit",
+            headers=_h(prov_token),
+            params={"stage": 3},
+            timeout=30,
+        )
+        assert r.status_code == 400
+
+    def test_stage_1_and_2_are_isolated(self, prov_token):
+        """Updating Tahap I must NOT affect Tahap II data on the same campus/region,
+        and vice-versa. Cleanup: revert both stages to their pre-test values.
+        """
+        campuses = requests.get(
+            f"{API}/admin/disbursements/campuses", headers=_h(prov_token), timeout=30
+        ).json()
+        assert campuses
+        campus_key = campuses[0]["campus_key"]
+        detail = requests.get(
+            f"{API}/admin/disbursements/campuses/{campus_key}",
+            headers=_h(prov_token),
+            timeout=30,
+        ).json()
+        region = detail["regions"][0]["region"]
+        orig_s1 = detail["regions"][0]["stage_one"]
+        orig_s2 = detail["regions"][0]["stage_two"]
+
+        s1_payload = {
+            "status": "menunggu_bukti",
+            "amount": 1111111,
+            "disbursed_at": "2026-01-10",
+            "reference": "TEST_ISOLATE_S1",
+            "notes": "TEST_ISOLATE stage1",
+        }
+        r1 = requests.put(
+            f"{API}/admin/disbursements/campuses/{campus_key}/regions/{region}/stages/1",
+            headers=_h(prov_token),
+            json=s1_payload,
+            timeout=30,
+        )
+        assert r1.status_code == 200, r1.text
+
+        # Confirm stage_two is unchanged after stage_one mutation
+        after1 = requests.get(
+            f"{API}/admin/disbursements/campuses/{campus_key}",
+            headers=_h(prov_token),
+            timeout=30,
+        ).json()
+        rec = next(x for x in after1["regions"] if x["region"] == region)
+        assert rec["stage_one"]["reference"] == "TEST_ISOLATE_S1"
+        assert rec["stage_two"].get("reference", "") == orig_s2.get("reference", "")
+        assert rec["stage_two"].get("amount") == orig_s2.get("amount")
+        assert rec["stage_two"].get("status") == orig_s2.get("status", "belum_diproses")
+
+        # Now mutate stage_two and confirm stage_one still holds S1 test value
+        s2_payload = {
+            "status": "perlu_tinjau",
+            "amount": 2222222,
+            "disbursed_at": "2026-02-20",
+            "reference": "TEST_ISOLATE_S2",
+            "notes": "TEST_ISOLATE stage2",
+        }
+        r2 = requests.put(
+            f"{API}/admin/disbursements/campuses/{campus_key}/regions/{region}/stages/2",
+            headers=_h(prov_token),
+            json=s2_payload,
+            timeout=30,
+        )
+        assert r2.status_code == 200, r2.text
+        after2 = requests.get(
+            f"{API}/admin/disbursements/campuses/{campus_key}",
+            headers=_h(prov_token),
+            timeout=30,
+        ).json()
+        rec2 = next(x for x in after2["regions"] if x["region"] == region)
+        assert rec2["stage_one"]["reference"] == "TEST_ISOLATE_S1"
+        assert rec2["stage_two"]["reference"] == "TEST_ISOLATE_S2"
+        assert rec2["stage_one"]["amount"] == 1111111
+        assert rec2["stage_two"]["amount"] == 2222222
+
+        # Revert both stages
+        for stage_num, orig in ((1, orig_s1), (2, orig_s2)):
+            requests.put(
+                f"{API}/admin/disbursements/campuses/{campus_key}/regions/{region}/stages/{stage_num}",
+                headers=_h(prov_token),
+                json={
+                    "status": orig.get("status", "belum_diproses"),
+                    "amount": orig.get("amount"),
+                    "disbursed_at": orig.get("disbursed_at") or "",
+                    "reference": orig.get("reference", ""),
+                    "notes": orig.get("notes", ""),
+                },
+                timeout=30,
+            )
+
+    def test_regional_reviews_forbidden_both_stages(self, regional_admin):
+        # admin_wilayah still cannot list reviews at all (matches iter 20 behaviour)
+        for stage in (1, 2):
+            r = requests.get(
+                f"{API}/admin/beneficiary-reviews",
+                headers=_h(regional_admin["token"]),
+                params={"stage": stage},
+                timeout=30,
+            )
+            assert r.status_code == 403, (stage, r.status_code, r.text)

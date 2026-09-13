@@ -63,6 +63,9 @@ curl -s "$API/api/auth/me" -H "Authorization: Bearer <TOKEN>"
   data untuk region miliknya.
 - `POST /api/admin/disbursements/transfer-proofs` menerima bukti transfer untuk Tahap I/II. Bukti
   sumber ditautkan ke banyak agregat, tidak disalin untuk setiap kampus atau wilayah.
+- Tahap aktif selalu eksplisit: `GET /api/admin/beneficiary-reviews?stage=1|2` dan
+  `GET /api/admin/disbursements/campuses/{campus_key}/audit?stage=1|2` hanya mengembalikan tahap
+  yang diminta. Nilai stage selain `1` atau `2` harus ditolak dengan HTTP 400.
 
 ## Super admin only
 - GET/POST /api/admin/users

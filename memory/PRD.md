@@ -288,3 +288,16 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   operasional hanya pada pencairan dan bukti transfer. Endpoint surat aktif sebelumnya tetap ada.
 - Diuji menyeluruh: 19/19 pengujian agregat kampus dan 30/30 regresi PM lulus. Uji tampilan terbaru
   mengonfirmasi nomor urut berurutan, tombol surat aktif tidak tampil, dan layar 390px tanpa overflow.
+
+## 2026-09 — Pengelolaan Pencairan per Tahap
+- **Tahap I** menjadi tampilan awal. Kontrol tahap utama mengganti seluruh konteks halaman ke Tahap I
+  atau Tahap II, termasuk kartu ringkasan, tabel kampus, jumlah bukti, tombol unggah, rincian kampus,
+  formulir pengelolaan, riwayat, dan antrean tinjauan.
+- Tabel hanya memperlihatkan status serta bukti pada tahap aktif. Rincian setiap wilayah hanya memiliki
+  satu panel tahap aktif sehingga data Tahap I dan Tahap II tidak lagi tampil berdampingan.
+- Tombol unggah selalu mengirimkan tahap yang dipilih. Endpoint tinjauan dan riwayat menerima parameter
+  `stage` tervalidasi (`1` atau `2`) agar data antar tahap tidak tercampur.
+- Admin Wilayah tetap hanya membaca tahap aktif untuk wilayahnya sendiri; unggahan, simpan, serta
+  pemetaan tetap tidak tersedia dan ditolak di server.
+- Diuji menyeluruh: 58/58 pengujian backend lulus; default Tahap I, perpindahan konteks Tahap II,
+  isolasi data antar tahap, read-only regional, nomor urut, dan layar mobile 390px semuanya lulus.
