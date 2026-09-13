@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import api from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 const PROCESS_STAGES = [
   { id: "submitted", label: "Pendaftaran Terkirim" },
@@ -21,9 +22,11 @@ const PROCESS_STAGES = [
 ];
 
 export default function AdminRegistrationSummary() {
+  const { user } = useAuth();
   const [stats, setStats] = useState(null);
   const [region, setRegion] = useState("all");
   const [error, setError] = useState(false);
+  const lockedRegion = user?.role === "admin_wilayah" ? user.region : "";
 
   const load = useCallback(async (selectedRegion) => {
     setError(false);
@@ -38,8 +41,8 @@ export default function AdminRegistrationSummary() {
   }, []);
 
   useEffect(() => {
-    load(region);
-  }, [load, region]);
+    load(lockedRegion || region);
+  }, [load, lockedRegion, region]);
 
   const stageData = useMemo(() => (
     PROCESS_STAGES.map((stage) => ({
@@ -77,16 +80,31 @@ export default function AdminRegistrationSummary() {
           <p className="text-xs font-bold uppercase tracking-wide text-[#0B6B3A]">Ringkasan Pendaftaran</p>
           <h2 className="mt-1 font-display text-2xl font-extrabold text-[#1F2937]">Proses pendaftaran hingga pengumuman</h2>
         </div>
-        <label className="flex items-center gap-2 text-sm font-semibold text-[#1F2937]">
-          <MapPinned className="h-4 w-4 text-[#0B6B3A]" />
-          <span className="sr-only">Filter wilayah</span>
-          <select value={region} onChange={(event) => setRegion(event.target.value)} data-testid="summary-region-filter" className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#27AE60]">
-            <option value="all">Keseluruhan Wilayah</option>
-            {(stats.available_regions || [])
-              .filter((item) => item !== "Belum diisi")
-              .map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </label>
+        {lockedRegion ? (
+          <span
+            className="inline-flex items-center gap-2 rounded-lg border border-[#B7E4C7] bg-white px-3 py-2 text-sm font-bold text-[#0B6B3A]"
+            data-testid="regional-admin-summary-scope"
+          >
+            <MapPinned className="h-4 w-4" />
+            Wilayah kerja: {lockedRegion}
+          </span>
+        ) : (
+          <label className="flex items-center gap-2 text-sm font-semibold text-[#1F2937]">
+            <MapPinned className="h-4 w-4 text-[#0B6B3A]" />
+            <span className="sr-only">Filter wilayah</span>
+            <select
+              value={region}
+              onChange={(event) => setRegion(event.target.value)}
+              data-testid="summary-region-filter"
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#27AE60]"
+            >
+              <option value="all">Keseluruhan Wilayah</option>
+              {(stats.available_regions || [])
+                .filter((item) => item !== "Belum diisi")
+                .map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </label>
+        )}
       </section>
 
       <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">

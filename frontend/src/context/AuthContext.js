@@ -69,6 +69,6 @@ export const useAuth = () => useContext(AuthContext);
 
 export function dashboardPath(role) {
   if (role === "super_admin") return "/super-admin";
-  if (role === "admin") return "/admin";
+  if (role === "admin" || role === "admin_wilayah") return "/admin";
   return "/dashboard";
 }

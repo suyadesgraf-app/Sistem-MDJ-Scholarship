@@ -26,7 +26,7 @@ export default function SuperAdminDashboard() {
       title={MENU.find((m) => m.id === active)?.label} subtitle="Panel kendali MDJ Scholarship">
       {active === "ringkasan" && <StatsOverview showAdmins />}
       {active === "peserta" && <ParticipantsPanel />}
-      {active === "admin" && <AdminUsers />}
+      {active === "admin" && <AdminUsers canManageProvincial />}
       {active === "verifikasi-ai" && <AiAdministrativeVerification />}
       {active === "import-seleksi" && <SelectionImportManager />}
       {active === "kampus" && <CampusManager />}

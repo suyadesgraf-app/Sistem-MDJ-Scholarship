@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { StatusBadge, STATUS_META } from "@/components/DashboardShell";
+import { useAuth } from "@/context/AuthContext";
 import { Search, Eye, X, FileText, Download, Loader2, Building2, Phone, Mail, GraduationCap } from "lucide-react";
 import { DocPreview } from "@/components/DocPreview";
 
@@ -13,6 +14,7 @@ const STATUS_FILTERS = [
 const STATUS_OPTS = ["submitted", "verifikasi", "lolos_administrasi", "wawancara", "verifikasi_faktual", "lolos", "ditolak"];
 
 export default function ParticipantsPanel() {
+  const { user } = useAuth();
   const [items, setItems] = useState([]);
   const [status, setStatus] = useState("all");
   const [region, setRegion] = useState("all");
@@ -21,6 +23,7 @@ export default function ParticipantsPanel() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [detail, setDetail] = useState(null);
+  const lockedRegion = user?.role === "admin_wilayah" ? user.region : "";
 
   const load = async () => {
     setLoading(true);
@@ -28,7 +31,7 @@ export default function ParticipantsPanel() {
       const { data } = await api.get("/admin/participants", {
         params: {
           status,
-          region: region === "all" ? undefined : region,
+          region: lockedRegion || (region === "all" ? undefined : region),
           search: search || undefined,
         },
       });
@@ -42,10 +45,15 @@ export default function ParticipantsPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, region]);
   useEffect(() => {
+    if (lockedRegion) {
+      setRegions([lockedRegion]);
+      setRegion(lockedRegion);
+      return;
+    }
     api.get("/admin/stats")
       .then((response) => setRegions(response.data.available_regions || []))
       .catch(() => setRegions([]));
-  }, []);
+  }, [lockedRegion]);
 
   const exportExcel = async () => {
     setExporting(true);
@@ -53,7 +61,7 @@ export default function ParticipantsPanel() {
       const response = await api.get("/admin/participants/export.xlsx", {
         params: {
           status,
-          region: region === "all" ? undefined : region,
+          region: lockedRegion || (region === "all" ? undefined : region),
           search: search || undefined,
         },
         responseType: "blob",
@@ -82,18 +90,27 @@ export default function ParticipantsPanel() {
             Jumlah Mahasiswa: {items.length} peserta
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center gap-2 text-sm font-semibold text-[#6B7280]">
-              Wilayah
-              <select
-                value={region}
-                onChange={(event) => setRegion(event.target.value)}
-                data-testid="participant-region-filter"
-                className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#1F2937] outline-none focus:border-[#27AE60]"
+            {lockedRegion ? (
+              <span
+                className="rounded-lg border border-[#B7E4C7] bg-[#F0FBF5] px-3 py-2 text-sm font-bold text-[#0B6B3A]"
+                data-testid="regional-admin-participant-scope"
               >
-                <option value="all">Keseluruhan Wilayah</option>
-                {regions.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
+                Wilayah kerja: {lockedRegion}
+              </span>
+            ) : (
+              <label className="flex items-center gap-2 text-sm font-semibold text-[#6B7280]">
+                Wilayah
+                <select
+                  value={region}
+                  onChange={(event) => setRegion(event.target.value)}
+                  data-testid="participant-region-filter"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-[#1F2937] outline-none focus:border-[#27AE60]"
+                >
+                  <option value="all">Keseluruhan Wilayah</option>
+                  {regions.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+            )}
             <button
               type="button"
               onClick={exportExcel}

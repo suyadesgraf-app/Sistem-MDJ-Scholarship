@@ -239,3 +239,15 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Favicon menggunakan aset logo resmi MDJ pada `/favicon.png` melalui `frontend/public/index.html`.
 - Layanan frontend dimuat ulang agar template HTML terbaru digunakan.
 - Diuji pada browser: elemen favicon ditemukan dan aset PNG dimuat dari URL publik dengan HTTP 200.
+
+## 2026-09 — Admin Wilayah dengan akses terlingkup
+- Role baru `admin_wilayah` mewajibkan satu dari enam wilayah DKI: Jakarta Pusat, Utara, Barat,
+  Selatan, Timur, atau Kepulauan Seribu.
+- Admin/PIC Provinsi serta Super Admin dapat membuat dan mengelola Admin Wilayah; Admin/PIC hanya
+  dapat mengelola akun regional, sedangkan Super Admin tetap dapat mengelola seluruh jenis akun.
+- Admin Wilayah dibatasi di server pada peserta, detail, pembaruan status, statistik, ekspor Excel,
+  verifikasi AI, dan impor seleksi. Upaya membuka atau mengubah peserta wilayah lain menghasilkan 404.
+- Dashboard Admin Wilayah tidak memuat menu Kampus atau pengelolaan akun dan menampilkan indikator
+  wilayah kerja. Form Admin/PIC mewajibkan pemilihan wilayah saat membuat akun regional.
+- Diuji menyeluruh: 19/19 test backend lulus, pemeriksaan UI Admin/PIC dan Admin Wilayah lulus,
+  serta layar 390px tanpa horizontal overflow. Suite regresi: `backend/tests/test_admin_wilayah.py`.

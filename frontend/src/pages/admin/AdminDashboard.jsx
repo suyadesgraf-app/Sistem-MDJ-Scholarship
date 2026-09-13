@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import DashboardShell from "@/components/DashboardShell";
 import AdminRecipientDashboard from "@/components/AdminRecipientDashboard";
 import AdminRegistrationSummary from "@/components/AdminRegistrationSummary";
@@ -6,28 +6,58 @@ import ParticipantsPanel from "@/components/ParticipantsPanel";
 import CampusManager from "@/components/CampusManager";
 import SelectionImportManager from "@/components/SelectionImportManager";
 import AiAdministrativeVerification from "@/components/AiAdministrativeVerification";
-import { Building2, FileSpreadsheet, Home, Sparkles, Users } from "lucide-react";
+import AdminUsers from "@/components/AdminUsers";
+import { useAuth } from "@/context/AuthContext";
+import {
+  Building2,
+  FileSpreadsheet,
+  Home,
+  ShieldCheck,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
-const MENU = [
+const BASE_MENU = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "ringkasan", label: "Ringkasan", icon: Home },
   { id: "peserta", label: "Data Peserta", icon: Users },
   { id: "verifikasi-ai", label: "Verifikasi AI", icon: Sparkles },
   { id: "import-seleksi", label: "Import Seleksi", icon: FileSpreadsheet },
-  { id: "kampus", label: "Kampus", icon: Building2 },
 ];
 
 export default function AdminDashboard() {
+  const { user } = useAuth();
   const [active, setActive] = useState("ringkasan");
+  const isRegionalAdmin = user?.role === "admin_wilayah";
+  const menu = useMemo(() => {
+    if (isRegionalAdmin) return BASE_MENU;
+    return [
+      ...BASE_MENU,
+      { id: "kampus", label: "Kampus", icon: Building2 },
+      { id: "admin-wilayah", label: "Admin Wilayah", icon: ShieldCheck },
+    ];
+  }, [isRegionalAdmin]);
+  const activeMenu = menu.find((item) => item.id === active);
+  const subtitle = isRegionalAdmin
+    ? `Kelola data peserta ${user?.region || "wilayah kerja"}`
+    : "Kelola data peserta MDJ Scholarship";
+
   return (
-    <DashboardShell menu={MENU} active={active} onSelect={setActive} brandLabel="Admin Pendaftaran"
-      title={MENU.find((m) => m.id === active)?.label} subtitle="Kelola data peserta MDJ Scholarship">
+    <DashboardShell
+      menu={menu}
+      active={active}
+      onSelect={setActive}
+      brandLabel={isRegionalAdmin ? "Admin Wilayah" : "Admin Pendaftaran"}
+      title={activeMenu?.label}
+      subtitle={subtitle}
+    >
       {active === "dashboard" && <AdminRecipientDashboard />}
       {active === "ringkasan" && <AdminRegistrationSummary />}
       {active === "peserta" && <ParticipantsPanel />}
       {active === "verifikasi-ai" && <AiAdministrativeVerification />}
       {active === "import-seleksi" && <SelectionImportManager />}
       {active === "kampus" && <CampusManager />}
+      {active === "admin-wilayah" && <AdminUsers canManageProvincial={false} />}
     </DashboardShell>
   );
 }

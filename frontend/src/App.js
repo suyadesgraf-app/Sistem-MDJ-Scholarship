@@ -21,7 +21,14 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/dashboard" element={<ProtectedRoute roles={["student"]}><StudentDashboard /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute roles={["admin", "super_admin"]}><AdminDashboard /></ProtectedRoute>} />
+      <Route
+        path="/admin"
+        element={(
+          <ProtectedRoute roles={["admin", "admin_wilayah", "super_admin"]}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        )}
+      />
       <Route path="/super-admin" element={<ProtectedRoute roles={["super_admin"]}><SuperAdminDashboard /></ProtectedRoute>} />
     </Routes>
   );

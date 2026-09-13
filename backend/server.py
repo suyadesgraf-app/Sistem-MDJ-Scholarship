@@ -383,6 +383,7 @@ class CreateAdminInput(BaseModel):
     email: EmailStr
     password: str
     role: str = "admin"
+    region: Optional[str] = None
 
 
 class UserToggleInput(BaseModel):
@@ -405,6 +406,16 @@ class VerificationApprovalInput(BaseModel):
 
 REG_STATUSES = ["draft", "submitted", "verifikasi", "lolos_administrasi", "wawancara",
                 "verifikasi_faktual", "lolos", "ditolak"]
+REGIONAL_ADMIN_ROLE = "admin_wilayah"
+MANAGEMENT_ROLES = ("admin", "super_admin", REGIONAL_ADMIN_ROLE)
+DKI_REGIONS = [
+    "Jakarta Pusat",
+    "Jakarta Utara",
+    "Jakarta Barat",
+    "Jakarta Selatan",
+    "Jakarta Timur",
+    "Kepulauan Seribu",
+]
 
 
 def clean_user(u: dict) -> dict:
@@ -412,6 +423,49 @@ def clean_user(u: dict) -> dict:
     u.pop("password_hash", None)
     u.pop("_id", None)
     return u
+
+
+def regional_admin_region(user: dict) -> Optional[str]:
+    if user.get("role") != REGIONAL_ADMIN_ROLE:
+        return None
+    region = str(user.get("region") or "").strip()
+    if region not in DKI_REGIONS:
+        raise HTTPException(status_code=403, detail="Wilayah Admin Wilayah tidak valid.")
+    return region
+
+
+def profile_region(profile_data: dict) -> str:
+    return str(profile_data.get("kota") or profile_data.get("provinsi") or "").strip()
+
+
+async def participant_scope_query(user: dict) -> dict:
+    region = regional_admin_region(user)
+    if not region:
+        return {}
+    profiles = await db.profiles.find(
+        {"$or": [{"data.kota": region}, {"data.provinsi": region}]},
+        {"_id": 0, "user_id": 1},
+    ).to_list(5000)
+    user_ids = [profile["user_id"] for profile in profiles if profile.get("user_id")]
+    return {"user_id": {"$in": user_ids}}
+
+
+async def require_participant_scope(user: dict, user_id: str) -> None:
+    region = regional_admin_region(user)
+    if not region:
+        return
+    profile = await db.profiles.find_one({"user_id": user_id}, {"_id": 0, "data": 1})
+    if not profile or profile_region(profile.get("data", {})) != region:
+        raise HTTPException(status_code=404, detail="Pendaftar tidak ditemukan")
+
+
+def can_manage_admin_account(actor: dict, target: dict) -> bool:
+    if actor.get("role") == "super_admin":
+        return True
+    return (
+        actor.get("role") == "admin"
+        and target.get("role") == REGIONAL_ADMIN_ROLE
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1596,8 +1650,11 @@ async def ai_review_notes(items: List[dict]) -> Dict[int, str]:
         return {}
 
 
-async def build_participant_match_indexes() -> Dict[str, Dict[str, List[dict]]]:
-    registrations = await db.registrations.find({}, {"_id": 0}).to_list(5000)
+async def build_participant_match_indexes(
+    user: Optional[dict] = None,
+) -> Dict[str, Dict[str, List[dict]]]:
+    query = await participant_scope_query(user) if user else {}
+    registrations = await db.registrations.find(query, {"_id": 0}).to_list(5000)
     user_ids = [registration["user_id"] for registration in registrations]
     profiles = await db.profiles.find(
         {"user_id": {"$in": user_ids}},
@@ -1734,10 +1791,12 @@ async def ai_administration_recommendations(candidates: List[dict]) -> Dict[str,
 
 @api_router.post("/admin/verification-recommendations/generate")
 async def generate_verification_recommendations(
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
+    registration_query = await participant_scope_query(user)
+    registration_query["status"] = {"$in": ["submitted", "verifikasi"]}
     registrations = await db.registrations.find(
-        {"status": {"$in": ["submitted", "verifikasi"]}},
+        registration_query,
         {"_id": 0},
     ).to_list(5000)
     user_ids = [registration["user_id"] for registration in registrations]
@@ -1796,6 +1855,7 @@ async def generate_verification_recommendations(
                 else "AI belum dapat memberikan rekomendasi otomatis."
             ),
             "document_count": len(candidate["documents"]),
+            "region": profile_region(candidate["profile"]),
             "analyzed_at": now,
             "analyzed_by": user["user_id"],
         }
@@ -1821,10 +1881,14 @@ async def generate_verification_recommendations(
 
 @api_router.get("/admin/verification-recommendations")
 async def list_verification_recommendations(
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
+    query = {"approval_status": "pending"}
+    scope_query = await participant_scope_query(user)
+    if scope_query:
+        query.update(scope_query)
     return await db.verification_recommendations.find(
-        {"approval_status": "pending"},
+        query,
         {"_id": 0},
     ).sort("analyzed_at", -1).to_list(5000)
 
@@ -1832,11 +1896,14 @@ async def list_verification_recommendations(
 @api_router.post("/admin/verification-recommendations/approve")
 async def approve_verification_recommendations(
     payload: VerificationApprovalInput,
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
     if not payload.approve_all and not payload.recommendation_ids:
         raise HTTPException(status_code=400, detail="Pilih minimal satu rekomendasi untuk disetujui.")
     query = {"recommendation": "recommended", "approval_status": "pending"}
+    scope_query = await participant_scope_query(user)
+    if scope_query:
+        query.update(scope_query)
     if not payload.approve_all:
         query["id"] = {"$in": payload.recommendation_ids}
     recommendations = await db.verification_recommendations.find(query, {"_id": 0}).to_list(5000)
@@ -1879,7 +1946,7 @@ async def approve_verification_recommendations(
 async def import_selection_results(
     stage: str = Form(...),
     file: UploadFile = File(...),
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
     if stage not in IMPORT_STAGE_CONFIG:
         raise HTTPException(status_code=400, detail="Jenis hasil import tidak valid.")
@@ -1922,7 +1989,8 @@ async def import_selection_results(
         raise HTTPException(status_code=502, detail="File import belum dapat disimpan untuk audit.")
 
     header_positions = {header: index for index, header in enumerate(headers)}
-    indexes = await build_participant_match_indexes()
+    indexes = await build_participant_match_indexes(user)
+    region_scope = regional_admin_region(user)
     target_status = IMPORT_STAGE_CONFIG[stage]["target_status"]
     summary = {"matched": 0, "updated": 0, "unchanged": 0, "review": 0, "new": 0, "invalid": 0}
     review_items = []
@@ -1950,6 +2018,7 @@ async def import_selection_results(
             "row_number": offset,
             "imported_data": imported,
             "raw_data": raw_data,
+            "region_scope": region_scope,
             "created_at": now,
         }
         if matching_error:
@@ -2034,6 +2103,7 @@ async def import_selection_results(
         "summary": summary,
         "review_count": len(review_items),
         "imported_by": user["user_id"],
+        "region_scope": region_scope,
         "created_at": now,
     }
     await db.selection_imports.insert_one(dict(import_record))
@@ -2048,17 +2118,24 @@ async def import_selection_results(
 
 @api_router.get("/admin/selection-imports")
 async def list_selection_imports(
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
-    return await db.selection_imports.find({}, {"_id": 0}).sort("created_at", -1).to_list(50)
+    query = {}
+    region_scope = regional_admin_region(user)
+    if region_scope:
+        query["region_scope"] = region_scope
+    return await db.selection_imports.find(query, {"_id": 0}).sort("created_at", -1).to_list(50)
 
 
 @api_router.get("/admin/selection-import-review")
 async def list_selection_import_review(
     kind: Optional[str] = None,
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
     query = {"status": "pending"}
+    region_scope = regional_admin_region(user)
+    if region_scope:
+        query["region_scope"] = region_scope
     if kind == "new":
         query["kind"] = "new_participant"
     elif kind == "review":
@@ -2069,10 +2146,14 @@ async def list_selection_import_review(
 @api_router.delete("/admin/selection-import-review/{item_id}")
 async def dismiss_selection_import_review(
     item_id: str,
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
+    query = {"id": item_id, "status": "pending"}
+    region_scope = regional_admin_region(user)
+    if region_scope:
+        query["region_scope"] = region_scope
     result = await db.selection_import_review.update_one(
-        {"id": item_id, "status": "pending"},
+        query,
         {"$set": {"status": "dismissed", "dismissed_at": datetime.now(timezone.utc).isoformat()}},
     )
     if not result.matched_count:
@@ -2083,10 +2164,11 @@ async def dismiss_selection_import_review(
 @api_router.get("/admin/selection-imports/{import_id}/file")
 async def download_selection_import_file(
     import_id: str,
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
     record = await db.selection_imports.find_one({"id": import_id}, {"_id": 0})
-    if not record:
+    region_scope = regional_admin_region(user)
+    if not record or (region_scope and record.get("region_scope") != region_scope):
         raise HTTPException(status_code=404, detail="Riwayat import tidak ditemukan.")
     data, content_type = get_object(record["storage_path"])
     headers = {"Content-Disposition": f'attachment; filename="{record["original_filename"]}"'}
@@ -2096,9 +2178,11 @@ async def download_selection_import_file(
 @api_router.get("/admin/stats")
 async def admin_stats(
     region: Optional[str] = None,
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
-    all_regs = await db.registrations.find({}, {"_id": 0}).to_list(5000)
+    scope_region = regional_admin_region(user)
+    scope_query = await participant_scope_query(user)
+    all_regs = await db.registrations.find(scope_query, {"_id": 0}).to_list(5000)
     user_ids = [registration["user_id"] for registration in all_regs]
     profiles = await db.profiles.find(
         {"user_id": {"$in": user_ids}},
@@ -2118,15 +2202,30 @@ async def admin_stats(
         for registration in all_regs
         if region_name(registration) != "Belum diisi"
     })
+    if scope_region:
+        available_regions = [scope_region]
     regs = all_regs
-    if region and region != "all":
-        regs = [registration for registration in all_regs if region_name(registration) == region]
+    selected_region = scope_region or region or "all"
+    if selected_region != "all":
+        regs = [
+            registration
+            for registration in all_regs
+            if region_name(registration) == selected_region
+        ]
     total = len(regs)
     by_status = {}
     for r in regs:
         by_status[r.get("status", "draft")] = by_status.get(r.get("status", "draft"), 0) + 1
-    total_students = await db.users.count_documents({"role": "student"})
-    total_admins = await db.users.count_documents({"role": {"$in": ["admin", "super_admin"]}})
+    if scope_region:
+        total_students = len({registration["user_id"] for registration in regs})
+        total_admins = await db.users.count_documents(
+            {"role": REGIONAL_ADMIN_ROLE, "region": scope_region}
+        )
+    else:
+        total_students = await db.users.count_documents({"role": "student"})
+        total_admins = await db.users.count_documents(
+            {"role": {"$in": ["admin", "super_admin", REGIONAL_ADMIN_ROLE]}}
+        )
     # trend by month (submitted_at)
     trend = {}
     for r in regs:
@@ -2154,7 +2253,7 @@ async def admin_stats(
         "passed_by_region": passed_region_data,
         "available_regions": available_regions,
         "announcement_count": len(site_content.get("announcements", [])),
-        "selected_region": region or "all",
+        "selected_region": selected_region,
     }
 
 
@@ -2163,9 +2262,10 @@ async def list_participants(
     status: Optional[str] = None,
     search: Optional[str] = None,
     region: Optional[str] = None,
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
-    query = {}
+    scope_region = regional_admin_region(user)
+    query = await participant_scope_query(user)
     if status and status != "all":
         query["status"] = status
     regs = await db.registrations.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
@@ -2188,7 +2288,8 @@ async def list_participants(
             "phone": pdata.get("noTelp", "-"),
             "doc_count": doc_count,
         }
-        if region and item["wilayah"] != region:
+        selected_region = scope_region or region
+        if selected_region and item["wilayah"] != selected_region:
             continue
         if search:
             s = search.lower()
@@ -2203,7 +2304,7 @@ async def export_participants_excel(
     status: Optional[str] = None,
     search: Optional[str] = None,
     region: Optional[str] = None,
-    user: dict = Depends(require_roles("admin", "super_admin")),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
 ):
     participants = await list_participants(status, search, region, user)
     workbook = Workbook()
@@ -2410,8 +2511,14 @@ async def seed_demo_students(
 
 
 @api_router.get("/admin/participants/{user_id}")
-async def participant_detail(user_id: str, user: dict = Depends(require_roles("admin", "super_admin"))):
+async def participant_detail(
+    user_id: str,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    await require_participant_scope(user, user_id)
     reg = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
+    if not reg:
+        raise HTTPException(status_code=404, detail="Pendaftar tidak ditemukan")
     profile = await db.profiles.find_one({"user_id": user_id}, {"_id": 0})
     docs = await db.documents.find({"user_id": user_id, "is_deleted": False}, {"_id": 0}).to_list(200)
     account = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
@@ -2423,9 +2530,10 @@ async def participant_detail(user_id: str, user: dict = Depends(require_roles("a
 
 @api_router.put("/admin/participants/{user_id}/status")
 async def update_participant_status(user_id: str, payload: StatusUpdateInput,
-                                    user: dict = Depends(require_roles("admin", "super_admin"))):
+                                    user: dict = Depends(require_roles(*MANAGEMENT_ROLES))):
     if payload.status not in REG_STATUSES:
         raise HTTPException(status_code=400, detail="Status tidak valid")
+    await require_participant_scope(user, user_id)
     reg = await db.registrations.find_one({"user_id": user_id})
     if not reg:
         raise HTTPException(status_code=404, detail="Pendaftar tidak ditemukan")
@@ -2451,18 +2559,37 @@ async def update_participant_status(user_id: str, payload: StatusUpdateInput,
 # Super admin: user/admin management
 # ---------------------------------------------------------------------------
 @api_router.get("/admin/users")
-async def list_users(role: Optional[str] = None, user: dict = Depends(require_roles("super_admin"))):
+async def list_users(
+    role: Optional[str] = None,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
     query = {}
-    if role and role != "all":
+    if user.get("role") == "admin":
+        query["role"] = REGIONAL_ADMIN_ROLE
+    elif role and role != "all":
         query["role"] = role
     users = await db.users.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(2000)
     return users
 
 
 @api_router.post("/admin/users")
-async def create_admin(payload: CreateAdminInput, user: dict = Depends(require_roles("super_admin"))):
-    if payload.role not in ["admin", "super_admin"]:
+async def create_admin(
+    payload: CreateAdminInput,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    is_provincial_admin = user.get("role") == "admin"
+    allowed_roles = [REGIONAL_ADMIN_ROLE] if is_provincial_admin else [
+        "admin",
+        "super_admin",
+        REGIONAL_ADMIN_ROLE,
+    ]
+    if payload.role not in allowed_roles:
         raise HTTPException(status_code=400, detail="Role tidak valid")
+    region = str(payload.region or "").strip()
+    if payload.role == REGIONAL_ADMIN_ROLE and region not in DKI_REGIONS:
+        raise HTTPException(status_code=400, detail="Wilayah Admin Wilayah wajib dipilih.")
+    if payload.role != REGIONAL_ADMIN_ROLE:
+        region = None
     email = payload.email.lower().strip()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email sudah terdaftar")
@@ -2471,6 +2598,7 @@ async def create_admin(payload: CreateAdminInput, user: dict = Depends(require_r
         "user_id": user_id, "email": email, "password_hash": hash_password(payload.password),
         "name": payload.name, "role": payload.role, "auth_provider": "password",
         "nik": None, "phone": None, "picture": None, "is_active": True,
+        "region": region,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(doc)
@@ -2478,18 +2606,28 @@ async def create_admin(payload: CreateAdminInput, user: dict = Depends(require_r
 
 
 @api_router.put("/admin/users/{user_id}")
-async def toggle_user(user_id: str, payload: UserToggleInput, user: dict = Depends(require_roles("super_admin"))):
+async def toggle_user(
+    user_id: str,
+    payload: UserToggleInput,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
     if user_id == user["user_id"]:
         raise HTTPException(status_code=400, detail="Tidak dapat menonaktifkan akun sendiri")
+    target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target or not can_manage_admin_account(user, target):
+        raise HTTPException(status_code=404, detail="Akun admin tidak ditemukan")
     await db.users.update_one({"user_id": user_id}, {"$set": {"is_active": payload.is_active}})
     return {"message": "Status akun diperbarui"}
 
 
 @api_router.delete("/admin/users/{user_id}")
-async def delete_user(user_id: str, user: dict = Depends(require_roles("super_admin"))):
+async def delete_user(
+    user_id: str,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
     target = await db.users.find_one({"user_id": user_id})
-    if not target:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan")
+    if not target or not can_manage_admin_account(user, target):
+        raise HTTPException(status_code=404, detail="Akun admin tidak ditemukan")
     if target.get("email") == ADMIN_EMAIL:
         raise HTTPException(status_code=400, detail="Tidak dapat menghapus super admin utama")
     await db.users.delete_one({"user_id": user_id})

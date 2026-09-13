@@ -1,0 +1,40 @@
+{
+  "summary": "Full backend + frontend testing of Admin Wilayah (regional admin) feature. Created /app/backend/tests/test_admin_wilayah.py — 19/19 pytest tests pass (5.87s). Coverage: (1) Super Admin can create admin_wilayah with valid DKI region, is rejected without region or with invalid region; (2) Admin/PIC (provincial) can create admin_wilayah for any of 6 DKI regions and is rejected (HTTP 400) when creating role=admin or role=super_admin; (3) admin_wilayah scoped to Jakarta Barat sees only Jakarta Barat participants — verified /api/admin/participants without region, with ?region=all, and with ?region=Jakarta Timur (JT peserta never leaks); (4) /api/admin/stats returns selected_region='Jakarta Barat' and available_regions=['Jakarta Barat'] even when queried with ?region=Jakarta Timur; (5) GET/PUT /api/admin/participants/{jt_user_id} return 404 for JB admin; (6) Own-region detail returns 200; (7) admin_wilayah is 403 on GET and POST /api/admin/users; (8) Export XLSX for admin_wilayah does not embed JT peserta email in payload; (9) Admin/PIC still sees all regions; (10) Super Admin can toggle+delete admin_wilayah; (11) Admin/PIC can delete admin_wilayah but not super_admin (404). Frontend (browser) verified: Admin/PIC login exposes menu-admin-wilayah + admin-users-manager + create-admin-btn opens dialog with admin-region-select and role-select restricted to ['admin_wilayah']; mobile 390px shows 0px horizontal overflow. Regional admin login (temp JB account) hides menu-admin-wilayah and menu-kampus, header shows 'Wilayah kerja: Jakarta Barat', and regional-admin-summary-scope indicator is rendered.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verification_results": {
+    "pytest": "19/19 passed in test_admin_wilayah.py",
+    "super_admin_creates_regional_admin_with_region": true,
+    "super_admin_rejects_missing_or_invalid_region": true,
+    "admin_pic_can_create_admin_wilayah": true,
+    "admin_pic_rejected_creating_admin_or_super_admin": true,
+    "regional_admin_participants_scoped_when_region_all_or_other": true,
+    "regional_admin_stats_forced_to_own_region": true,
+    "regional_admin_cross_region_detail_and_status_404": true,
+    "regional_admin_forbidden_on_admin_users_endpoints_403": true,
+    "regional_admin_export_excludes_other_region_data": true,
+    "provincial_admin_and_super_admin_still_see_all_regions": true,
+    "ui_admin_pic_menu_and_form_ok": true,
+    "ui_regional_admin_hides_admin_wilayah_and_kampus_menus": true,
+    "ui_mobile_no_horizontal_overflow_at_390px": true
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin_wilayah.py",
+    "/app/test_reports/pytest/admin_wilayah.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "participant_scope_query fetches up to 5000 profiles then builds an $in array on user_id for every scoped request (list, stats, export, AI verification). For larger cohorts this becomes an O(N) round-trip on every request; consider persisting the resolved region directly on the registration document at submission time so scoping is a single query on `region`.",
+    "profile_region() reads `data.kota` OR `data.provinsi` — if a student enters kota='Bekasi' and provinsi='DKI Jakarta' they will never be scoped to any DKI region admin. Consider validating that kota is one of the 6 DKI regions when profile is saved for MDJ eligibility.",
+    "delete_user does not cascade — deleting an admin_wilayah keeps orphaned audit trail rows (history entries reference user.name only, which is fine, but any references by user_id in notifications/verifications are not purged). Not blocking for this feature.",
+    "AdminUsers.jsx line 43: canManageProvincial gate limits admin/PIC's role picker to only ['admin_wilayah'] which is correct, but the roleOptions comment says provincial admin gets 3 options — this is actually gated by prop passed from parent (super_admin only). Keep the JSX and the /api/admin/users backend allowed_roles in sync — currently consistent."
+  ],
+  "updated_files": ["/app/backend/tests/test_admin_wilayah.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026!  |  admin.mdj@baznasbazisdki.id / AdminMDJ2026!  |  mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!  |  temporary admin_wilayah accounts created with @example.com — all deleted in teardown.",
+  "seed_data_creation": "Test module creates 2 tagged (test_tag='TEST_admin_wilayah') student peserta — one Jakarta Barat, one Jakarta Timur — plus several ephemeral admin_wilayah accounts (email prefix 'test_admin_wilayah_'). All removed by module-scoped autouse teardown; extra sweep run manually after UI test. 50 seeded student_uji_mdj_* users preserved.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Admin Wilayah feature is fully functional end-to-end. Regression suite: /app/backend/tests/test_admin_wilayah.py (19 tests, ~6s). Must be invoked with -n0 because pytest.ini enables xdist by default. Tests seed peserta directly via pymongo (bypasses profile save) — kota field is what admin_wilayah scoping uses (profile_region falls back to provinsi). UI verified with a temporary JB admin_wilayah created via API; cleanup uses email prefix pattern 'test_admin_wilayah_'.",
+  "rca of the issue": "N/A — no issues found; implementation matches spec."
+}
