@@ -30,9 +30,12 @@ import asyncio
 import ipaddress
 import random
 import httpx
+import base64
+import hashlib
 from html import escape
 from html.parser import HTMLParser
 from urllib.parse import urlparse
+from cryptography.fernet import Fernet, InvalidToken
 from emergentintegrations.llm.chat import (
     FileContentWithMimeType,
     LlmChat,
@@ -404,6 +407,23 @@ class VerificationApprovalInput(BaseModel):
     approve_all: bool = False
 
 
+class BeneficiaryBankInput(BaseModel):
+    bank_name: str = ""
+    account_number: str = ""
+
+
+class DisbursementInput(BaseModel):
+    status: str
+    amount: Optional[float] = None
+    disbursed_at: Optional[str] = None
+    reference: str = ""
+    notes: str = ""
+
+
+class BeneficiaryReviewResolveInput(BaseModel):
+    user_id: str
+
+
 REG_STATUSES = ["draft", "submitted", "verifikasi", "lolos_administrasi", "wawancara",
                 "verifikasi_faktual", "lolos", "ditolak"]
 REGIONAL_ADMIN_ROLE = "admin_wilayah"
@@ -416,6 +436,17 @@ DKI_REGIONS = [
     "Jakarta Timur",
     "Kepulauan Seribu",
 ]
+DISBURSEMENT_STATUSES = [
+    "belum_diproses",
+    "menunggu_bukti",
+    "perlu_tinjau",
+    "terverifikasi",
+    "disetujui",
+    "dicairkan",
+    "ditunda",
+]
+PM_MANAGERS = ("admin", "super_admin")
+PM_ALLOWED_EXTENSIONS = {"pdf", "jpg", "jpeg", "png"}
 
 
 def clean_user(u: dict) -> dict:
@@ -466,6 +497,57 @@ def can_manage_admin_account(actor: dict, target: dict) -> bool:
         actor.get("role") == "admin"
         and target.get("role") == REGIONAL_ADMIN_ROLE
     )
+
+
+def bank_cipher() -> Fernet:
+    key = hashlib.sha256(JWT_SECRET.encode("utf-8")).digest()
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def normalize_nim(value: Any) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "", str(value or "")).upper()
+
+
+def normalize_account_number(value: Any) -> str:
+    return re.sub(r"\D", "", str(value or ""))
+
+
+def mask_account_number(value: str) -> str:
+    if not value:
+        return "Belum dicatat"
+    if len(value) <= 4:
+        return "•" * len(value)
+    return f"{'•' * (len(value) - 4)}{value[-4:]}"
+
+
+def encrypt_account_number(value: str) -> str:
+    return bank_cipher().encrypt(value.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_account_number(value: str) -> str:
+    if not value:
+        return ""
+    try:
+        return bank_cipher().decrypt(value.encode("utf-8")).decode("utf-8")
+    except InvalidToken:
+        return ""
+
+
+async def audit_beneficiary_action(
+    actor: dict,
+    action: str,
+    user_id: Optional[str] = None,
+    detail: Optional[dict] = None,
+) -> None:
+    await db.beneficiary_audit_events.insert_one({
+        "id": str(uuid.uuid4()),
+        "actor_id": actor["user_id"],
+        "actor_name": actor.get("name", "Admin"),
+        "action": action,
+        "user_id": user_id,
+        "detail": detail or {},
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -1119,6 +1201,816 @@ async def download_file(path: str, request: Request, auth: str = Query(None)):
     data, content_type = get_object(path)
     return StarletteResponse(content=data, media_type=(record or {}).get("content_type", content_type),
                              headers={"Cache-Control": "private, max-age=3600"})
+
+
+# ---------------------------------------------------------------------------
+# Penerima Manfaat and disbursement management
+# ---------------------------------------------------------------------------
+PM_ACTIVE_LETTER_PROMPT = """Anda adalah mesin OCR dokumen kampus Indonesia.
+Dokumen adalah surat keterangan mahasiswa aktif atau surat jawaban verifikasi yang dapat
+berisi tabel banyak mahasiswa. Kembalikan HANYA JSON valid dengan skema:
+{
+  "students": [
+    {
+      "name": string,
+      "nim": string,
+      "study_program": string,
+      "semester": string,
+      "evidence": string
+    }
+  ]
+}
+Ekstrak SEMUA baris mahasiswa. Pertahankan NIM persis seperti tertulis, termasuk nol di
+depan. Gunakan string kosong bila tidak terbaca dan jangan menebak data."""
+
+PM_TRANSFER_PROOF_PROMPT = """Anda adalah mesin OCR bukti transfer Indonesia.
+Bukti dapat berupa transfer massal dengan banyak transaksi. Kembalikan HANYA JSON valid:
+{
+  "transactions": [
+    {
+      "name": string,
+      "nim": string,
+      "account_number": string,
+      "bank_name": string,
+      "status": string,
+      "amount": string,
+      "reference": string,
+      "date": string,
+      "evidence": string
+    }
+  ],
+  "summary": {"total_amount": string, "date": string, "reference": string}
+}
+Prioritaskan nomor rekening penerima. Ekstrak semua transaksi yang terlihat, jangan
+menebak digit rekening, dan gunakan string kosong untuk data yang tidak terbaca."""
+
+
+def pm_content_type(ext: str) -> str:
+    return MIME_TYPES.get(ext, "application/octet-stream")
+
+
+def pm_magic_matches(data: bytes, ext: str) -> bool:
+    signatures = {
+        "pdf": b"%PDF",
+        "jpg": b"\xff\xd8\xff",
+        "jpeg": b"\xff\xd8\xff",
+        "png": b"\x89PNG\r\n\x1a\n",
+    }
+    return bool(data) and data.startswith(signatures[ext])
+
+
+async def read_pm_upload(file: UploadFile) -> tuple:
+    filename = file.filename or "dokumen"
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if ext not in PM_ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Gunakan PDF, JPG, JPEG, atau PNG.")
+    data = await file.read()
+    if not data or len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran berkas harus antara 1 byte dan 10MB.")
+    if not pm_magic_matches(data, ext):
+        raise HTTPException(status_code=400, detail="Isi berkas tidak sesuai dengan formatnya.")
+    return filename, ext, data, pm_content_type(ext)
+
+
+async def store_pm_source(
+    actor: dict,
+    source_type: str,
+    filename: str,
+    ext: str,
+    data: bytes,
+    content_type: str,
+    stage: Optional[int] = None,
+) -> dict:
+    source_id = str(uuid.uuid4())
+    path = f"{APP_NAME}/beneficiary-sources/{source_id}.{ext}"
+    result = put_object(path, data, content_type)
+    source = {
+        "id": source_id,
+        "source_type": source_type,
+        "stage": stage,
+        "storage_path": result["path"],
+        "original_filename": filename,
+        "content_type": content_type,
+        "size": result["size"],
+        "sha256": hashlib.sha256(data).hexdigest(),
+        "status": "processing",
+        "uploaded_by": actor["user_id"],
+        "uploaded_by_name": actor.get("name", "Admin"),
+        "matched_user_ids": [],
+        "regions": [],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.beneficiary_sources.insert_one(dict(source))
+    await audit_beneficiary_action(actor, f"upload_{source_type}", detail={"source_id": source_id})
+    return source
+
+
+async def extract_pm_payload(
+    data: bytes,
+    content_type: str,
+    actor: dict,
+    prompt: str,
+    source_label: str,
+) -> dict:
+    suffix = ".pdf" if content_type == "application/pdf" else ".img"
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_file.write(data)
+            tmp_path = temp_file.name
+        chat = LlmChat(
+            api_key=EMERGENT_KEY,
+            session_id=f"pm-ocr-{actor['user_id']}-{uuid.uuid4()}",
+            system_message=prompt,
+        ).with_model("gemini", "gemini-3.1-pro-preview")
+        file_content = FileContentWithMimeType(mime_type=content_type, file_path=tmp_path)
+        chunks = []
+        async for event in chat.stream_message(UserMessage(
+            text=f"Baca {source_label} ini dan kembalikan JSON sesuai skema.",
+            file_contents=[file_content],
+        )):
+            if isinstance(event, TextDelta):
+                chunks.append(event.content)
+            elif isinstance(event, StreamDone):
+                break
+        raw = "".join(chunks).strip()
+    except Exception as error:
+        logger.error("PM OCR failed: %s", error)
+        raise HTTPException(status_code=502, detail="AI belum dapat membaca berkas. Coba lagi nanti.")
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.DOTALL).strip()
+    match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+    if not match:
+        raise HTTPException(status_code=422, detail="Hasil OCR tidak dapat dibaca sebagai data.")
+    try:
+        parsed = json.loads(match.group(0))
+    except json.JSONDecodeError as error:
+        raise HTTPException(status_code=422, detail="Hasil OCR tidak valid.") from error
+    if not isinstance(parsed, dict):
+        raise HTTPException(status_code=422, detail="Hasil OCR tidak memiliki struktur yang valid.")
+    return parsed
+
+
+async def final_beneficiary_index(user: Optional[dict] = None) -> Dict[str, List[dict]]:
+    query = {"status": "lolos"}
+    if user:
+        query.update(await participant_scope_query(user))
+    registrations = await db.registrations.find(query, {"_id": 0}).to_list(5000)
+    user_ids = [registration["user_id"] for registration in registrations]
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "data": 1},
+    ).to_list(5000)
+    profiles_by_user = {profile["user_id"]: profile.get("data", {}) for profile in profiles}
+    index: Dict[str, List[dict]] = {}
+    for registration in registrations:
+        profile = profiles_by_user.get(registration["user_id"], {})
+        name = registration.get("name") or profile.get("namaLengkap", "")
+        nim = normalize_nim(profile.get("nim"))
+        key = f"{normalized_name(name)}|{nim}"
+        if not normalized_name(name) or not nim:
+            continue
+        index.setdefault(key, []).append({
+            "registration": registration,
+            "profile": profile,
+            "region": profile_region(profile),
+        })
+    return index
+
+
+async def get_final_beneficiary(user: dict, user_id: str) -> dict:
+    await require_participant_scope(user, user_id)
+    registration = await db.registrations.find_one(
+        {"user_id": user_id, "status": "lolos"},
+        {"_id": 0},
+    )
+    if not registration:
+        raise HTTPException(status_code=404, detail="Penerima Manfaat tidak ditemukan.")
+    profile = await db.profiles.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    return {"registration": registration, "profile": profile.get("data", {})}
+
+
+async def ensure_disbursement(user_id: str, stage: int) -> dict:
+    await db.beneficiary_disbursements.update_one(
+        {"user_id": user_id, "stage": stage},
+        {
+            "$setOnInsert": {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "stage": stage,
+                "status": "belum_diproses",
+                "amount": None,
+                "disbursed_at": None,
+                "reference": "",
+                "notes": "",
+                "proofs": [],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        },
+        upsert=True,
+    )
+    return await db.beneficiary_disbursements.find_one(
+        {"user_id": user_id, "stage": stage},
+        {"_id": 0},
+    )
+
+
+def serialize_disbursement(record: Optional[dict], stage: int) -> dict:
+    data = record or {"stage": stage, "status": "belum_diproses", "proofs": []}
+    return {
+        "stage": stage,
+        "status": data.get("status", "belum_diproses"),
+        "amount": data.get("amount"),
+        "disbursed_at": data.get("disbursed_at"),
+        "reference": data.get("reference", ""),
+        "notes": data.get("notes", ""),
+        "proofs": data.get("proofs", []),
+        "updated_at": data.get("updated_at"),
+    }
+
+
+async def beneficiary_view(user: dict, user_id: str) -> dict:
+    beneficiary = await get_final_beneficiary(user, user_id)
+    registration = beneficiary["registration"]
+    profile = beneficiary["profile"]
+    record = await db.beneficiary_records.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    stages = await db.beneficiary_disbursements.find(
+        {"user_id": user_id},
+        {"_id": 0},
+    ).to_list(2)
+    by_stage = {item.get("stage"): item for item in stages}
+    return {
+        "user_id": user_id,
+        "name": registration.get("name") or profile.get("namaLengkap", "-"),
+        "email": registration.get("email") or profile.get("email", "-"),
+        "cpm_id": registration.get("cpm_id", "-"),
+        "nim": profile.get("nim", "-"),
+        "campus": profile.get("institusi", "-"),
+        "study_program": profile.get("jurusan", "-"),
+        "semester": profile.get("semester", "-"),
+        "region": profile_region(profile) or "Belum diisi",
+        "bank": {
+            "bank_name": record.get("bank_name", ""),
+            "account_number_masked": mask_account_number(
+                decrypt_account_number(record.get("bank_account_cipher", ""))
+            ),
+            "is_recorded": bool(record.get("bank_account_cipher")),
+        },
+        "active_letters": record.get("active_letters", []),
+        "disbursements": [
+            serialize_disbursement(by_stage.get(1), 1),
+            serialize_disbursement(by_stage.get(2), 2),
+        ],
+    }
+
+
+async def create_beneficiary_review(
+    actor: dict,
+    source: dict,
+    kind: str,
+    payload: dict,
+    reason: str,
+) -> None:
+    review = {
+        "id": str(uuid.uuid4()),
+        "source_id": source["id"],
+        "source_type": source["source_type"],
+        "stage": source.get("stage"),
+        "kind": kind,
+        "payload": payload,
+        "reason": reason,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.beneficiary_reviews.insert_one(review)
+    await audit_beneficiary_action(actor, "create_pm_review", detail={"review_id": review["id"]})
+
+
+@api_router.get("/admin/beneficiaries")
+async def list_beneficiaries(
+    region: Optional[str] = None,
+    search: Optional[str] = None,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    scope_region = regional_admin_region(user)
+    query = {"status": "lolos"}
+    query.update(await participant_scope_query(user))
+    registrations = await db.registrations.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    user_ids = [registration["user_id"] for registration in registrations]
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "data": 1},
+    ).to_list(2000)
+    records = await db.beneficiary_records.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0},
+    ).to_list(2000)
+    disbursements = await db.beneficiary_disbursements.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0},
+    ).to_list(4000)
+    profiles_by_user = {item["user_id"]: item.get("data", {}) for item in profiles}
+    records_by_user = {item["user_id"]: item for item in records}
+    disbursements_by_user: Dict[str, Dict[int, dict]] = {}
+    for item in disbursements:
+        disbursements_by_user.setdefault(item["user_id"], {})[item["stage"]] = item
+    selected_region = scope_region or region
+    result = []
+    for registration in registrations:
+        profile = profiles_by_user.get(registration["user_id"], {})
+        beneficiary_region = profile_region(profile) or "Belum diisi"
+        if selected_region and selected_region != "all" and beneficiary_region != selected_region:
+            continue
+        record = records_by_user.get(registration["user_id"], {})
+        keyword = " ".join([
+            str(registration.get("name", "")),
+            str(registration.get("email", "")),
+            str(profile.get("nim", "")),
+            str(profile.get("institusi", "")),
+        ]).lower()
+        if search and search.strip().lower() not in keyword:
+            continue
+        stages = disbursements_by_user.get(registration["user_id"], {})
+        result.append({
+            "user_id": registration["user_id"],
+            "name": registration.get("name") or profile.get("namaLengkap", "-"),
+            "email": registration.get("email") or profile.get("email", "-"),
+            "cpm_id": registration.get("cpm_id", "-"),
+            "nim": profile.get("nim", "-"),
+            "campus": profile.get("institusi", "-"),
+            "study_program": profile.get("jurusan", "-"),
+            "semester": profile.get("semester", "-"),
+            "region": beneficiary_region,
+            "active_letter_count": len(record.get("active_letters", [])),
+            "bank_recorded": bool(record.get("bank_account_cipher")),
+            "stage_one": serialize_disbursement(stages.get(1), 1),
+            "stage_two": serialize_disbursement(stages.get(2), 2),
+        })
+    return result
+
+
+@api_router.get("/admin/beneficiaries/{user_id}")
+async def beneficiary_detail(
+    user_id: str,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    return await beneficiary_view(user, user_id)
+
+
+@api_router.put("/admin/beneficiaries/{user_id}/bank")
+async def update_beneficiary_bank(
+    user_id: str,
+    payload: BeneficiaryBankInput,
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    await get_final_beneficiary(user, user_id)
+    account_number = normalize_account_number(payload.account_number)
+    if account_number and not 6 <= len(account_number) <= 24:
+        raise HTTPException(status_code=400, detail="Nomor rekening harus terdiri dari 6–24 digit.")
+    now = datetime.now(timezone.utc).isoformat()
+    update = {
+        "bank_name": payload.bank_name.strip(),
+        "updated_at": now,
+        "updated_by": user["user_id"],
+    }
+    if account_number:
+        update["bank_account_cipher"] = encrypt_account_number(account_number)
+    await db.beneficiary_records.update_one(
+        {"user_id": user_id},
+        {"$set": update, "$setOnInsert": {"user_id": user_id, "active_letters": []}},
+        upsert=True,
+    )
+    await audit_beneficiary_action(user, "update_beneficiary_bank", user_id)
+    return await beneficiary_view(user, user_id)
+
+
+@api_router.put("/admin/beneficiaries/{user_id}/disbursements/{stage}")
+async def update_disbursement(
+    user_id: str,
+    stage: int,
+    payload: DisbursementInput,
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    if stage not in (1, 2):
+        raise HTTPException(status_code=400, detail="Tahap pencairan harus 1 atau 2.")
+    if payload.status not in DISBURSEMENT_STATUSES:
+        raise HTTPException(status_code=400, detail="Status pencairan tidak valid.")
+    if payload.amount is not None and payload.amount <= 0:
+        raise HTTPException(status_code=400, detail="Nominal pencairan harus lebih dari nol.")
+    await get_final_beneficiary(user, user_id)
+    await ensure_disbursement(user_id, stage)
+    await db.beneficiary_disbursements.update_one(
+        {"user_id": user_id, "stage": stage},
+        {
+            "$set": {
+                "status": payload.status,
+                "amount": payload.amount,
+                "disbursed_at": payload.disbursed_at,
+                "reference": payload.reference.strip(),
+                "notes": payload.notes.strip(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": user["user_id"],
+            }
+        },
+    )
+    await audit_beneficiary_action(
+        user,
+        "update_disbursement",
+        user_id,
+        {"stage": stage, "status": payload.status},
+    )
+    return await beneficiary_view(user, user_id)
+
+
+@api_router.get("/admin/beneficiaries/{user_id}/audit")
+async def beneficiary_audit(
+    user_id: str,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    await get_final_beneficiary(user, user_id)
+    return await db.beneficiary_audit_events.find(
+        {"user_id": user_id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(100)
+
+
+@api_router.get("/admin/beneficiary-reviews")
+async def list_beneficiary_reviews(
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    return await db.beneficiary_reviews.find(
+        {"status": "pending"},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(300)
+
+
+@api_router.get("/admin/beneficiary-files/{source_id}")
+async def download_beneficiary_file(
+    source_id: str,
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    source = await db.beneficiary_sources.find_one({"id": source_id}, {"_id": 0})
+    if not source:
+        raise HTTPException(status_code=404, detail="Berkas Penerima Manfaat tidak ditemukan.")
+    data, content_type = get_object(source["storage_path"])
+    headers = {"Content-Disposition": f'inline; filename="{source["original_filename"]}"'}
+    await audit_beneficiary_action(user, "download_beneficiary_source", detail={"source_id": source_id})
+    return StarletteResponse(
+        content=data,
+        media_type=source.get("content_type", content_type),
+        headers=headers,
+    )
+
+
+async def attach_active_letter(
+    actor: dict,
+    source: dict,
+    student: dict,
+    beneficiary: dict,
+) -> bool:
+    registration = beneficiary["registration"]
+    profile = beneficiary["profile"]
+    user_id = registration["user_id"]
+    letter = {
+        "source_id": source["id"],
+        "original_filename": source["original_filename"],
+        "matched_at": datetime.now(timezone.utc).isoformat(),
+        "matched_name": student.get("name", ""),
+        "matched_nim": normalize_nim(student.get("nim")),
+        "study_program": student.get("study_program", ""),
+        "semester": student.get("semester", ""),
+        "evidence": student.get("evidence", ""),
+    }
+    record = await db.beneficiary_records.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    if any(item.get("source_id") == source["id"] for item in record.get("active_letters", [])):
+        return False
+    await db.beneficiary_records.update_one(
+        {"user_id": user_id},
+        {
+            "$setOnInsert": {
+                "user_id": user_id,
+                "active_letters": [],
+            },
+            "$push": {"active_letters": letter},
+            "$set": {"updated_at": datetime.now(timezone.utc).isoformat()},
+        },
+        upsert=True,
+    )
+    await audit_beneficiary_action(
+        actor,
+        "attach_active_letter",
+        user_id,
+        {"source_id": source["id"], "region": profile_region(profile)},
+    )
+    return True
+
+
+@api_router.post("/admin/beneficiaries/active-letters")
+async def upload_active_letters(
+    files: List[UploadFile] = File(...),
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    if not files or len(files) > 20:
+        raise HTTPException(status_code=400, detail="Unggah antara 1 hingga 20 berkas surat.")
+    beneficiary_index = await final_beneficiary_index()
+    summary = {"uploaded": 0, "matched": 0, "duplicate": 0, "review": 0, "failed": 0}
+    sources = []
+    for file in files:
+        filename, ext, data, content_type = await read_pm_upload(file)
+        source = await store_pm_source(
+            user,
+            "active_letter",
+            filename,
+            ext,
+            data,
+            content_type,
+        )
+        summary["uploaded"] += 1
+        try:
+            extracted = await extract_pm_payload(
+                data,
+                content_type,
+                user,
+                PM_ACTIVE_LETTER_PROMPT,
+                "surat keterangan mahasiswa aktif",
+            )
+            students = extracted.get("students", [])
+            if not isinstance(students, list):
+                students = []
+            matched_user_ids = []
+            regions = set()
+            for raw_student in students:
+                student = raw_student if isinstance(raw_student, dict) else {}
+                name = normalized_name(student.get("name"))
+                nim = normalize_nim(student.get("nim"))
+                if not name or not nim:
+                    await create_beneficiary_review(
+                        user,
+                        source,
+                        "active_letter_incomplete",
+                        student,
+                        "Nama atau NIM tidak terbaca lengkap.",
+                    )
+                    summary["review"] += 1
+                    continue
+                matches = beneficiary_index.get(f"{name}|{nim}", [])
+                if len(matches) != 1:
+                    reason = (
+                        "Mahasiswa belum berstatus lulus tahap akhir."
+                        if not matches
+                        else "Data nama dan NIM cocok ke lebih dari satu Penerima Manfaat."
+                    )
+                    await create_beneficiary_review(
+                        user,
+                        source,
+                        "active_letter_unmatched",
+                        student,
+                        reason,
+                    )
+                    summary["review"] += 1
+                    continue
+                beneficiary = matches[0]
+                attached = await attach_active_letter(user, source, student, beneficiary)
+                if attached:
+                    matched_user_ids.append(beneficiary["registration"]["user_id"])
+                    regions.add(beneficiary["region"])
+                    summary["matched"] += 1
+                else:
+                    await create_beneficiary_review(
+                        user,
+                        source,
+                        "active_letter_duplicate",
+                        student,
+                        "Surat ini sudah tertempel pada Penerima Manfaat tersebut.",
+                    )
+                    summary["duplicate"] += 1
+            status = "processed" if students else "needs_review"
+            await db.beneficiary_sources.update_one(
+                {"id": source["id"]},
+                {
+                    "$set": {
+                        "status": status,
+                        "extraction": {"students": students},
+                        "matched_user_ids": matched_user_ids,
+                        "regions": sorted(regions),
+                        "processed_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                },
+            )
+        except HTTPException as error:
+            await db.beneficiary_sources.update_one(
+                {"id": source["id"]},
+                {"$set": {"status": "failed", "error": error.detail}},
+            )
+            await create_beneficiary_review(
+                user,
+                source,
+                "active_letter_ocr_failed",
+                {},
+                str(error.detail),
+            )
+            summary["failed"] += 1
+        sources.append({"id": source["id"], "filename": filename})
+    return {"summary": summary, "sources": sources}
+
+
+async def attach_transfer_transaction(
+    actor: dict,
+    source: dict,
+    transaction: dict,
+    beneficiary: dict,
+) -> None:
+    user_id = beneficiary["registration"]["user_id"]
+    stage = int(source["stage"])
+    record = await db.beneficiary_records.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    saved_account = decrypt_account_number(record.get("bank_account_cipher", ""))
+    extracted_account = normalize_account_number(transaction.get("account_number"))
+    if extracted_account and saved_account:
+        account_match = "sesuai" if extracted_account == saved_account else "tidak_sesuai"
+    else:
+        account_match = "perlu_tinjau"
+    await ensure_disbursement(user_id, stage)
+    proof = {
+        "source_id": source["id"],
+        "original_filename": source["original_filename"],
+        "account_number_masked": mask_account_number(extracted_account),
+        "bank_name": str(transaction.get("bank_name") or ""),
+        "transaction_status": str(transaction.get("status") or ""),
+        "amount": str(transaction.get("amount") or ""),
+        "reference": str(transaction.get("reference") or ""),
+        "date": str(transaction.get("date") or ""),
+        "account_match": account_match,
+        "evidence": str(transaction.get("evidence") or ""),
+        "attached_at": datetime.now(timezone.utc).isoformat(),
+    }
+    disbursement = await db.beneficiary_disbursements.find_one(
+        {"user_id": user_id, "stage": stage},
+        {"_id": 0},
+    ) or {}
+    if not any(item.get("source_id") == source["id"] for item in disbursement.get("proofs", [])):
+        await db.beneficiary_disbursements.update_one(
+            {"user_id": user_id, "stage": stage},
+            {
+                "$push": {"proofs": proof},
+                "$set": {"updated_at": datetime.now(timezone.utc).isoformat()},
+            },
+        )
+    await audit_beneficiary_action(
+        actor,
+        "attach_transfer_proof",
+        user_id,
+        {"source_id": source["id"], "stage": stage, "account_match": account_match},
+    )
+
+
+@api_router.post("/admin/beneficiaries/disbursement-proofs")
+async def upload_disbursement_proofs(
+    stage: int = Form(...),
+    files: List[UploadFile] = File(...),
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    if stage not in (1, 2):
+        raise HTTPException(status_code=400, detail="Tahap pencairan harus 1 atau 2.")
+    if not files or len(files) > 20:
+        raise HTTPException(status_code=400, detail="Unggah antara 1 hingga 20 bukti transfer.")
+    beneficiary_index = await final_beneficiary_index()
+    summary = {"uploaded": 0, "matched": 0, "review": 0, "failed": 0}
+    sources = []
+    for file in files:
+        filename, ext, data, content_type = await read_pm_upload(file)
+        source = await store_pm_source(
+            user,
+            "transfer_proof",
+            filename,
+            ext,
+            data,
+            content_type,
+            stage,
+        )
+        summary["uploaded"] += 1
+        try:
+            extracted = await extract_pm_payload(
+                data,
+                content_type,
+                user,
+                PM_TRANSFER_PROOF_PROMPT,
+                "bukti transfer",
+            )
+            transactions = extracted.get("transactions", [])
+            if not isinstance(transactions, list):
+                transactions = []
+            matched_user_ids = []
+            regions = set()
+            for raw_transaction in transactions:
+                transaction = raw_transaction if isinstance(raw_transaction, dict) else {}
+                name = normalized_name(transaction.get("name"))
+                nim = normalize_nim(transaction.get("nim"))
+                if not name or not nim:
+                    await create_beneficiary_review(
+                        user,
+                        source,
+                        "transfer_incomplete",
+                        transaction,
+                        "Nama atau NIM tidak cukup untuk memetakan transaksi.",
+                    )
+                    summary["review"] += 1
+                    continue
+                matches = beneficiary_index.get(f"{name}|{nim}", [])
+                if len(matches) != 1:
+                    reason = (
+                        "Transaksi belum dapat dipetakan ke Penerima Manfaat lulus akhir."
+                        if not matches
+                        else "Transaksi cocok ke lebih dari satu Penerima Manfaat."
+                    )
+                    await create_beneficiary_review(
+                        user,
+                        source,
+                        "transfer_unmatched",
+                        transaction,
+                        reason,
+                    )
+                    summary["review"] += 1
+                    continue
+                beneficiary = matches[0]
+                await attach_transfer_transaction(user, source, transaction, beneficiary)
+                matched_user_ids.append(beneficiary["registration"]["user_id"])
+                regions.add(beneficiary["region"])
+                summary["matched"] += 1
+            status = "processed" if transactions else "needs_review"
+            await db.beneficiary_sources.update_one(
+                {"id": source["id"]},
+                {
+                    "$set": {
+                        "status": status,
+                        "extraction": {
+                            "transactions": transactions,
+                            "summary": extracted.get("summary", {}),
+                        },
+                        "matched_user_ids": matched_user_ids,
+                        "regions": sorted(regions),
+                        "processed_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                },
+            )
+        except HTTPException as error:
+            await db.beneficiary_sources.update_one(
+                {"id": source["id"]},
+                {"$set": {"status": "failed", "error": error.detail}},
+            )
+            await create_beneficiary_review(
+                user,
+                source,
+                "transfer_ocr_failed",
+                {},
+                str(error.detail),
+            )
+            summary["failed"] += 1
+        sources.append({"id": source["id"], "filename": filename})
+    return {"summary": summary, "sources": sources}
+
+
+@api_router.post("/admin/beneficiary-reviews/{review_id}/resolve")
+async def resolve_beneficiary_review(
+    review_id: str,
+    payload: BeneficiaryReviewResolveInput,
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    review = await db.beneficiary_reviews.find_one(
+        {"id": review_id, "status": "pending"},
+        {"_id": 0},
+    )
+    if not review:
+        raise HTTPException(status_code=404, detail="Item tinjauan tidak ditemukan.")
+    source = await db.beneficiary_sources.find_one({"id": review["source_id"]}, {"_id": 0})
+    if not source:
+        raise HTTPException(status_code=404, detail="Berkas sumber tidak ditemukan.")
+    beneficiary = await get_final_beneficiary(user, payload.user_id)
+    if source["source_type"] == "active_letter":
+        await attach_active_letter(user, source, review.get("payload", {}), beneficiary)
+    elif source["source_type"] == "transfer_proof":
+        await attach_transfer_transaction(user, source, review.get("payload", {}), beneficiary)
+    else:
+        raise HTTPException(status_code=400, detail="Jenis item tinjauan tidak didukung.")
+    await db.beneficiary_reviews.update_one(
+        {"id": review_id},
+        {
+            "$set": {
+                "status": "resolved",
+                "resolved_user_id": payload.user_id,
+                "resolved_by": user["user_id"],
+                "resolved_at": datetime.now(timezone.utc).isoformat(),
+            }
+        },
+    )
+    await audit_beneficiary_action(
+        user,
+        "resolve_pm_review",
+        payload.user_id,
+        {"review_id": review_id, "source_id": source["id"]},
+    )
+    return {"message": "Item tinjauan berhasil dipetakan ke Penerima Manfaat."}
 
 
 # ---------------------------------------------------------------------------
@@ -2664,6 +3556,12 @@ async def startup():
     await db.selection_import_review.create_index([("status", 1), ("created_at", -1)])
     await db.verification_recommendations.create_index("user_id", unique=True)
     await db.verification_recommendations.create_index([("approval_status", 1), ("analyzed_at", -1)])
+    await db.beneficiary_records.create_index("user_id", unique=True)
+    await db.beneficiary_disbursements.create_index([("user_id", 1), ("stage", 1)], unique=True)
+    await db.beneficiary_sources.create_index("id", unique=True)
+    await db.beneficiary_sources.create_index([("source_type", 1), ("created_at", -1)])
+    await db.beneficiary_reviews.create_index([("status", 1), ("created_at", -1)])
+    await db.beneficiary_audit_events.create_index([("user_id", 1), ("created_at", -1)])
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
@@ -2695,7 +3593,7 @@ async def startup():
         {
             "email": DEMO_ADMIN_EMAIL,
             "password": DEMO_ADMIN_PASSWORD,
-            "name": "Admin Pendaftaran MDJ",
+            "name": "Admin Provinsi MDJ",
             "role": "admin",
         },
     ]

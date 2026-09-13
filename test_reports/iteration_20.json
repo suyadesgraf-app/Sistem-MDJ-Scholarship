@@ -1,0 +1,41 @@
+{
+  "summary": "Backend + frontend testing for Kelola Data PM (Admin Provinsi + Beneficiary Manager). Created /app/backend/tests/test_beneficiary_pm.py — 30/30 pytest tests pass in 5.44s. Coverage: (a) Provincial admin (role=admin) is rejected (400) when creating role=admin or role=super_admin, and Super Admin can create Admin Provinsi; (b) GET /api/admin/beneficiaries returns only status=lolos rows, each with stage_one/stage_two initialised to belum_diproses, search filter honoured, student receives 403; (c) beneficiary detail masks account (bullets + last-4), PUT /bank persists cipher and never returns raw digits, short account rejected 400, PUT /disbursements/1 updates status, invalid stage/status rejected; (d) Regional admin (admin_wilayah Jakarta Barat) list is scoped even when ?region=Jakarta Timur, out-of-region detail = 404, bank/disbursement/upload-active-letters/upload-transfer-proofs/list-reviews/download-file = 403; (e) Upload endpoints reject bad extension (.txt), bad magic bytes (pdf ext with non-PDF payload, png ext with non-PNG payload), and invalid stage on disbursement proofs; (f) audit endpoint returns 404 on unknown PM; resolve-review returns 404 on unknown review. Frontend (browser) verified via preview URL: Login page shows 'Admin Provinsi' demo button (not 'Admin/PIC'). Super Admin dashboard renders menu-data-pm → beneficiary-manager with 12 rows, upload-active-letters-button and upload-transfer-proofs-button visible, beneficiary-search-input + beneficiary-region-filter present, detail button opens beneficiary-detail-modal with beneficiary-bank-panel + beneficiary-disbursement-panel and defaults 'Belum Diproses'; no raw 10-digit account leaked into DOM. Admin Provinsi dashboard shows menu-data-pm with upload buttons and 'Admin Provinsi' header label. Temporary admin_wilayah account confirms menu-data-pm is visible but upload-active-letters-button + upload-transfer-proofs-button are hidden and beneficiary-regional-scope indicator is rendered. Mobile 390px: 0px horizontal overflow. All temporary users + TEST_BANK bank record + TEST-REF disbursement were reverted after the tests.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verification_results": {
+    "pytest": "30/30 passed in test_beneficiary_pm.py",
+    "admin_provinsi_label_on_login_and_dashboard": true,
+    "super_admin_can_create_admin_provinsi_and_admin_wilayah": true,
+    "admin_provinsi_rejected_creating_admin_or_super_admin": true,
+    "list_beneficiaries_only_final_pass_with_stage_defaults": true,
+    "beneficiary_detail_account_masked_and_no_raw_cipher_in_response": true,
+    "regional_admin_scoped_and_query_leak_prevented": true,
+    "regional_admin_403_on_mutations_and_downloads": true,
+    "regional_admin_404_on_out_of_region_detail": true,
+    "upload_extension_and_magic_bytes_validation": true,
+    "upload_stage_validation": true,
+    "review_and_audit_rbac": true,
+    "regional_admin_ui_hides_upload_controls_and_shows_scope_indicator": true,
+    "mobile_no_horizontal_overflow_at_390px": true
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_beneficiary_pm.py",
+    "/app/test_reports/pytest/beneficiary_pm.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "profile_region() still falls back to profile.data.provinsi when kota is empty — students who list provinsi='DKI Jakarta' but leave kota blank will show 'DKI Jakarta' as region and never appear in any of the 6 DKI regional admin scopes (only Kelola Data PM. Prior review comment carried over from iter 19).",
+    "final_beneficiary_index() (server.py:1356) is called on every active-letter / transfer-proof upload; when the cohort grows past a few thousand PM this becomes a full scan of registrations + profiles per upload batch. Consider caching per-request or persisting the normalised name|nim key on the registration document.",
+    "list_beneficiaries queries registrations with .to_list(2000) and applies the search+region filters in Python. For 12 PM this is fine but any keyword search after cohort growth should push $text/$regex to Mongo instead.",
+    "BeneficiaryManager modal opens via an in-row button rather than the row itself — data-testid works, but the row cursor changes to pointer on hover which is misleading; either make the whole row clickable or drop the pointer cursor.",
+    "Regional admin sees 'Belum ada Penerima Manfaat lulus akhir di wilayah Anda' when list is empty — good; but the beneficiary-review-panel is intentionally hidden for admin_wilayah (backend also 403s), which is consistent with spec."
+  ],
+  "updated_files": ["/app/backend/tests/test_beneficiary_pm.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026!  |  admin.mdj@baznasbazisdki.id / AdminMDJ2026!  |  mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!  |  ephemeral admin_wilayah + admin_provinsi accounts with @example.com prefix test_pm_ / test_prov_ (cleaned up after every test).",
+  "seed_data_creation": "No permanent seed. Test module creates temporary admin_wilayah + Admin Provinsi accounts (deleted in teardown via DELETE /api/admin/users). A single PM row had bank_name=TEST_BANK/account=1234567890 and disbursement Stage I updated with reference=TEST-REF; both reverted after the run (verified 0 rows remaining with those markers).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Regression suite: /app/backend/tests/test_beneficiary_pm.py + /app/backend/tests/test_admin_wilayah.py (previous). Together they cover Admin Provinsi/Admin Wilayah RBAC + Kelola Data PM CRUD + upload validation. Note the pytest.ini enforces -n 2 --dist loadscope; test_beneficiary_pm.py uses module-scoped tokens (safe for LoadScopeScheduling because tests inside a class run on the same worker). The bank cipher round-trip depends on JWT_SECRET; if JWT_SECRET rotates existing bank_account_cipher entries decrypt to empty and account_number_masked returns 'Belum dicatat' — this is the intended behaviour but worth flagging on future rotation work. UI selectors relied on: menu-data-pm, beneficiary-manager, beneficiaries-table, beneficiary-search-input, beneficiary-region-filter, upload-active-letters-button, upload-transfer-proofs-button, beneficiary-detail-modal, beneficiary-bank-panel, beneficiary-disbursement-panel, beneficiary-regional-scope. OCR endpoints were not exercised end-to-end (no safe fixture with real matching name+NIM) — validation-layer only.",
+  "rca of the issue": "N/A — implementation matches spec across 30 backend tests + 4 UI checkpoints."
+}

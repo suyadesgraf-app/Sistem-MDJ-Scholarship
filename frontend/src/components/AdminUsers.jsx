@@ -30,7 +30,7 @@ function emptyForm(canManageProvincial) {
 function roleLabel(role) {
   if (role === "super_admin") return "Super Admin";
   if (role === "admin_wilayah") return "Admin Wilayah";
-  return "Admin/PIC Provinsi";
+  return "Admin Provinsi";
 }
 
 export default function AdminUsers({ canManageProvincial = false }) {
@@ -43,7 +43,7 @@ export default function AdminUsers({ canManageProvincial = false }) {
   const roleOptions = useMemo(() => (
     canManageProvincial
       ? [
-        ["admin", "Admin/PIC Provinsi"],
+        ["admin", "Admin Provinsi"],
         ["admin_wilayah", "Admin Wilayah"],
         ["super_admin", "Super Admin"],
       ]

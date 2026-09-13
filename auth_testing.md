@@ -48,6 +48,17 @@ curl -s "$API/api/auth/me" -H "Authorization: Bearer <TOKEN>"
   tersaring di server menurut `region` akun, termasuk bila query meminta `all` atau wilayah lain.
 - Uji penolakan: Admin Wilayah membuka atau mengubah peserta di luar wilayah harus menerima HTTP 404.
 
+## Penerima Manfaat dan Pencairan
+- Role `admin` ditampilkan sebagai **Admin Provinsi**. Hanya `super_admin` boleh membuat role ini.
+- `admin` dan `super_admin` dapat mengelola Data PM, rekening terenkripsi, surat mahasiswa aktif,
+  bukti transfer, pencairan Tahap I/II, serta daftar tinjauan.
+- `admin_wilayah` hanya dapat membaca Data PM di `region` miliknya. Permintaan region lain harus tetap
+  tersaring di server; perubahan rekening, unggah berkas, pencairan, tinjauan, dan unduh sumber harus 403.
+- Surat aktif dan bukti transfer hanya cocok otomatis bila nama dan NIM sama persis terhadap peserta
+  berstatus `lolos`; data kosong, ganda, atau tidak cocok masuk `beneficiary_reviews`.
+- Nomor rekening hanya tersimpan dalam bentuk terenkripsi dan respons API hanya boleh mengembalikan
+  nomor tersamarkan. Status pencairan tidak boleh berubah otomatis oleh hasil OCR.
+
 ## Super admin only
 - GET/POST /api/admin/users
   (create regional admin: {name,email,password,role:"admin_wilayah",region:"Jakarta Barat"})

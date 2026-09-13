@@ -5,13 +5,24 @@ import ParticipantsPanel from "@/components/ParticipantsPanel";
 import AdminUsers from "@/components/AdminUsers";
 import SiteManager from "@/components/SiteManager";
 import CampusManager from "@/components/CampusManager";
+import BeneficiaryManager from "@/components/BeneficiaryManager";
 import SelectionImportManager from "@/components/SelectionImportManager";
 import AiAdministrativeVerification from "@/components/AiAdministrativeVerification";
-import { Building2, FileSpreadsheet, Home, Users, ShieldCheck, LayoutDashboard, Sparkles } from "lucide-react";
+import {
+  Building2,
+  FileSpreadsheet,
+  HandCoins,
+  Home,
+  Users,
+  ShieldCheck,
+  LayoutDashboard,
+  Sparkles,
+} from "lucide-react";
 
 const MENU = [
   { id: "ringkasan", label: "Ringkasan", icon: Home },
   { id: "peserta", label: "Data Pendaftar", icon: Users },
+  { id: "data-pm", label: "Kelola Data PM", icon: HandCoins },
   { id: "admin", label: "Akun Admin", icon: ShieldCheck },
   { id: "verifikasi-ai", label: "Verifikasi AI", icon: Sparkles },
   { id: "import-seleksi", label: "Import Seleksi", icon: FileSpreadsheet },
@@ -26,6 +37,7 @@ export default function SuperAdminDashboard() {
       title={MENU.find((m) => m.id === active)?.label} subtitle="Panel kendali MDJ Scholarship">
       {active === "ringkasan" && <StatsOverview showAdmins />}
       {active === "peserta" && <ParticipantsPanel />}
+      {active === "data-pm" && <BeneficiaryManager />}
       {active === "admin" && <AdminUsers canManageProvincial />}
       {active === "verifikasi-ai" && <AiAdministrativeVerification />}
       {active === "import-seleksi" && <SelectionImportManager />}

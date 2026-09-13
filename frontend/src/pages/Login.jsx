@@ -44,7 +44,7 @@ const DEMO_ACCOUNTS = [
     testId: "demo-account-super-admin-button",
   },
   {
-    label: "Admin / PIC",
+    label: "Admin Provinsi",
     email: process.env.REACT_APP_DEMO_ADMIN_EMAIL,
     password: process.env.REACT_APP_DEMO_ADMIN_PASSWORD,
     testId: "demo-account-admin-button",

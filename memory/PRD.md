@@ -6,19 +6,21 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
 ## Architecture
 - **Backend**: FastAPI + MongoDB (motor). All routes under `/api`.
 - **Frontend**: React 19 + React Router 7 + Tailwind + shadcn + recharts + sonner. Fonts: Outfit (display), Plus Jakarta Sans (body). Identity: green #27AE60 / dark #0B6B3A / gold #F2C94C.
-- **Auth**: Dual — JWT email/password (httpOnly cookie + Bearer token) AND Emergent-managed Google login. Roles: student, admin, super_admin.
+- **Auth**: Dual — JWT email/password (httpOnly cookie + Bearer token) AND Emergent-managed Google login. Roles: student, admin (Admin Provinsi), admin_wilayah, super_admin.
 - **Storage**: Emergent object storage for student documents & site banner (real integration).
 
 ## User Personas
 1. Mahasiswa — registers, completes profile, uploads docs, submits registration, tracks selection status.
-2. Admin Pendaftaran — reviews participants, views documents, updates selection status.
-3. Super Admin — all admin abilities + creates/manages admin accounts + edits all public website content.
+2. Admin Provinsi — reviews all participants, manages Admin Wilayah, Penerima Manfaat, dan pencairan.
+3. Admin Wilayah — manages existing selection scope and reads Penerima Manfaat untuk wilayahnya saja.
+4. Super Admin — all admin abilities + creates/manages all admin accounts + edits all public website content.
 
 ## Core Requirements (static)
 - Public landing page with dynamic content.
 - Student self-registration + profile + document upload + registration submit + status tracker.
 - Admin participant management with status workflow.
 - Super admin user management + full CMS for site content.
+- Kelola Data PM untuk penerima berstatus lulus akhir, surat aktif, pencairan, dan audit.
 
 ## Implemented (2026-06)
 - Public landing page (hero, stats, about, categories, requirements, timeline, announcements, FAQ, CTA, footer) driven by GET /api/site/content.
@@ -251,3 +253,23 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   wilayah kerja. Form Admin/PIC mewajibkan pemilihan wilayah saat membuat akun regional.
 - Diuji menyeluruh: 19/19 test backend lulus, pemeriksaan UI Admin/PIC dan Admin Wilayah lulus,
   serta layar 390px tanpa horizontal overflow. Suite regresi: `backend/tests/test_admin_wilayah.py`.
+
+## 2026-09 — Admin Provinsi dan Kelola Data PM
+- Sebutan Admin/PIC di login, dashboard, daftar akun, serta formulir kini menjadi **Admin Provinsi**.
+  Role `admin` tetap sama secara teknis agar akun lama mempertahankan cakupan DKI penuh.
+- Hanya Super Admin dapat membuat Admin Provinsi atau Super Admin. Admin Provinsi hanya dapat
+  membuat dan mengelola Admin Wilayah.
+- Menu **Kelola Data PM** tersedia bagi Super Admin, Admin Provinsi, dan Admin Wilayah dalam mode
+  baca-saja terlingkup. Daftar mengambil registrasi berstatus `lolos` dan memuat NIM, kampus,
+  wilayah, surat aktif, serta status pencairan Tahap I dan Tahap II.
+- Admin Provinsi/Super Admin dapat mengunggah sampai 20 PDF/JPG/JPEG/PNG surat aktif atau bukti
+  transfer per proses. Gemini 3.1 Pro membaca banyak mahasiswa/transaksi; pencocokan otomatis
+  mewajibkan nama dan NIM yang tepat, sementara data kosong/ganda/tidak cocok masuk tinjauan.
+- Setiap tahap pencairan memiliki status, nominal, tanggal, referensi, catatan, serta bukti terkait.
+  Nomor rekening tersimpan terenkripsi dan hanya ditampilkan tersamarkan; hasil OCR rekening hanya
+  menjadi penanda sesuai/tidak sesuai/perlu tinjau, bukan persetujuan otomatis.
+- Dokumen sumber, pemetaan, perubahan rekening/pencairan, penyelesaian tinjauan, dan unduhan dicatat
+  pada audit. Admin Wilayah tidak dapat mengubah data, mengunggah, melihat antrean tinjauan, atau
+  mengunduh sumber mentah.
+- Diuji menyeluruh: 30/30 backend dan semua pemeriksaan UI lulus, termasuk RBAC, validasi magic byte,
+  masking rekening, pencairan, filter wilayah, dashboard, serta mobile 390px tanpa overflow.

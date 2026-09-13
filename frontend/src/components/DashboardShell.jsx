@@ -208,6 +208,12 @@ function CandidateIdentity({
 }
 
 function AccountIdentity({ avatarUrl, user }) {
+  const roleLabel = {
+    admin: "Admin Provinsi",
+    admin_wilayah: "Admin Wilayah",
+    super_admin: "Super Admin",
+    student: "Mahasiswa",
+  }[user?.role] || "";
   return (
     <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
       <Avatar avatarUrl={avatarUrl} user={user} />
@@ -215,8 +221,8 @@ function AccountIdentity({ avatarUrl, user }) {
         <p className="max-w-[140px] truncate text-sm font-semibold text-[#1F2937]">
           {user?.name}
         </p>
-        <p className="text-[11px] capitalize text-[#6B7280]">
-          {(user?.role || "").replace("_", " ")}
+        <p className="text-[11px] text-[#6B7280]" data-testid="header-role-label">
+          {roleLabel}
         </p>
       </div>
     </div>
