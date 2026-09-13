@@ -234,3 +234,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Masing-masing memiliki profil pendidikan lengkap, 10 berkas metadata, kampus terdaftar, dan status
   Terkirim; Gemini 3.1 Pro merekomendasikan kelimanya untuk Lolos Administrasi.
 - Status kelima contoh tetap Terkirim hingga Admin menyetujui secara eksplisit melalui halaman Verifikasi AI.
+
+## 2026-09 — Favicon logo resmi MDJ
+- Favicon menggunakan aset logo resmi MDJ pada `/favicon.png` melalui `frontend/public/index.html`.
+- Layanan frontend dimuat ulang agar template HTML terbaru digunakan.
+- Diuji pada browser: elemen favicon ditemukan dan aset PNG dimuat dari URL publik dengan HTTP 200.
