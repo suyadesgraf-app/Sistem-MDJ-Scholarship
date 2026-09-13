@@ -1,3 +1,62 @@
+# Rencana — Pencairan Dana Berbasis Kampus
+
+## Tujuan
+Mengganti menu **Kelola Data PM** menjadi **Pencairan Dana**. Fokus halaman bergeser dari
+daftar mahasiswa per orang menjadi ringkasan pencairan per kampus, dengan rincian wilayah dan
+tahap dana.
+
+## Tampilan utama Pencairan Dana
+- Menu sidebar, judul halaman, dan penanda navigasi menggunakan nama **Pencairan Dana**.
+- Tabel utama menampilkan satu baris per kampus, bukan satu baris per mahasiswa.
+- Setiap kampus menampilkan jumlah Penerima Manfaat, jumlah wilayah yang memiliki penerima,
+  status Tahap I, status Tahap II, serta jumlah bukti transfer yang sudah terhubung.
+- Pencarian kampus dan filter wilayah tetap tersedia.
+- Membuka satu kampus menampilkan rincian per wilayah: jumlah mahasiswa, daftar mahasiswa
+  penerima, status Tahap I dan Tahap II, nilai pencairan, referensi, serta bukti transfer.
+
+## Dasar jumlah mahasiswa
+- Jumlah mahasiswa pada kampus dihitung dari Penerima Manfaat yang sudah **lulus tahap akhir**.
+- Mahasiswa yang belum lulus akhir tidak ikut masuk ke total pencairan kampus.
+- Data mahasiswa individual tetap dipertahankan sebagai dasar pencocokan AI dan dapat dilihat
+  dari rincian kampus; tidak ada data PM yang dihapus.
+
+## Bukti transfer berbasis kampus dan wilayah
+- Admin Provinsi dan Super Admin dapat mengunggah PDF, JPG, JPEG, atau PNG bukti transfer untuk
+  Tahap I atau Tahap II.
+- AI membaca transaksi pada satu bukti, lalu mencocokkan nama dan NIM mahasiswa dengan data PM.
+  Kampus dan wilayah diisi otomatis dari data mahasiswa yang sudah cocok.
+- Satu bukti transfer dapat dihubungkan ke banyak kampus, banyak mahasiswa, dan banyak wilayah.
+- Satu kampus yang memiliki mahasiswa di enam wilayah akan memiliki enam catatan pencairan pada
+  Tahap I: satu catatan per wilayah. Bukti transfer yang sama dapat terpasang pada semua catatan
+  wilayah yang cocok.
+- Jika satu transaksi hanya dapat dikenali pada level kampus tetapi wilayahnya tidak cukup jelas,
+  atau nama/NIM tidak cocok, transaksi masuk daftar tinjauan dan tidak mengubah status pencairan.
+
+## Status dan persetujuan
+- Status Tahap I dan Tahap II tetap dicatat terpisah untuk setiap kombinasi kampus dan wilayah.
+- AI hanya mengisi hasil pembacaan, transaksi yang cocok, rekening tersamarkan, nominal, tanggal,
+  serta referensi bila terbaca.
+- AI tidak dapat menyetujui atau mencairkan dana. Perubahan status tetap dilakukan secara sadar
+  oleh Admin Provinsi atau Super Admin.
+- Riwayat unggah, pembacaan AI, pemetaan transaksi, perubahan status, dan unduhan bukti tetap
+  dapat ditelusuri.
+
+## Hak akses
+- Super Admin dan Admin Provinsi dapat mengunggah bukti transfer, memetakan item tinjauan, dan
+  memperbarui pencairan seluruh kampus/wilayah.
+- Admin Wilayah hanya melihat hasil Pencairan Dana untuk kampus dan mahasiswa di wilayahnya.
+  Admin Wilayah tidak dapat mengunggah, mengubah status, memetakan transaksi, atau mengunduh
+  bukti sumber mentah.
+
+## Asumsi yang digunakan
+- Istilah “mahasiswa yang terdaftar pada kampus” pada halaman Pencairan Dana berarti mahasiswa
+  penerima manfaat yang telah lulus tahap akhir, karena hanya mereka yang berhak diproses untuk
+  pencairan.
+- Satu catatan pencairan dikelompokkan berdasarkan **kampus + wilayah + tahap**. Nominal dan status
+  pada catatan ini dapat mewakili pencairan kolektif untuk semua mahasiswa penerima di kombinasi
+  tersebut.
+- Bukti transfer massal tetap dapat disimpan sekali dan dirujuk oleh lebih dari satu catatan
+  kampus/wilayah/tahap tanpa menduplikasi berkas.
 # Rencana: Admin Provinsi dan Kelola Data PM
 
 ## Penamaan dan kewenangan admin

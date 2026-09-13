@@ -58,6 +58,11 @@ curl -s "$API/api/auth/me" -H "Authorization: Bearer <TOKEN>"
   berstatus `lolos`; data kosong, ganda, atau tidak cocok masuk `beneficiary_reviews`.
 - Nomor rekening hanya tersimpan dalam bentuk terenkripsi dan respons API hanya boleh mengembalikan
   nomor tersamarkan. Status pencairan tidak boleh berubah otomatis oleh hasil OCR.
+- `GET /api/admin/disbursements/campuses` mengembalikan agregat kampus dari peserta status `lolos`.
+  Detail dan perubahan menggunakan kombinasi campus_key + region + stage; Admin Wilayah hanya baca
+  data untuk region miliknya.
+- `POST /api/admin/disbursements/transfer-proofs` menerima bukti transfer untuk Tahap I/II. Bukti
+  sumber ditautkan ke banyak agregat, tidak disalin untuk setiap kampus atau wilayah.
 
 ## Super admin only
 - GET/POST /api/admin/users

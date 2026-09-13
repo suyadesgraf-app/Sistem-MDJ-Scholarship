@@ -4,7 +4,7 @@ import AdminRecipientDashboard from "@/components/AdminRecipientDashboard";
 import AdminRegistrationSummary from "@/components/AdminRegistrationSummary";
 import ParticipantsPanel from "@/components/ParticipantsPanel";
 import CampusManager from "@/components/CampusManager";
-import BeneficiaryManager from "@/components/BeneficiaryManager";
+import DisbursementManager from "@/components/DisbursementManager";
 import SelectionImportManager from "@/components/SelectionImportManager";
 import AiAdministrativeVerification from "@/components/AiAdministrativeVerification";
 import AdminUsers from "@/components/AdminUsers";
@@ -23,7 +23,7 @@ const BASE_MENU = [
   { id: "dashboard", label: "Dashboard", icon: Home },
   { id: "ringkasan", label: "Ringkasan", icon: Home },
   { id: "peserta", label: "Data Peserta", icon: Users },
-  { id: "data-pm", label: "Kelola Data PM", icon: HandCoins },
+  { id: "pencairan-dana", label: "Pencairan Dana", icon: HandCoins },
   { id: "verifikasi-ai", label: "Verifikasi AI", icon: Sparkles },
   { id: "import-seleksi", label: "Import Seleksi", icon: FileSpreadsheet },
 ];
@@ -57,7 +57,7 @@ export default function AdminDashboard() {
       {active === "dashboard" && <AdminRecipientDashboard />}
       {active === "ringkasan" && <AdminRegistrationSummary />}
       {active === "peserta" && <ParticipantsPanel />}
-      {active === "data-pm" && <BeneficiaryManager />}
+      {active === "pencairan-dana" && <DisbursementManager />}
       {active === "verifikasi-ai" && <AiAdministrativeVerification />}
       {active === "import-seleksi" && <SelectionImportManager />}
       {active === "kampus" && <CampusManager />}

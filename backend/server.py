@@ -1230,6 +1230,7 @@ Bukti dapat berupa transfer massal dengan banyak transaksi. Kembalikan HANYA JSO
     {
       "name": string,
       "nim": string,
+      "campus": string,
       "account_number": string,
       "bank_name": string,
       "status": string,
@@ -1378,6 +1379,351 @@ async def final_beneficiary_index(user: Optional[dict] = None) -> Dict[str, List
             "region": profile_region(profile),
         })
     return index
+
+
+def beneficiary_campus(profile: dict) -> str:
+    return str(profile.get("institusi") or "Kampus belum diisi").strip()
+
+
+def campus_disbursement_key(campus: str) -> str:
+    normalized = normalized_name(campus) or "kampus-belum-diisi"
+    digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()[:20]
+    return f"campus_{digest}"
+
+
+async def final_beneficiary_rows(user: Optional[dict] = None) -> List[dict]:
+    query = {"status": "lolos"}
+    if user:
+        query.update(await participant_scope_query(user))
+    registrations = await db.registrations.find(query, {"_id": 0}).to_list(5000)
+    user_ids = [item["user_id"] for item in registrations]
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "data": 1},
+    ).to_list(5000)
+    profiles_by_user = {item["user_id"]: item.get("data", {}) for item in profiles}
+    rows = []
+    for registration in registrations:
+        profile = profiles_by_user.get(registration["user_id"], {})
+        campus = beneficiary_campus(profile)
+        rows.append({
+            "user_id": registration["user_id"],
+            "name": registration.get("name") or profile.get("namaLengkap", "-"),
+            "cpm_id": registration.get("cpm_id", "-"),
+            "nim": profile.get("nim", "-"),
+            "campus": campus,
+            "campus_key": campus_disbursement_key(campus),
+            "region": profile_region(profile) or "Belum diisi",
+            "study_program": profile.get("jurusan", "-"),
+            "semester": profile.get("semester", "-"),
+        })
+    return rows
+
+
+def default_campus_disbursement(stage: int) -> dict:
+    return {
+        "stage": stage,
+        "status": "belum_diproses",
+        "amount": None,
+        "disbursed_at": None,
+        "reference": "",
+        "notes": "",
+        "proofs": [],
+        "transactions": [],
+    }
+
+
+async def ensure_campus_disbursement(
+    campus_key: str,
+    campus: str,
+    region: str,
+    stage: int,
+    recipient_ids: List[str],
+) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    defaults = default_campus_disbursement(stage)
+    defaults.update({
+        "id": str(uuid.uuid4()),
+        "campus_key": campus_key,
+        "campus": campus,
+        "region": region,
+        "created_at": now,
+    })
+    await db.campus_disbursements.update_one(
+        {"campus_key": campus_key, "region": region, "stage": stage},
+        {
+            "$setOnInsert": defaults,
+            "$set": {"recipient_user_ids": recipient_ids, "synced_at": now},
+        },
+        upsert=True,
+    )
+    return await db.campus_disbursements.find_one(
+        {"campus_key": campus_key, "region": region, "stage": stage},
+        {"_id": 0},
+    )
+
+
+def serialize_campus_disbursement(record: Optional[dict], stage: int) -> dict:
+    data = record or default_campus_disbursement(stage)
+    return {
+        "stage": stage,
+        "status": data.get("status", "belum_diproses"),
+        "amount": data.get("amount"),
+        "disbursed_at": data.get("disbursed_at"),
+        "reference": data.get("reference", ""),
+        "notes": data.get("notes", ""),
+        "proofs": data.get("proofs", []),
+        "transactions": data.get("transactions", []),
+        "updated_at": data.get("updated_at"),
+    }
+
+
+def combine_campus_stage(records: List[dict], stage: int) -> dict:
+    items = [serialize_campus_disbursement(record, stage) for record in records]
+    if not items:
+        return default_campus_disbursement(stage)
+    statuses = {item["status"] for item in items}
+    proof_ids = {
+        proof.get("source_id")
+        for item in items
+        for proof in item.get("proofs", [])
+        if proof.get("source_id")
+    }
+    return {
+        "stage": stage,
+        "status": statuses.pop() if len(statuses) == 1 else "bervariasi",
+        "amount": sum(float(item["amount"] or 0) for item in items) or None,
+        "proof_count": len(proof_ids),
+        "region_count": len(items),
+    }
+
+
+async def visible_campus_groups(user: dict, requested_region: Optional[str] = None) -> dict:
+    scope_region = regional_admin_region(user)
+    selected_region = scope_region or requested_region
+    rows = await final_beneficiary_rows(user)
+    grouped: Dict[str, dict] = {}
+    for row in rows:
+        if selected_region and selected_region != "all" and row["region"] != selected_region:
+            continue
+        campus = grouped.setdefault(row["campus_key"], {
+            "campus_key": row["campus_key"],
+            "campus": row["campus"],
+            "by_region": {},
+        })
+        campus["by_region"].setdefault(row["region"], []).append(row)
+    campus_keys = list(grouped)
+    if not campus_keys:
+        return grouped
+    record_query = {"campus_key": {"$in": campus_keys}}
+    if selected_region and selected_region != "all":
+        record_query["region"] = selected_region
+    records = await db.campus_disbursements.find(record_query, {"_id": 0}).to_list(5000)
+    for record in records:
+        campus = grouped.get(record.get("campus_key"))
+        if not campus or record.get("region") not in campus["by_region"]:
+            continue
+        campus.setdefault("records", {}).setdefault(record["region"], {})[record["stage"]] = record
+    return grouped
+
+
+@api_router.get("/admin/disbursements/campuses")
+async def list_campus_disbursements(
+    region: Optional[str] = None,
+    search: Optional[str] = None,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    groups = await visible_campus_groups(user, region)
+    keyword = (search or "").strip().lower()
+    result = []
+    for group in groups.values():
+        if keyword and keyword not in group["campus"].lower():
+            continue
+        region_records = group.get("records", {})
+        stage_one = combine_campus_stage(
+            [records.get(1) for records in region_records.values() if records.get(1)],
+            1,
+        )
+        stage_two = combine_campus_stage(
+            [records.get(2) for records in region_records.values() if records.get(2)],
+            2,
+        )
+        recipient_count = sum(len(items) for items in group["by_region"].values())
+        result.append({
+            "campus_key": group["campus_key"],
+            "campus": group["campus"],
+            "recipient_count": recipient_count,
+            "region_count": len(group["by_region"]),
+            "regions": sorted(group["by_region"]),
+            "stage_one": stage_one,
+            "stage_two": stage_two,
+            "proof_count": len({
+                proof.get("source_id")
+                for stage in (stage_one, stage_two)
+                for record in group.get("records", {}).values()
+                for item in record.values()
+                for proof in item.get("proofs", [])
+                if proof.get("source_id")
+            }),
+        })
+    return sorted(result, key=lambda item: item["campus"].lower())
+
+
+@api_router.get("/admin/disbursements/campuses/{campus_key}")
+async def campus_disbursement_detail(
+    campus_key: str,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    groups = await visible_campus_groups(user)
+    group = groups.get(campus_key)
+    if not group:
+        raise HTTPException(status_code=404, detail="Kampus atau data pencairan tidak ditemukan.")
+    region_records = group.get("records", {})
+    regions = []
+    for region, recipients in sorted(group["by_region"].items()):
+        records = region_records.get(region, {})
+        regions.append({
+            "region": region,
+            "recipient_count": len(recipients),
+            "recipients": recipients,
+            "stage_one": serialize_campus_disbursement(records.get(1), 1),
+            "stage_two": serialize_campus_disbursement(records.get(2), 2),
+        })
+    return {
+        "campus_key": campus_key,
+        "campus": group["campus"],
+        "regions": regions,
+    }
+
+
+@api_router.get("/admin/disbursements/campuses/{campus_key}/audit")
+async def campus_disbursement_audit(
+    campus_key: str,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    group = (await visible_campus_groups(user)).get(campus_key)
+    if not group:
+        raise HTTPException(status_code=404, detail="Kampus atau riwayat tidak ditemukan.")
+    query = {"detail.campus_key": campus_key}
+    scope_region = regional_admin_region(user)
+    if scope_region:
+        query["detail.region"] = scope_region
+    return await db.beneficiary_audit_events.find(query, {"_id": 0}).sort(
+        "created_at",
+        -1,
+    ).to_list(100)
+
+
+@api_router.put("/admin/disbursements/campuses/{campus_key}/regions/{region}/stages/{stage}")
+async def update_campus_disbursement(
+    campus_key: str,
+    region: str,
+    stage: int,
+    payload: DisbursementInput,
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    if stage not in (1, 2):
+        raise HTTPException(status_code=400, detail="Tahap pencairan harus 1 atau 2.")
+    if payload.status not in DISBURSEMENT_STATUSES:
+        raise HTTPException(status_code=400, detail="Status pencairan tidak valid.")
+    if payload.amount is not None and payload.amount <= 0:
+        raise HTTPException(status_code=400, detail="Nominal pencairan harus lebih dari nol.")
+    all_groups = await visible_campus_groups(user)
+    group = all_groups.get(campus_key)
+    recipients = (group or {}).get("by_region", {}).get(region, [])
+    if not recipients:
+        raise HTTPException(status_code=404, detail="Wilayah pencairan tidak ditemukan.")
+    record = await ensure_campus_disbursement(
+        campus_key,
+        group["campus"],
+        region,
+        stage,
+        [item["user_id"] for item in recipients],
+    )
+    await db.campus_disbursements.update_one(
+        {"id": record["id"]},
+        {
+            "$set": {
+                "status": payload.status,
+                "amount": payload.amount,
+                "disbursed_at": payload.disbursed_at,
+                "reference": payload.reference.strip(),
+                "notes": payload.notes.strip(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+                "updated_by": user["user_id"],
+            }
+        },
+    )
+    await audit_beneficiary_action(
+        user,
+        "update_campus_disbursement",
+        detail={"campus_key": campus_key, "region": region, "stage": stage},
+    )
+    return await campus_disbursement_detail(campus_key, user)
+
+
+async def attach_transfer_to_campus_disbursement(
+    actor: dict,
+    source: dict,
+    transaction: dict,
+    beneficiary: dict,
+    account_match: str,
+) -> None:
+    registration = beneficiary["registration"]
+    profile = beneficiary["profile"]
+    campus = beneficiary_campus(profile)
+    campus_key = campus_disbursement_key(campus)
+    region = profile_region(profile) or "Belum diisi"
+    stage = int(source["stage"])
+    await ensure_campus_disbursement(
+        campus_key,
+        campus,
+        region,
+        stage,
+        [registration["user_id"]],
+    )
+    proof = {
+        "source_id": source["id"],
+        "original_filename": source["original_filename"],
+        "attached_at": datetime.now(timezone.utc).isoformat(),
+    }
+    transaction_entry = {
+        "source_id": source["id"],
+        "user_id": registration["user_id"],
+        "name": registration.get("name") or profile.get("namaLengkap", ""),
+        "nim": normalize_nim(profile.get("nim")),
+        "amount": str(transaction.get("amount") or ""),
+        "reference": str(transaction.get("reference") or ""),
+        "account_number_masked": mask_account_number(transaction.get("account_number")),
+        "account_match": account_match,
+    }
+    aggregate = await db.campus_disbursements.find_one(
+        {"campus_key": campus_key, "region": region, "stage": stage},
+        {"_id": 0},
+    ) or {}
+    existing_transactions = aggregate.get("transactions", [])
+    if not any(
+        item.get("source_id") == source["id"]
+        and item.get("user_id") == registration["user_id"]
+        for item in existing_transactions
+    ):
+        await db.campus_disbursements.update_one(
+            {"campus_key": campus_key, "region": region, "stage": stage},
+            {
+                "$addToSet": {
+                    "proofs": proof,
+                    "recipient_user_ids": registration["user_id"],
+                },
+                "$push": {"transactions": transaction_entry},
+                "$set": {"updated_at": datetime.now(timezone.utc).isoformat()},
+            },
+        )
+    await audit_beneficiary_action(
+        actor,
+        "attach_transfer_to_campus_disbursement",
+        registration["user_id"],
+        {"campus_key": campus_key, "region": region, "stage": stage, "source_id": source["id"]},
+    )
 
 
 async def get_final_beneficiary(user: dict, user_id: str) -> dict:
@@ -1863,8 +2209,16 @@ async def attach_transfer_transaction(
         user_id,
         {"source_id": source["id"], "stage": stage, "account_match": account_match},
     )
+    await attach_transfer_to_campus_disbursement(
+        actor,
+        source,
+        transaction,
+        beneficiary,
+        account_match,
+    )
 
 
+@api_router.post("/admin/disbursements/transfer-proofs")
 @api_router.post("/admin/beneficiaries/disbursement-proofs")
 async def upload_disbursement_proofs(
     stage: int = Form(...),
@@ -3562,6 +3916,11 @@ async def startup():
     await db.beneficiary_sources.create_index([("source_type", 1), ("created_at", -1)])
     await db.beneficiary_reviews.create_index([("status", 1), ("created_at", -1)])
     await db.beneficiary_audit_events.create_index([("user_id", 1), ("created_at", -1)])
+    await db.campus_disbursements.create_index(
+        [("campus_key", 1), ("region", 1), ("stage", 1)],
+        unique=True,
+    )
+    await db.campus_disbursements.create_index([("region", 1), ("stage", 1)])
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:

@@ -1,0 +1,52 @@
+{
+  "summary": "Backend + frontend testing for the new Pencairan Dana (Campus Disbursements) feature. Created /app/backend/tests/test_campus_disbursements.py — 19/19 pytest tests pass. Regression suite /app/backend/tests/test_beneficiary_pm.py still 30/30 green. UI verified via preview URL for Admin Provinsi (menu-pencairan-dana → disbursement-manager → 12 campus rows, 12 recipients, campus detail modal with 12 stage cards, audit button, search + region filter + upload proof button, 0px mobile overflow at 390px) and for a temporary admin_wilayah Jakarta Barat (read-only: disbursement-regional-scope indicator visible, upload button hidden, region filter hidden, review queue hidden, save-campus-stage button hidden, sees only 2 Jakarta Barat campuses). Old 'Kelola Data PM' label is gone from sidebar and dashboard title; only 'Pencairan Dana' shows. Found & fixed one backend bug (MongoDB $set/$setOnInsert operator conflict in ensure_campus_disbursement) that was making every aggregate-update request return 500.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verification_results": {
+    "pytest_campus_disbursements": "19/19 passed in test_campus_disbursements.py",
+    "pytest_beneficiary_pm_regression": "30/30 passed",
+    "sidebar_shows_pencairan_dana_only": true,
+    "campus_list_shape_correct_1row_per_campus": true,
+    "recipient_count_region_count_stage_one_two_proof_count_present": true,
+    "campus_detail_split_per_region_with_recipients_and_two_stages": true,
+    "update_aggregate_persists_and_does_not_break_detail": true,
+    "regional_admin_list_scoped_even_with_region_query": true,
+    "regional_admin_out_of_region_detail_404": true,
+    "regional_admin_update_aggregate_403": true,
+    "regional_admin_transfer_proofs_alias_403": true,
+    "transfer_proofs_alias_bad_extension_400": true,
+    "transfer_proofs_alias_bad_magic_bytes_400": true,
+    "transfer_proofs_alias_bad_stage_400": true,
+    "audit_endpoint_ok_and_404_on_unknown": true,
+    "regional_admin_audit_scope_respected": true,
+    "ui_read_only_for_admin_wilayah": true,
+    "mobile_390px_no_overflow": true
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_campus_disbursements.py",
+    "/app/test_reports/pytest/campus_disbursements.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "FIXED HERE: ensure_campus_disbursement (server.py:1436) originally listed recipient_user_ids in BOTH the $setOnInsert defaults and the $set update payload, causing MongoDB to raise 'Updating the path recipient_user_ids would create a conflict' and every PUT /api/admin/disbursements/campuses/*/regions/*/stages/* returned 500. Removed recipient_user_ids from the $setOnInsert defaults so only $set writes it. Please re-review the fix during merge.",
+    "attach_transfer_to_campus_disbursement (server.py:1666) calls ensure_campus_disbursement then immediately does a second update with $addToSet on the same recipient_user_ids — after the fix this is still correct because ensure_* is now the sole writer of the field via $set. Verified via the existing transfer proof upload flow validation tests still pass.",
+    "combine_campus_stage sums float(amount or 0) then does `or None` which returns None when total is exactly 0 — intentional for empty groups but may hide legitimate zero-amount aggregates. Not blocking.",
+    "campus_disbursement_audit reads collection beneficiary_audit_events with detail.campus_key filter but there is no dedicated audit collection index on that field; will full-scan once the audit trail grows. Consider adding an index on beneficiary_audit_events(detail.campus_key, created_at).",
+    "profile_region() still falls back to profile.data.provinsi when kota is empty (carried over from iter 19/20) — students whose profile has kota blank but provinsi='DKI Jakarta' will surface as region 'DKI Jakarta' and never fall inside any of the six DKI regional admin scopes.",
+    "DisbursementManager filters campuses client-side with campus name containsFilter — for the /admin/disbursements/campuses endpoint the search query parameter is already applied server-side; the client re-filter is redundant but harmless."
+  ],
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/test_campus_disbursements.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026!  |  admin.mdj@baznasbazisdki.id / AdminMDJ2026!  |  mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!  |  ephemeral admin_wilayah test_cd_*@example.com created + deleted inside tests.",
+  "seed_data_creation": "No permanent seed. Update-round-trip test wrote status=menunggu_bukti + amount=1234567 + reference=TEST-CD-REF + notes=TEST_CD notes to the first campus/region Tahap I, then reverted to the pre-test values (backed up from GET before mutation). Ephemeral admin_wilayah accounts (email prefix test_cd_) are created via /api/admin/users and deleted in fixture teardown.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Regression suite for Pencairan Dana lives in /app/backend/tests/test_campus_disbursements.py (19 tests, 4-5s). Combined with /app/backend/tests/test_beneficiary_pm.py it covers Kelola Data PM (individual PM) + Pencairan Dana (per-kampus aggregate). Key UI selectors: menu-pencairan-dana, disbursement-manager, campus-disbursements-table, campus-disbursement-search-input, campus-disbursement-region-filter, upload-disbursement-proof-button, disbursement-proof-input, view-campus-disbursement-{campus_key}, campus-disbursement-detail-modal, campus-stage-{stage}-{region}, save-campus-stage-{stage}-{region}, disbursement-review-queue, disbursement-regional-scope, load-campus-disbursement-audit-button. The alias /api/admin/disbursements/transfer-proofs is a POST that also accepts multipart the same way as the older /api/admin/beneficiaries/disbursement-proofs endpoint (both decorated on the same handler). No real Gemini OCR match end-to-end test was executed (no safe fixture).",
+  "rca of the issue": "Symptom: PUT /api/admin/disbursements/campuses/{key}/regions/{region}/stages/{stage} returned HTTP 500 with backend log 'pymongo.errors.WriteError: Updating the path recipient_user_ids would create a conflict at recipient_user_ids'. Root cause: ensure_campus_disbursement built its $setOnInsert defaults dict with recipient_user_ids inside it, and also sent recipient_user_ids in the $set clause of the same update_one() call. MongoDB rejects any update where two operators target the same path. Reproduction: authenticate as admin/super_admin, call PUT on any campus+region+stage combo (works for both existing and new aggregate records). Fix: remove recipient_user_ids from defaults so $setOnInsert only inserts the constant seed columns and $set remains the sole writer of recipient_user_ids on every call. Verified all 19 new tests + 30 existing PM tests pass afterwards."
+}

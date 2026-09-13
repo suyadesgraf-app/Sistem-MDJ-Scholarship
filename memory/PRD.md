@@ -273,3 +273,18 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   mengunduh sumber mentah.
 - Diuji menyeluruh: 30/30 backend dan semua pemeriksaan UI lulus, termasuk RBAC, validasi magic byte,
   masking rekening, pencairan, filter wilayah, dashboard, serta mobile 390px tanpa overflow.
+
+## 2026-09 — Pencairan Dana berbasis kampus
+- Menu **Kelola Data PM** diganti menjadi **Pencairan Dana**. Halaman utama kini memiliki satu baris
+  per kampus, dengan nomor urut, total penerima lulus akhir, jumlah wilayah, status Tahap I/II, dan
+  jumlah bukti transfer yang tertaut.
+- Rincian kampus membagi data menurut wilayah. Setiap kombinasi kampus + wilayah + tahap memiliki
+  status, nominal kolektif, tanggal, referensi, catatan, bukti, transaksi cocok, dan daftar mahasiswa.
+- Bukti transfer sumber disimpan sekali, tetapi dapat dihubungkan ke beberapa agregat kampus/wilayah
+  berdasarkan pencocokan nama serta NIM. Hasil tanpa kecocokan yang cukup tetap berada di tinjauan.
+- Admin Wilayah hanya melihat kampus dan mahasiswa wilayahnya; semua mutasi, unggahan, pemetaan,
+  serta unduhan sumber tetap ditolak di server. Admin Provinsi dan Super Admin mengelola agregat.
+- Kontrol unggah surat keterangan mahasiswa aktif dihapus dari halaman Pencairan Dana agar fokus
+  operasional hanya pada pencairan dan bukti transfer. Endpoint surat aktif sebelumnya tetap ada.
+- Diuji menyeluruh: 19/19 pengujian agregat kampus dan 30/30 regresi PM lulus. Uji tampilan terbaru
+  mengonfirmasi nomor urut berurutan, tombol surat aktif tidak tampil, dan layar 390px tanpa overflow.
