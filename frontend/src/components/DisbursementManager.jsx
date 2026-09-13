@@ -55,6 +55,7 @@ export default function DisbursementManager() {
   const [reviewMapping, setReviewMapping] = useState({});
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("all");
+  const [uploadRegion, setUploadRegion] = useState("");
   const [activeStage, setActiveStage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -69,7 +70,9 @@ export default function DisbursementManager() {
       setCampuses(response.data || []);
       if (isManager) {
         const [reviewResponse, recipientResponse] = await Promise.all([
-          api.get("/admin/beneficiary-reviews", { params: { stage: activeStage } }),
+          api.get("/admin/beneficiary-reviews", {
+            params: { stage: activeStage, region: uploadRegion || undefined },
+          }),
           api.get("/admin/beneficiaries"),
         ]);
         setReviews(reviewResponse.data || []);
@@ -80,7 +83,7 @@ export default function DisbursementManager() {
     } finally {
       setLoading(false);
     }
-  }, [activeStage, isManager, lockedRegion, region]);
+  }, [activeStage, isManager, lockedRegion, region, uploadRegion]);
 
   useEffect(() => {
     load();
@@ -106,6 +109,12 @@ export default function DisbursementManager() {
     setActiveStage(stage);
     setDetail(null);
     setReviewMapping({});
+  };
+
+  const selectUploadRegion = (value) => {
+    setUploadRegion(value);
+    setRegion(value || "all");
+    setDetail(null);
   };
 
   const openCampus = async (campus) => {
@@ -215,14 +224,17 @@ export default function DisbursementManager() {
           <UploadAction
             icon={Banknote}
             title="Unggah Bukti Transfer"
-            description="Satu bukti bisa memetakan transaksi ke banyak kampus dan wilayah."
+            description="Pilih wilayah terlebih dahulu agar AI hanya mencocokkan penerima wilayah tersebut."
             inputRef={proofInput}
             inputTestId="disbursement-proof-input"
             buttonTestId="upload-disbursement-proof-button"
             buttonLabel={uploading ? "Memproses..." : `Unggah Bukti Transfer ${stageLabel(activeStage)}`}
             disabled={uploading}
+            selectedRegion={uploadRegion}
+            onRegionChange={selectUploadRegion}
             onSelect={(files) => upload("/admin/disbursements/transfer-proofs", files, {
               stage: activeStage,
+              region: uploadRegion,
             })}
           />
         </section>
@@ -252,6 +264,14 @@ export default function DisbursementManager() {
             </select>
           )}
         </div>
+        {uploadRegion && (
+          <p
+            className="text-sm font-bold text-[#0B6B3A]"
+            data-testid="upload-region-data-scope"
+          >
+            Menampilkan data pencairan wilayah {uploadRegion}
+          </p>
+        )}
 
         <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
           <table className="w-full min-w-[68rem] text-left text-sm" data-testid="campus-disbursements-table">
@@ -350,6 +370,8 @@ function UploadAction({
   buttonTestId,
   buttonLabel,
   disabled,
+  selectedRegion,
+  onRegionChange,
   onSelect,
 }) {
   return (
@@ -364,9 +386,28 @@ function UploadAction({
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="transfer-proof-region-select-field" className="sr-only">
+          Wilayah pencairan untuk bukti transfer
+        </label>
+        <select
+          id="transfer-proof-region-select-field"
+          value={selectedRegion}
+          onChange={(event) => onRegionChange(event.target.value)}
+          data-testid="transfer-proof-region-select"
+          className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-[#1F2937]"
+        >
+          <option value="">Pilih Wilayah</option>
+          {REGIONS.map((region) => <option key={region} value={region}>{region}</option>)}
+        </select>
         <button
           type="button"
-          onClick={() => inputRef.current?.click()}
+          onClick={() => {
+            if (!selectedRegion) {
+              toast.error("Pilih wilayah pencairan sebelum mengunggah bukti transfer.");
+              return;
+            }
+            inputRef.current?.click();
+          }}
           disabled={disabled}
           data-testid={buttonTestId}
           className="inline-flex items-center gap-2 rounded-lg bg-[#0B6B3A] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#07532d] disabled:opacity-60"
@@ -429,12 +470,21 @@ function ReviewQueue({ reviews, activeStage, recipients, mapping, onMappingChang
         </h3>
       </div>
       <div className="mt-4 space-y-3">
-        {reviews.map((review) => (
+        {reviews.map((review) => {
+          const availableRecipients = review.selected_region
+            ? recipients.filter((recipient) => recipient.region === review.selected_region)
+            : recipients;
+          return (
           <div key={review.id} className="border border-[#FDE68A] bg-white p-4">
             <p className="text-sm font-bold text-[#1F2937]">{review.reason}</p>
             <p className="mt-1 text-xs text-[#6B7280]">
               {review.payload?.name || "Tanpa nama"} · {review.payload?.nim || "Tanpa NIM"}
             </p>
+            {review.selected_region && (
+              <p className="mt-1 text-xs font-bold text-[#0B6B3A]">
+                Wilayah unggahan: {review.selected_region}
+              </p>
+            )}
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <select
                 value={mapping[review.id] || ""}
@@ -443,7 +493,7 @@ function ReviewQueue({ reviews, activeStage, recipients, mapping, onMappingChang
                 className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
               >
                 <option value="">Pilih mahasiswa penerima</option>
-                {recipients.map((recipient) => (
+                {availableRecipients.map((recipient) => (
                   <option key={recipient.user_id} value={recipient.user_id}>
                     {recipient.name} · {recipient.nim} · {recipient.campus}
                   </option>
@@ -460,7 +510,8 @@ function ReviewQueue({ reviews, activeStage, recipients, mapping, onMappingChang
               </button>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

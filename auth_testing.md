@@ -13,7 +13,7 @@ Both are accepted via cookie OR `Authorization: Bearer <token>` header.
 
 ## Automatic demo identities
 - Mahasiswa: mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026! / student
-- Admin Pendaftaran: admin.mdj@baznasbazisdki.id / AdminMDJ2026! / admin
+- Admin Provinsi: admin.mdj@baznasbazisdki.id / AdminMDJ2026! / admin
 - Super Admin: supri@baznasbazisdki.id / MdjSuper2026! / super_admin
 - Tombol akun demo pada `/login` menjalankan `POST /api/auth/login` yang sama dengan formulir
   standar, lalu mengarahkan pengguna berdasarkan peran. Tidak ada endpoint bypass autentikasi.
@@ -66,6 +66,9 @@ curl -s "$API/api/auth/me" -H "Authorization: Bearer <TOKEN>"
 - Tahap aktif selalu eksplisit: `GET /api/admin/beneficiary-reviews?stage=1|2` dan
   `GET /api/admin/disbursements/campuses/{campus_key}/audit?stage=1|2` hanya mengembalikan tahap
   yang diminta. Nilai stage selain `1` atau `2` harus ditolak dengan HTTP 400.
+- `POST /api/admin/disbursements/transfer-proofs` wajib menerima `region` yang persis sama dengan
+  salah satu wilayah DKI. Tidak ada OCR sebelum region lolos validasi. Region unggahan juga menjadi
+  batas pencocokan otomatis dan pemetaan manual antrean tinjauan.
 
 ## Super admin only
 - GET/POST /api/admin/users

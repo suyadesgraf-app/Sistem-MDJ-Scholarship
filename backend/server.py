@@ -1281,6 +1281,7 @@ async def store_pm_source(
     data: bytes,
     content_type: str,
     stage: Optional[int] = None,
+    selected_region: Optional[str] = None,
 ) -> dict:
     source_id = str(uuid.uuid4())
     path = f"{APP_NAME}/beneficiary-sources/{source_id}.{ext}"
@@ -1289,6 +1290,7 @@ async def store_pm_source(
         "id": source_id,
         "source_type": source_type,
         "stage": stage,
+        "selected_region": selected_region,
         "storage_path": result["path"],
         "original_filename": filename,
         "content_type": content_type,
@@ -1829,6 +1831,7 @@ async def create_beneficiary_review(
         "source_id": source["id"],
         "source_type": source["source_type"],
         "stage": source.get("stage"),
+        "selected_region": source.get("selected_region"),
         "kind": kind,
         "payload": payload,
         "reason": reason,
@@ -1990,13 +1993,18 @@ async def beneficiary_audit(
 @api_router.get("/admin/beneficiary-reviews")
 async def list_beneficiary_reviews(
     stage: Optional[int] = None,
+    region: Optional[str] = None,
     user: dict = Depends(require_roles(*PM_MANAGERS)),
 ):
     if stage is not None and stage not in (1, 2):
         raise HTTPException(status_code=400, detail="Tahap pencairan harus 1 atau 2.")
+    if region is not None and region not in DKI_REGIONS:
+        raise HTTPException(status_code=400, detail="Wilayah pencairan tidak valid.")
     query = {"status": "pending"}
     if stage is not None:
         query["stage"] = stage
+    if region is not None:
+        query["selected_region"] = region
     return await db.beneficiary_reviews.find(
         query,
         {"_id": 0},
@@ -2233,11 +2241,15 @@ async def attach_transfer_transaction(
 @api_router.post("/admin/beneficiaries/disbursement-proofs")
 async def upload_disbursement_proofs(
     stage: int = Form(...),
+    region: Optional[str] = Form(None),
     files: List[UploadFile] = File(...),
     user: dict = Depends(require_roles(*PM_MANAGERS)),
 ):
     if stage not in (1, 2):
         raise HTTPException(status_code=400, detail="Tahap pencairan harus 1 atau 2.")
+    region = (region or "").strip()
+    if region not in DKI_REGIONS:
+        raise HTTPException(status_code=400, detail="Pilih wilayah pencairan yang valid.")
     if not files or len(files) > 20:
         raise HTTPException(status_code=400, detail="Unggah antara 1 hingga 20 bukti transfer.")
     beneficiary_index = await final_beneficiary_index()
@@ -2253,6 +2265,7 @@ async def upload_disbursement_proofs(
             data,
             content_type,
             stage,
+            region,
         )
         summary["uploaded"] += 1
         try:
@@ -2260,7 +2273,9 @@ async def upload_disbursement_proofs(
                 data,
                 content_type,
                 user,
-                PM_TRANSFER_PROOF_PROMPT,
+                f"{PM_TRANSFER_PROOF_PROMPT}\n\nKONTEKS WILAYAH UNGGAHAN: {region}. "
+                "Prioritaskan pembacaan transaksi untuk kampus dan penerima di wilayah ini. "
+                "Jangan menyimpulkan wilayah lain sebagai kecocokan otomatis.",
                 "bukti transfer",
             )
             transactions = extracted.get("transactions", [])
@@ -2282,13 +2297,15 @@ async def upload_disbursement_proofs(
                     )
                     summary["review"] += 1
                     continue
-                matches = beneficiary_index.get(f"{name}|{nim}", [])
+                all_matches = beneficiary_index.get(f"{name}|{nim}", [])
+                matches = [item for item in all_matches if item["region"] == region]
                 if len(matches) != 1:
-                    reason = (
-                        "Transaksi belum dapat dipetakan ke Penerima Manfaat lulus akhir."
-                        if not matches
-                        else "Transaksi cocok ke lebih dari satu Penerima Manfaat."
-                    )
+                    if all_matches and not matches:
+                        reason = f"Transaksi tidak cocok dengan wilayah unggahan {region}."
+                    elif not matches:
+                        reason = "Transaksi belum dapat dipetakan ke Penerima Manfaat lulus akhir."
+                    else:
+                        reason = "Transaksi cocok ke lebih dari satu Penerima Manfaat."
                     await create_beneficiary_review(
                         user,
                         source,
@@ -2352,6 +2369,12 @@ async def resolve_beneficiary_review(
     if not source:
         raise HTTPException(status_code=404, detail="Berkas sumber tidak ditemukan.")
     beneficiary = await get_final_beneficiary(user, payload.user_id)
+    selected_region = source.get("selected_region")
+    if selected_region and profile_region(beneficiary["profile"]) != selected_region:
+        raise HTTPException(
+            status_code=400,
+            detail="Penerima harus berasal dari wilayah yang dipilih saat unggah.",
+        )
     if source["source_type"] == "active_letter":
         await attach_active_letter(user, source, review.get("payload", {}), beneficiary)
     elif source["source_type"] == "transfer_proof":

@@ -1,0 +1,44 @@
+{
+  "summary": "Verified new region-scoped Transfer Proof upload feature. Backend: added /app/backend/tests/test_transfer_proof_region.py (13 new tests) — POST /api/admin/disbursements/transfer-proofs rejects with 400 before OCR when region is missing, empty, invalid ('Jawa Tengah'), or lowercase ('jakarta barat'); rejects 400 when region valid but stage invalid; rejects 400 when region valid but extension invalid (.txt); admin_wilayah receives 403 even with a valid region; and all six DKI regions (Jakarta Pusat/Utara/Barat/Selatan/Timur/Kepulauan Seribu) each progress past the region-guard into the file-validation step. Combined suite (test_campus_disbursements.py + test_beneficiary_pm.py + test_transfer_proof_region.py) = 71/71 green in ~16s. Frontend E2E (Admin Provinsi at 1440x900): [data-testid=transfer-proof-region-select] starts value='', contains empty placeholder + exactly 6 DKI region options, clicking [data-testid=upload-disbursement-proof-button] with no region selected triggers toast 'Pilih wilayah pencairan sebelum mengunggah bukti transfer.' (file picker does NOT open), selecting Jakarta Timur sets the select value correctly, mobile 390px scrollWidth-clientWidth=0px (no overflow). Cross-region resolve guard in resolve_beneficiary_review already covered by existing suite plus code review (line 2368: source.selected_region compared to profile_region -> 400).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Pencairan Dana (Admin Provinsi)", "issues": ["React hydration console warning: <span> cannot be a child of <option>. Caused by emergentagent visual-editor injecting <span data-ve-dynamic> attributes inside <option> children (see ReviewQueue recipient select and transfer-proof-region-select). Dev-only tooling, does not affect user flow but pollutes console. Consider suppressing x-* attribute injection on <option> children or using plain text nodes."]}
+    ]
+  },
+  "verification_results": {
+    "pytest_71_all_pass": true,
+    "region_missing_400_before_ocr": true,
+    "region_invalid_400_before_ocr": true,
+    "region_lowercase_rejected": true,
+    "region_valid_bad_extension_400": true,
+    "region_valid_bad_stage_400": true,
+    "admin_wilayah_upload_403_with_region": true,
+    "all_six_dki_regions_accepted_past_guard": true,
+    "ui_region_select_starts_empty": true,
+    "ui_upload_click_without_region_shows_toast_and_no_file_dialog": true,
+    "ui_region_option_count_six": true,
+    "mobile_390px_no_overflow": true
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_transfer_proof_region.py",
+    "/app/test_reports/pytest/iter23.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "upload_disbursement_proofs stores selected_region correctly and matches beneficiaries via `item['region'] == region` (server.py line 2296). Good.",
+    "resolve_beneficiary_review guard (server.py 2367-2372): compares source.selected_region against profile_region(beneficiary['profile']). Only applied if source has selected_region — pre-region uploads (legacy) will pass through without regional check. Acceptable during migration but worth documenting.",
+    "Frontend transfer-proof-region-select has no id/label association (only data-testid). For accessibility, add <label htmlFor> or aria-label — screen readers currently read only the placeholder option.",
+    "The Gemini prompt includes 'KONTEKS WILAYAH UNGGAHAN' (server.py 2271-2273), which is good context injection. However, the AI is still authoritative on region — the deterministic filter `item['region'] == region` (line 2296) is what enforces the constraint. Prompt could be tightened to reduce token cost."
+  ],
+  "updated_files": ["/app/backend/tests/test_transfer_proof_region.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026! | admin.mdj@baznasbazisdki.id / AdminMDJ2026! | ephemeral admin_wilayah test_iter23_region_*@example.com / WilayahRG2026! (auto-deleted at fixture teardown)",
+  "seed_data_creation": "None permanent. Ephemeral admin_wilayah user is created and deleted within the fixture scope.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Region-scoped upload regression = /app/backend/tests/test_transfer_proof_region.py (13 tests) + existing suites (71 total, ~16s). Key selectors: transfer-proof-region-select, upload-disbursement-proof-button, disbursement-proof-input, disbursement-manager, disbursement-review-queue, disbursement-regional-scope. Region select starts value=''; the button click checks selectedRegion before opening the file dialog (DisbursementManager.jsx UploadAction, lines 383-390) and only then triggers inputRef.current?.click(). Backend guard in server.py lines 2245-2247 rejects with 400 'Pilih wilayah pencairan yang valid.' The six DKI_REGIONS are defined at server.py line 431. Cross-region review resolution guard is at server.py lines 2367-2372. No mutation of production sources during testing — all uploads used invalid fixtures (bad extension or non-PDF magic bytes) so OCR is never triggered.",
+  "rca of the issue": "Not applicable — no bugs discovered. Feature implementation matches all 9 requirements: dropdown starts blank & required, request payload carries `region`, backend 400 pre-OCR on missing/invalid region, source persists selected_region, matching filter restricts to same region, ReviewQueue carries selected_region, cross-region resolve rejected 400, admin_wilayah 403 preserved, mobile/desktop no overflow."
+}

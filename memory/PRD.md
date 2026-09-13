@@ -301,3 +301,18 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   pemetaan tetap tidak tersedia dan ditolak di server.
 - Diuji menyeluruh: 58/58 pengujian backend lulus; default Tahap I, perpindahan konteks Tahap II,
   isolasi data antar tahap, read-only regional, nomor urut, dan layar mobile 390px semuanya lulus.
+
+## 2026-09 — Wilayah wajib untuk unggah bukti transfer
+- Admin Provinsi/Super Admin wajib memilih salah satu wilayah DKI sebelum membuka unggahan bukti
+  transfer. Server menolak wilayah kosong, tidak valid, maupun format yang tidak persis cocok sebelum
+  proses OCR dimulai.
+- Wilayah pilihan disimpan sebagai `selected_region` pada sumber bukti dan masuk ke konteks OCR.
+  Pencocokan deterministik nama+NIM hanya mempertimbangkan Penerima Manfaat lulus akhir dari wilayah
+  tersebut; transaksi wilayah lain masuk tinjauan.
+- Pemilihan wilayah unggahan otomatis menyaring ringkasan, tabel kampus, filter wilayah, dan antrean
+  tinjauan di bawahnya. Indikator halaman menyebutkan wilayah yang sedang ditampilkan.
+- Penyelesaian tinjauan juga dikunci: bukti berwilayah tidak dapat dipetakan manual ke mahasiswa dari
+  wilayah lain. Pilihan penerima di antrean tinjauan hanya memperlihatkan kandidat wilayah unggahan.
+- Diuji: 71/71 regresi backend lulus untuk validasi wilayah, pembatasan Admin Wilayah, dan guard
+  pemetaan lintas wilayah. Browser mengonfirmasi pilihan Jakarta Utara langsung menyaring data kampus
+  serta layar 390px tanpa overflow.
