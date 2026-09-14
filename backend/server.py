@@ -70,7 +70,7 @@ EMAIL_BASE_URL = "https://integrations.emergentagent.com"
 EMAIL_KEY = os.environ.get("EMERGENT_EMAIL_KEY")
 EMAIL_FROM_NAME = os.environ.get("EMAIL_FROM_NAME", "MDJ Scholarship")
 EMAIL_REPLY_TO = os.environ.get("EMAIL_REPLY_TO")
-APP_BASE_URL = (os.environ.get("APP_BASE_URL") or "").rstrip("/")
+APP_BASE_URL = os.environ["APP_BASE_URL"].rstrip("/")
 
 # Twilio SMS OTP (optional — phone verification disabled until configured)
 TWILIO_ACCOUNT_SID = (os.environ.get("TWILIO_ACCOUNT_SID") or "").strip()
@@ -268,8 +268,14 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(user_id: str, email: str) -> str:
-    payload = {"sub": user_id, "email": email, "exp": datetime.now(timezone.utc) + timedelta(days=7), "type": "access"}
+def create_access_token(user_id: str, email: str, auth_version: int = 0) -> str:
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "av": auth_version,
+        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "type": "access",
+    }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -283,7 +289,10 @@ async def resolve_user_from_token(token: str) -> Optional[dict]:
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("type") == "access":
-            return await db.users.find_one({"user_id": payload["sub"]}, {"_id": 0})
+            user = await db.users.find_one({"user_id": payload["sub"]}, {"_id": 0})
+            if user and int(payload.get("av", 0)) != int(user.get("auth_version", 0)):
+                return None
+            return user
     except jwt.InvalidTokenError:
         pass
     # Fallback: treat as google session token
@@ -360,6 +369,15 @@ class EmailChangeInput(BaseModel):
 
 class EmailVerifyInput(BaseModel):
     token: str
+
+
+class ForgotPasswordInput(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordInput(BaseModel):
+    token: str
+    new_password: str
 
 
 class PhoneOtpSendInput(BaseModel):
@@ -587,10 +605,10 @@ async def register(payload: RegisterInput, response: Response):
         "user_id": user_id, "email": email, "password_hash": hash_password(payload.password),
         "name": payload.name, "role": "student", "auth_provider": "password",
         "nik": payload.nik, "phone": payload.phone, "picture": None,
-        "is_active": True, "created_at": datetime.now(timezone.utc).isoformat(),
+        "is_active": True, "auth_version": 0, "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(doc)
-    token = create_access_token(user_id, email)
+    token = create_access_token(user_id, email, doc["auth_version"])
     set_auth_cookie(response, token)
     return {"user": clean_user(doc), "token": token}
 
@@ -605,7 +623,7 @@ async def login(payload: LoginInput, response: Response):
         raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Akun dinonaktifkan")
-    token = create_access_token(user["user_id"], user["email"])
+    token = create_access_token(user["user_id"], user["email"], int(user.get("auth_version", 0)))
     set_auth_cookie(response, token)
     return {"user": clean_user(user), "token": token}
 
@@ -651,6 +669,139 @@ async def logout(request: Request, response: Response):
 @api_router.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return clean_user(user)
+
+
+def password_reset_token_hash(token: str) -> str:
+    return hashlib.sha256(f"{token}:{JWT_SECRET}".encode("utf-8")).hexdigest()
+
+
+def password_reset_rate_key(email: str, client_ip: str) -> str:
+    return hashlib.sha256(f"{email}:{client_ip}:{JWT_SECRET}".encode("utf-8")).hexdigest()
+
+
+async def password_reset_request_allowed(email: str, client_ip: str) -> bool:
+    now = datetime.now(timezone.utc)
+    key = password_reset_rate_key(email, client_ip)
+    record = await db.password_reset_rate_limits.find_one({"key": key}, {"_id": 0})
+    if record:
+        expires_at = record.get("expires_at")
+        if isinstance(expires_at, str):
+            expires_at = datetime.fromisoformat(expires_at)
+        if expires_at and expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at and expires_at > now and record.get("count", 0) >= 3:
+            return False
+    await db.password_reset_rate_limits.update_one(
+        {"key": key},
+        {
+            "$setOnInsert": {
+                "key": key,
+                "expires_at": now + timedelta(minutes=15),
+                "created_at": now,
+            },
+            "$inc": {"count": 1},
+        },
+        upsert=True,
+    )
+    return True
+
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(payload: ForgotPasswordInput, request: Request):
+    email = payload.email.lower().strip()
+    client_ip = request.client.host if request.client else "unknown"
+    generic_message = (
+        "Jika alamat email terdaftar, tautan untuk mengatur ulang kata sandi akan dikirim ke email tersebut."
+    )
+    if not await password_reset_request_allowed(email, client_ip):
+        return {"message": generic_message}
+    user = await db.users.find_one({"email": email}, {"_id": 0})
+    if not user or not user.get("is_active", True) or not user.get("password_hash"):
+        return {"message": generic_message}
+    token = secrets.token_urlsafe(32)
+    token_hash = password_reset_token_hash(token)
+    now = datetime.now(timezone.utc)
+    await db.password_reset_tokens.update_many(
+        {"user_id": user["user_id"], "used": False},
+        {"$set": {"used": True, "invalidated_at": now}},
+    )
+    await db.password_reset_tokens.insert_one({
+        "user_id": user["user_id"],
+        "token_hash": token_hash,
+        "used": False,
+        "expires_at": now + timedelta(hours=1),
+        "created_at": now,
+        "requested_ip_hash": hashlib.sha256(
+            f"{client_ip}:{JWT_SECRET}".encode("utf-8")
+        ).hexdigest(),
+    })
+    link = f"{APP_BASE_URL}/reset-password?token={token}"
+    html = (
+        '<table role="presentation" width="100%"><tr><td '
+        'style="padding:24px;font-family:Arial,sans-serif;color:#1F2937">'
+        f'<p>Halo {escape(user.get("name", ""))},</p>'
+        '<p>Kami menerima permintaan untuk mengatur ulang kata sandi akun MDJ Scholarship Anda.</p>'
+        '<p>Klik tombol berikut untuk membuat kata sandi baru. Tautan ini berlaku selama 1 jam dan hanya '
+        'dapat digunakan satu kali.</p>'
+        f'<p><a href="{escape(link)}" style="display:inline-block;background:#27AE60;color:#ffffff;'
+        'padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">'
+        'Atur Ulang Kata Sandi</a></p>'
+        '<p style="font-size:12px;color:#666">Jika Anda tidak meminta pengaturan ulang kata sandi, '
+        'abaikan email ini. Kami tidak pernah meminta kata sandi melalui email.</p>'
+        '</td></tr></table>'
+    )
+    await send_email(to=email, subject="Atur ulang kata sandi MDJ Scholarship", html=html)
+    return {"message": generic_message}
+
+
+@api_router.post("/auth/reset-password")
+async def reset_password(payload: ResetPasswordInput):
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=400, detail="Kata sandi baru minimal 8 karakter.")
+    token_hash = password_reset_token_hash(payload.token)
+    now = datetime.now(timezone.utc)
+    token_record = await db.password_reset_tokens.find_one(
+        {
+            "token_hash": token_hash,
+            "used": False,
+            "expires_at": {"$gt": now},
+        },
+        {"_id": 0},
+    )
+    if not token_record:
+        raise HTTPException(status_code=400, detail="Tautan reset tidak valid atau sudah kedaluwarsa.")
+    user = await db.users.find_one({"user_id": token_record["user_id"]}, {"_id": 0})
+    if not user or not user.get("is_active", True) or not user.get("password_hash"):
+        raise HTTPException(status_code=400, detail="Tautan reset tidak dapat digunakan untuk akun ini.")
+    if verify_password(payload.new_password, user["password_hash"]):
+        raise HTTPException(status_code=400, detail="Kata sandi baru tidak boleh sama dengan yang lama.")
+    consumed = await db.password_reset_tokens.update_one(
+        {
+            "token_hash": token_hash,
+            "used": False,
+            "expires_at": {"$gt": now},
+        },
+        {"$set": {"used": True, "used_at": now}},
+    )
+    if not consumed.matched_count:
+        raise HTTPException(status_code=400, detail="Tautan reset tidak valid atau sudah kedaluwarsa.")
+    next_auth_version = int(user.get("auth_version", 0)) + 1
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {
+            "$set": {
+                "password_hash": hash_password(payload.new_password),
+                "auth_version": next_auth_version,
+                "password_reset_at": now,
+            }
+        },
+    )
+    await db.password_reset_tokens.update_many(
+        {"user_id": user["user_id"], "used": False},
+        {"$set": {"used": True, "invalidated_at": now}},
+    )
+    await db.user_sessions.delete_many({"user_id": user["user_id"]})
+    return {"message": "Kata sandi berhasil diperbarui. Silakan masuk dengan kata sandi baru Anda."}
 
 
 # ---------------------------------------------------------------------------
@@ -4740,6 +4891,10 @@ async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id")
     await db.user_sessions.create_index("session_token")
+    await db.password_reset_tokens.create_index("token_hash", unique=True)
+    await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
+    await db.password_reset_rate_limits.create_index("key", unique=True)
+    await db.password_reset_rate_limits.create_index("expires_at", expireAfterSeconds=0)
     await db.registrations.create_index("user_id")
     await db.registrations.create_index("cpm_id", unique=True, sparse=True)
     await db.documents.create_index("user_id")

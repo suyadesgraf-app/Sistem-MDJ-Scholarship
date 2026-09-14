@@ -2,7 +2,14 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth, dashboardPath } from "@/context/AuthContext";
-import { formatApiError } from "@/lib/api";
+import api, { formatApiError } from "@/lib/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -100,6 +107,9 @@ export default function Login() {
   const [show, setShow] = useState(false);
   const [remember, setRemember] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotState, setForgotState] = useState({ status: "idle", message: "" });
 
   const submit = async (e) => {
     e.preventDefault();
@@ -135,6 +145,26 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const requestPasswordReset = async (event) => {
+    event.preventDefault();
+    setForgotState({ status: "loading", message: "" });
+    try {
+      const response = await api.post("/auth/forgot-password", { email: forgotEmail });
+      setForgotState({ status: "success", message: response.data.message });
+    } catch (error) {
+      setForgotState({
+        status: "error",
+        message: formatApiError(error.response?.data?.detail),
+      });
+    }
+  };
+
+  const openForgotPasswordDialog = () => {
+    setForgotEmail("");
+    setForgotState({ status: "idle", message: "" });
+    setForgotPasswordOpen(true);
   };
 
   return (
@@ -218,7 +248,14 @@ export default function Login() {
                 />
                 Ingat saya
               </label>
-              <span className="font-semibold text-[#0B6B3A]">Lupa kata sandi?</span>
+              <button
+                type="button"
+                onClick={openForgotPasswordDialog}
+                data-testid="forgot-password-open-button"
+                className="font-semibold text-[#0B6B3A] transition-colors hover:text-[#27AE60]"
+              >
+                Lupa kata sandi?
+              </button>
             </div>
             <button
               type="submit"
@@ -281,6 +318,89 @@ export default function Login() {
           </p>
         </div>
         </div>
+        <Dialog open={forgotPasswordOpen} onOpenChange={setForgotPasswordOpen}>
+          <DialogContent
+            data-testid="forgot-password-dialog"
+            className="max-w-md rounded-xl border-0 bg-white p-7"
+          >
+            <DialogHeader className="text-left">
+              <DialogTitle className="font-display text-2xl font-extrabold text-[#1F2937]">
+                Atur Ulang Kata Sandi
+              </DialogTitle>
+              <DialogDescription className="leading-relaxed text-[#6B7280]">
+                Masukkan email akun Anda. Kami akan mengirim tautan aman untuk membuat kata
+                sandi baru.
+              </DialogDescription>
+            </DialogHeader>
+            {forgotState.status === "success" ? (
+              <div
+                data-testid="forgot-password-success"
+                className={
+                  "border-l-4 border-[#27AE60] bg-[#F0FBF5] p-4 text-sm leading-relaxed " +
+                  "text-[#0B6B3A]"
+                }
+              >
+                {forgotState.message}
+              </div>
+            ) : (
+              <form className="space-y-4" onSubmit={requestPasswordReset}>
+                {forgotState.status === "error" && (
+                  <div
+                    data-testid="forgot-password-error"
+                    className={
+                      "border-l-4 border-[#DC2626] bg-[#FEF2F2] p-3 text-sm " +
+                      "text-[#B91C1C]"
+                    }
+                  >
+                    {forgotState.message}
+                  </div>
+                )}
+                <div>
+                  <label
+                    htmlFor="forgot-password-email"
+                    className="mb-1.5 block text-xs font-semibold text-[#1F2937]"
+                  >
+                    Alamat Email
+                  </label>
+                  <div className="relative">
+                    <Mail
+                      className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400"
+                    />
+                    <input
+                      id="forgot-password-email"
+                      type="email"
+                      value={forgotEmail}
+                      onChange={(event) => setForgotEmail(event.target.value)}
+                      data-testid="forgot-password-email-input"
+                      required
+                      autoComplete="email"
+                      placeholder="nama@email.com"
+                      className={
+                        "w-full rounded-lg border border-gray-300 py-3 pl-11 pr-4 text-sm " +
+                        "outline-none focus:border-transparent focus:ring-2 focus:ring-[#27AE60]"
+                      }
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={forgotState.status === "loading"}
+                  data-testid="forgot-password-submit-button"
+                  className={
+                    "flex w-full items-center justify-center gap-2 rounded-lg bg-[#27AE60] py-3 " +
+                    "text-sm font-bold text-white transition-colors hover:bg-[#0B6B3A] " +
+                    "disabled:cursor-wait disabled:opacity-60"
+                  }
+                >
+                  {forgotState.status === "loading" && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+                  Kirim Tautan Reset
+                </button>
+              </form>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

@@ -399,3 +399,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   diperkuat menjadi putih penuh agar jelas terbaca pada latar hijau.
 - Diuji di browser: subteks berada di dalam batas kartu aktif, label lama tidak muncul, dan layar ponsel
   tetap responsif tanpa horizontal overflow.
+
+## 2026-09 — Lupa Sandi dan pengaturan ulang kata sandi
+- Tautan **Lupa kata sandi?** pada halaman Masuk kini membuka dialog email dan mengirim permintaan ke
+  `POST /api/auth/forgot-password`. Rute publik `/reset-password` menampilkan formulir kata sandi baru.
+- Token reset disimpan sebagai hash, hanya berlaku satu jam dan sekali pakai. Permintaan reset baru
+  membatalkan token sebelumnya; pengubahan kata sandi menaikkan `auth_version` serta membatalkan semua
+  sesi aktif lama. Pembatasan permintaan per email/IP juga diperbaiki agar operasi MongoDB atomik.
+- Diuji: pengiriman email Resend HTTP 200, reset berhasil melalui browser, token ulang ditolak, sesi serta
+  sandi lama ditolak, sandi baru dapat masuk. Dialog desktop dan ponsel 390px lulus tanpa overflow.

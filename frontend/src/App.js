@@ -10,6 +10,7 @@ import StudentDashboard from "@/pages/student/StudentDashboard";
 import AdminDashboard from "@/pages/admin/AdminDashboard";
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
 import VerifyEmail from "@/pages/VerifyEmail";
+import ResetPassword from "@/pages/ResetPassword";
 
 function AppRoutes() {
   const location = useLocation();
@@ -20,6 +21,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/dashboard" element={<ProtectedRoute roles={["student"]}><StudentDashboard /></ProtectedRoute>} />
       <Route
         path="/admin"
