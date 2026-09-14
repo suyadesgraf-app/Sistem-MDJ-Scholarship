@@ -5,7 +5,7 @@ import { API } from "@/lib/api";
 import { Loader2, Plus, Trash2, UploadCloud, Save, Image as ImageIcon } from "lucide-react";
 
 const TABS = [
-  ["umum", "Umum & Banner"], ["timeline", "Timeline"], ["pengumuman", "Pengumuman"],
+  ["umum", "Umum & Banner"], ["alur", "Alur Pendaftaran"], ["pengumuman", "Pengumuman"],
   ["statistik", "Statistik"], ["persyaratan", "Persyaratan"], ["faq", "FAQ"],
 ];
 
@@ -173,13 +173,13 @@ export default function SiteManager() {
         </div>
       )}
 
-      {tab === "timeline" && (
-        <ArrayEditor items={c.timeline || []} onChange={(v) => setField("timeline", v)} onSave={() => save({ timeline: c.timeline })} saving={saving}
-          template={{ title: "", desc: "" }} testid="timeline"
-          render={(it, upd, idx) => (<>
-            <input value={it.title} onChange={(e) => upd("title", e.target.value)} placeholder="Judul tahap" data-testid={`timeline-title-${idx}`} className={ic + " mb-2 font-semibold"} />
-            <textarea value={it.desc} onChange={(e) => upd("desc", e.target.value)} placeholder="Deskripsi" rows={2} className={ic} />
-          </>)} />
+      {tab === "alur" && (
+        <RegistrationFlowEditor
+          items={c.registration_flow || []}
+          onChange={(value) => setField("registration_flow", value)}
+          onSave={() => save({ registration_flow: c.registration_flow })}
+          saving={saving}
+        />
       )}
 
       {tab === "pengumuman" && (
@@ -248,6 +248,49 @@ function StringListEditor({ items, onChange, onSave, saving, testid }) {
         </div>
       ))}
       <button onClick={() => onChange([...items, ""])} data-testid={`add-${testid}`} className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-bold text-[#6B7280] hover:border-[#27AE60] hover:text-[#27AE60] flex items-center justify-center gap-2 transition-colors"><Plus className="w-4 h-4" /> Tambah Persyaratan</button>
+      <SaveBar onSave={onSave} saving={saving} />
+    </div>
+  );
+}
+
+function RegistrationFlowEditor({ items, onChange, onSave, saving }) {
+  const updateDescription = (index, desc) => {
+    onChange(items.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, desc } : item
+    )));
+  };
+  return (
+    <div className="space-y-4" data-testid="registration-flow-editor">
+      <div className="border-l-4 border-[#27AE60] bg-[#F0FBF5] px-4 py-3">
+        <p className="text-sm font-bold text-[#1F2937]">Alur Pendaftaran di Beranda</p>
+        <p className="mt-1 text-xs leading-relaxed text-[#6B7280]">
+          Urutan 11 tahap dibuat tetap. Isi keterangan untuk ditampilkan ketika pengunjung mengarahkan
+          kursor ke tahap terkait atau membuka halaman di ponsel.
+        </p>
+      </div>
+      {items.map((item, index) => (
+        <div key={item.title} className="border border-gray-100 bg-white p-4 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0B6B3A] text-xs font-bold text-white">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-display text-base font-bold text-[#1F2937]">{item.title}</p>
+              <label className="mt-3 block text-xs font-bold uppercase tracking-wide text-[#6B7280]">
+                Keterangan Tahap
+                <textarea
+                  value={item.desc || ""}
+                  onChange={(event) => updateDescription(index, event.target.value)}
+                  placeholder="Masukkan keterangan yang muncul saat tahap dipilih..."
+                  rows={3}
+                  data-testid={`registration-flow-description-input-${index + 1}`}
+                  className={`${ic} mt-1.5 resize-y`}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      ))}
       <SaveBar onSave={onSave} saving={saving} />
     </div>
   );

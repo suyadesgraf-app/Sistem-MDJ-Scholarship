@@ -1,0 +1,22 @@
+{
+  "summary": "Validated Alur Pendaftaran (registration_flow) end-to-end. Backend: 4/4 pytest passed - GET /api/site/content returns exactly 11 stages in the required order with expected titles; PUT /api/site/content forces the 11 fixed titles even when client sends tampered titles, persists desc updates, rejects invalid count with HTTP 400, and denies non-super_admin (admin returned 403). Frontend: Landing #alur renders 11 interactive step cards + 10 sequential arrows; desktop hover and keyboard focus update the full-width bottom description panel (verified steps 3, 6, 8); nav anchor #alur works; on mobile the description panel is auto-visible for active stage (starts at Tahap 01 - Pembuatan Akun), tapping steps 5 and 11 updates active title/desc, no horizontal overflow (0px), legacy #timeline anchor is absent. Super Admin Kelola Website > Alur Pendaftaran tab lists exactly the 11 fixed titles with 11 editable Keterangan Tahap textareas and a save button. Original CMS descriptions were captured and restored after mutation tests.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_registration_flow_cms.py",
+    "/app/test_reports/pytest/iter27_registration_flow.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RegistrationFlow.jsx renders arrow-{index+1} even for the last card in a row (rowEnd branch skipping isLast), which is correct; however arrow indexing corresponds to card positions 1-3,4-6,7-9,10 giving 10 arrows total - matches spec.",
+    "normalize_registration_flow silently overrides client-supplied titles rather than returning validation error - acceptable per requirement but consider logging when titles differ from defaults for auditability.",
+    "DEFAULT_SITE_CONTENT still contains a legacy `timeline` array (8 items) which is stored but no longer rendered on landing; safe to keep for backward compatibility but consider removing later to avoid confusion."
+  ],
+  "updated_files": ["/app/backend/tests/test_registration_flow_cms.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026! (super_admin); admin.mdj@baznasbazisdki.id / AdminMDJ2026! (admin)",
+  "seed_data_creation": "None. CMS registration_flow descriptions were temporarily overwritten with TEST desc strings then restored to original values captured at test start.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Alur Pendaftaran feature verified working per spec across desktop/mobile and CMS editor. Backend regression suite for this feature: /app/backend/tests/test_registration_flow_cms.py. Note: page.goto with different hash on same URL does not reload state - tests must goto '/' then scroll to #alur when validating fresh initial state, and clear focus between viewport-size tests."
+}

@@ -3332,6 +3332,42 @@ async def import_campuses(
     return {"inserted": inserted, "updated": updated, "total": inserted + updated}
 
 
+DEFAULT_REGISTRATION_FLOW = [
+    {"title": "Pembuatan Akun", "desc": ""},
+    {"title": "Pendaftaran Online", "desc": ""},
+    {"title": "Seleksi Administrasi", "desc": ""},
+    {"title": "Pengumuman Kelulusan Seleksi Administrasi", "desc": ""},
+    {"title": "Wawancara Assessment", "desc": ""},
+    {"title": "Verifikasi Faktual", "desc": ""},
+    {"title": "Pengumuman Kelulusan Penerima Manfaat", "desc": ""},
+    {"title": "Pengukuhan / Inagurasi", "desc": ""},
+    {"title": "Pencairan Bantuan Tahap I", "desc": ""},
+    {"title": "Pembinaan", "desc": ""},
+    {"title": "Pencairan Bantuan Tahap II", "desc": ""},
+]
+
+
+def default_registration_flow() -> List[dict]:
+    return [dict(item) for item in DEFAULT_REGISTRATION_FLOW]
+
+
+def normalize_registration_flow(value: Any) -> List[dict]:
+    if not isinstance(value, list) or len(value) != len(DEFAULT_REGISTRATION_FLOW):
+        raise HTTPException(
+            status_code=400,
+            detail="Alur pendaftaran harus berisi tepat 11 tahapan.",
+        )
+    return [
+        {
+            "title": DEFAULT_REGISTRATION_FLOW[index]["title"],
+            "desc": str(item.get("desc") or "").strip()[:800]
+            if isinstance(item, dict)
+            else "",
+        }
+        for index, item in enumerate(value)
+    ]
+
+
 DEFAULT_SITE_CONTENT = {
     "settings": {
         "registration_open": True,
@@ -3362,6 +3398,7 @@ DEFAULT_SITE_CONTENT = {
         {"title": "Pengumuman Penerima Manfaat", "desc": "Penetapan akhir peserta terpilih sebagai penerima beasiswa."},
         {"title": "Pengukuhan / Inagurasi", "desc": "Acara peresmian dan penyambutan resmi penerima manfaat baru."},
     ],
+    "registration_flow": default_registration_flow(),
     "announcements": [
         {"date": "12 Jan 2026", "category": "Informasi", "title": "Pengukuhan Kader Akademia MDJ", "summary": "Peserta yang lolos seleksi akhir wajib mengikuti kegiatan pengukuhan dan orientasi program pembinaan."},
         {"date": "22 Des 2025", "category": "Pengumuman", "title": "Pengumuman Awardee MDJ Scholarship", "summary": "Daftar nama 3.049 penerima manfaat yang lolos tahap wawancara dan verifikasi faktual telah diterbitkan."},
@@ -3395,6 +3432,13 @@ async def get_site_content():
         content = {"key": "main", **DEFAULT_SITE_CONTENT}
         await db.site_content.insert_one(dict(content))
         content.pop("_id", None)
+    if "registration_flow" not in content:
+        content["registration_flow"] = default_registration_flow()
+        await db.site_content.update_one(
+            {"key": "main"},
+            {"$set": {"registration_flow": content["registration_flow"]}},
+            upsert=True,
+        )
     content.pop("key", None)
     return content
 
@@ -3402,7 +3446,12 @@ async def get_site_content():
 @api_router.put("/site/content")
 async def update_site_content(payload: SiteContentInput, user: dict = Depends(require_roles("super_admin"))):
     current = await db.site_content.find_one({"key": "main"}, {"_id": 0}) or {}
-    incoming_announcements = payload.content.get("announcements")
+    content_update = dict(payload.content)
+    if "registration_flow" in content_update:
+        content_update["registration_flow"] = normalize_registration_flow(
+            content_update["registration_flow"]
+        )
+    incoming_announcements = content_update.get("announcements")
     new_announcements = []
     if isinstance(incoming_announcements, list):
         existing_signatures = {
@@ -3416,7 +3465,7 @@ async def update_site_content(payload: SiteContentInput, user: dict = Depends(re
         ]
     await db.site_content.update_one(
         {"key": "main"},
-        {"$set": {**payload.content, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        {"$set": {**content_update, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True,
     )
     await notify_new_announcements(new_announcements)

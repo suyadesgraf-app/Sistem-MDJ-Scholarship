@@ -149,7 +149,7 @@ export default function Login() {
             <Link
               to="/"
               data-testid="login-home-link"
-              className="mb-7 flex items-center gap-2 text-sm text-[#6B7280] lg:hidden"
+              className="mb-7 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#6B7280] transition-colors hover:border-[#8FE2B4] hover:bg-[#F0FBF5] hover:text-[#0B6B3A]"
             >
               <ArrowLeft className="h-4 w-4" />
               Kembali ke Beranda

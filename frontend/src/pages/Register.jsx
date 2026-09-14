@@ -35,7 +35,14 @@ export default function Register() {
       <AuthSide />
       <div className="flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
         <div className="w-full max-w-md">
-          <Link to="/" className="lg:hidden flex items-center gap-2 text-sm text-[#6B7280] mb-6"><ArrowLeft className="w-4 h-4" /> Kembali ke Beranda</Link>
+          <Link
+            to="/"
+            data-testid="register-home-link"
+            className="mb-6 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#6B7280] transition-colors hover:border-[#8FE2B4] hover:bg-[#F0FBF5] hover:text-[#0B6B3A]"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Kembali ke Beranda
+          </Link>
           <h1 className="font-display font-extrabold text-3xl tracking-tight text-[#1F2937] mb-2">Buat Akun Pendaftar</h1>
           <p className="text-sm text-[#6B7280] mb-8">Daftar untuk memulai proses pendaftaran MDJ Scholarship.</p>
           <form onSubmit={submit} className="space-y-4">

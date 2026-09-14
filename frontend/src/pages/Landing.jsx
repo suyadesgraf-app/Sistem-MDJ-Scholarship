@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/lib/api";
 import axios from "axios";
+import RegistrationFlow from "@/components/RegistrationFlow";
 import {
   GraduationCap, User, Award, Shield, Menu, X, CheckCircle2, ArrowRight,
   School, BookOpen, Star, Calendar, ChevronDown, Sparkles, ShieldCheck,
@@ -79,8 +80,20 @@ const Navbar = ({ onNavigate, logoUrl }) => {
             ))}
           </div>
           <div className="hidden lg:flex items-center gap-3">
-            <button onClick={() => onNavigate("/login")} data-testid="nav-login-btn"
-              className={`px-4 py-2 text-sm font-bold rounded-xl transition-colors ${scrolled ? "text-[#0B6B3A] hover:bg-[#E8F6EE]" : "text-white hover:bg-white/10"}`}>Masuk</button>
+            <button
+              onClick={() => onNavigate("/login")}
+              data-testid="nav-login-btn"
+              className={`px-4 py-2 text-sm font-bold transition-colors ${scrolled ? "text-[#0B6B3A] hover:bg-[#E8F6EE]" : "text-white hover:bg-white/10"}`}
+            >
+              Masuk
+            </button>
+            <button
+              onClick={() => onNavigate("/register")}
+              data-testid="nav-register-btn"
+              className="rounded-xl bg-[#27AE60] px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-[#0B6B3A]/20 transition-[background-color,transform] duration-200 hover:-translate-y-0.5 hover:bg-[#0B6B3A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F2C94C] focus-visible:ring-offset-2"
+            >
+              Daftar
+            </button>
           </div>
           <button className={`lg:hidden p-2 rounded-lg ${scrolled ? "text-[#1F2937]" : "text-white"}`} onClick={() => setOpen(!open)} data-testid="nav-mobile-toggle">
             {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -92,8 +105,21 @@ const Navbar = ({ onNavigate, logoUrl }) => {
           {NAV_LINKS.map((l) => (
             <a key={l.name} href={l.href} onClick={() => setOpen(false)} className="block px-3 py-2.5 text-sm font-semibold text-[#1F2937] rounded-lg hover:bg-[#E8F6EE]">{l.name}</a>
           ))}
-          <div className="pt-2">
-            <button onClick={() => onNavigate("/login")} data-testid="nav-mobile-login-btn" className="w-full px-4 py-2.5 text-sm font-bold text-[#0B6B3A] border border-gray-200 rounded-xl">Masuk</button>
+          <div className="grid grid-cols-2 gap-2 pt-2">
+            <button
+              onClick={() => onNavigate("/login")}
+              data-testid="nav-mobile-login-btn"
+              className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-bold text-[#0B6B3A]"
+            >
+              Masuk
+            </button>
+            <button
+              onClick={() => onNavigate("/register")}
+              data-testid="nav-mobile-register-btn"
+              className="w-full rounded-xl bg-[#27AE60] px-4 py-2.5 text-sm font-bold text-white"
+            >
+              Daftar
+            </button>
           </div>
         </div>
       )}
@@ -114,7 +140,7 @@ export default function Landing() {
   const c = content || {};
   const settings = c.settings || {};
   const stats = c.stats || [];
-  const timeline = c.timeline || [];
+  const registrationFlow = c.registration_flow || [];
   const announcements = c.announcements || [];
   const requirements = c.requirements || [];
   const faqs = c.faqs || [];
@@ -255,27 +281,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* TIMELINE / FLOW */}
-      <section id="alur" className="py-20 lg:py-24 bg-[#F9FAFB]">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="font-display font-extrabold text-3xl lg:text-4xl tracking-tight text-[#1F2937] text-center mb-3">Alur Program</h2>
-          <p className="text-[#6B7280] text-center mb-12">Rangkaian tahapan seleksi dan pembinaan MDJ Scholarship dari awal hingga akhir.</p>
-          <div className="relative pl-8 border-l-2 border-[#E8F6EE] space-y-8">
-            {timeline.map((t, i) => (
-              <div key={i} className="relative" data-testid={`timeline-${i}`}>
-                <div className="absolute -left-[41px] w-8 h-8 rounded-full bg-[#27AE60] text-white text-xs font-bold flex items-center justify-center shadow-md">{(i + 1).toString().padStart(2, "0")}</div>
-                <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
-                  <h3 className="font-display font-bold text-[#1F2937]">{t.title}</h3>
-                  <p className="text-sm text-[#6B7280] mt-1 leading-relaxed">{t.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-12">
-            <button onClick={() => go("/register")} className="px-8 py-3.5 text-base font-bold text-[#0B6B3A] bg-[#F2C94C] rounded-full hover:bg-[#D4AC2B] transition-colors shadow-md">Mulai Pendaftaran</button>
-          </div>
-        </div>
-      </section>
+      <RegistrationFlow steps={registrationFlow} />
 
       {/* ANNOUNCEMENTS */}
       <section id="pengumuman" className="py-20 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -351,3 +351,20 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Diuji menyeluruh: 92/92 regresi backend lulus, termasuk pemulihan delapan demo UMT, scope persetujuan
   massal, nominal/remark, bukti mahasiswa, RBAC, data demo, dan format tabel. Tampilan rekap desktop
   serta mobile 390px juga diverifikasi tanpa overflow.
+
+## 2026-09 — Alur Pendaftaran interaktif dan CMS
+- Bagian **Alur Pendaftaran** baru di beranda menampilkan 11 tahap tetap dari Pembuatan Akun hingga
+  Pencairan Bantuan Tahap II. Kartu memiliki nomor dan panah berurutan; hover/fokus di desktop atau
+  ketukan di ponsel menampilkan keterangan tahap pada panel penuh di bawah alur.
+- Super Admin dapat mengisi keterangan untuk masing-masing dari 11 tahap melalui Kelola Website →
+  Alur Pendaftaran. Judul serta urutan tahap dilindungi di server sehingga tidak dapat diubah atau
+  dikurangi melalui pembaruan CMS.
+- Diuji menyeluruh: 100% backend dan frontend lulus, termasuk 11 kartu, 10 panah, hover/fokus,
+  ketukan mobile, anchor navigasi, editor CMS, validasi 11 tahap, dan layar mobile tanpa overflow.
+
+## 2026-09 — Navigasi Beranda, Masuk, dan Daftar
+- Tombol **Daftar** hijau ditambahkan kembali pada header beranda untuk desktop maupun menu ponsel
+  dan mengarah ke halaman pembuatan akun.
+- Halaman Masuk serta Daftar kini selalu menampilkan tombol **Kembali ke Beranda**, termasuk pada
+  layar desktop.
+- Diuji di browser: seluruh navigasi Beranda/Daftar berfungsi dan tampilan ponsel 390px tidak overflow.
