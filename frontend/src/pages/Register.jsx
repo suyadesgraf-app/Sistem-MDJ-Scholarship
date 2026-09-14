@@ -4,12 +4,12 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { formatApiError } from "@/lib/api";
 import { AuthSide } from "@/pages/Login";
-import { Eye, EyeOff, Mail, Lock, User, CreditCard, Phone, Loader2, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, User, Phone, Loader2, ArrowLeft } from "lucide-react";
 
 export default function Register() {
   const navigate = useNavigate();
   const { register } = useAuth();
-  const [form, setForm] = useState({ name: "", email: "", nik: "", phone: "", password: "", confirm: "" });
+  const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirm: "" });
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
@@ -20,7 +20,12 @@ export default function Register() {
     if (form.password !== form.confirm) return toast.error("Konfirmasi kata sandi tidak cocok.");
     setLoading(true);
     try {
-      await register({ name: form.name, email: form.email, password: form.password, nik: form.nik, phone: form.phone });
+      await register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+        phone: form.phone,
+      });
       toast.success("Akun berhasil dibuat!");
       navigate("/dashboard", { replace: true });
     } catch (err) {
@@ -48,10 +53,15 @@ export default function Register() {
           <form onSubmit={submit} className="space-y-4">
             <Field label="Nama Lengkap" icon={User} required><input value={form.name} onChange={set("name")} required data-testid="reg-name-input" placeholder="Nama sesuai KTP" className={inputCls} /></Field>
             <Field label="Email" icon={Mail} required><input type="email" value={form.email} onChange={set("email")} required data-testid="reg-email-input" placeholder="email@contoh.com" className={inputCls} /></Field>
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="NIK" icon={CreditCard}><input value={form.nik} onChange={(e) => setForm((p) => ({ ...p, nik: e.target.value.replace(/\D/g, "") }))} data-testid="reg-nik-input" placeholder="16 digit" maxLength={16} className={inputCls} /></Field>
-              <Field label="No. Telepon" icon={Phone}><input value={form.phone} onChange={set("phone")} data-testid="reg-phone-input" placeholder="08xxxx" className={inputCls} /></Field>
-            </div>
+            <Field label="No. Telepon" icon={Phone}>
+              <input
+                value={form.phone}
+                onChange={set("phone")}
+                data-testid="reg-phone-input"
+                placeholder="08xxxx"
+                className={inputCls}
+              />
+            </Field>
             <Field label="Kata Sandi" icon={Lock} required>
               <input type={show ? "text" : "password"} value={form.password} onChange={set("password")} required data-testid="reg-password-input" placeholder="Min. 8 karakter" className={inputCls} />
               <button type="button" onClick={() => setShow(!show)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">{show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}</button>

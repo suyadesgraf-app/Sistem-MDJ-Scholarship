@@ -385,3 +385,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   proses sebenarnya.
 - Diuji di browser: posisi setiap kartu dan arah urutan desktop tervalidasi; dropdown hover tetap
   berfungsi dan layar mobile 390px tidak mengalami horizontal overflow.
+
+## 2026-09 — Pembuatan akun tanpa NIK
+- Input NIK dihapus dari halaman **Buat Akun Pendaftar** beserta state dan payload registrasinya.
+  Pembuatan akun sekarang hanya meminta nama lengkap, email, nomor telepon, dan kata sandi.
+- Data NIK pada profil mahasiswa tetap terpisah untuk proses dokumen/identitas setelah akun dibuat.
+- Diuji di browser: input NIK tidak lagi ada pada halaman Daftar dan layar mobile 390px tanpa overflow.
