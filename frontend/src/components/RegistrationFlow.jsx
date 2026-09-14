@@ -1,6 +1,33 @@
 import React, { useEffect, useState } from "react";
 import { ArrowDown, ArrowRight } from "lucide-react";
 
+const DESKTOP_ORDER = [
+  "lg:order-1",
+  "lg:order-2",
+  "lg:order-3",
+  "lg:order-6",
+  "lg:order-5",
+  "lg:order-4",
+  "lg:order-7",
+  "lg:order-8",
+  "lg:order-9",
+  "lg:order-12",
+  "lg:order-11",
+];
+
+const DESKTOP_DIRECTION = [
+  "right",
+  "right",
+  "down",
+  "left",
+  "left",
+  "down",
+  "right",
+  "right",
+  "down",
+  "left",
+];
+
 export default function RegistrationFlow({ steps = [] }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [activeIndex, setActiveIndex] = useState(() => (
@@ -42,12 +69,12 @@ export default function RegistrationFlow({ steps = [] }) {
         <div className="mt-12 grid gap-x-12 gap-y-12 lg:grid-cols-3" data-testid="registration-flow-grid">
           {steps.map((step, index) => {
             const isLast = index === steps.length - 1;
-            const rowEnd = (index + 1) % 3 === 0;
             const isActive = activeIndex === index;
+            const direction = DESKTOP_DIRECTION[index];
             return (
               <div
                 key={`${step.title}-${index}`}
-                className="relative"
+                className={`relative ${DESKTOP_ORDER[index]}`}
                 onMouseLeave={() => {
                   if (!isMobile) setActiveIndex(null);
                 }}
@@ -71,13 +98,13 @@ export default function RegistrationFlow({ steps = [] }) {
                     </span>
                   </button>
 
-                  {!isLast && !rowEnd && (
+                  {!isLast && direction !== "down" && (
                     <span
-                      className="absolute -right-10 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#F2C94C]/60 bg-[#08743D] text-[#F2C94C] lg:flex"
+                      className={`absolute top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#F2C94C]/60 bg-[#08743D] text-[#F2C94C] lg:flex ${direction === "left" ? "-left-10" : "-right-10"}`}
                       aria-hidden="true"
                       data-testid={`registration-flow-arrow-${index + 1}`}
                     >
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className={`h-4 w-4 ${direction === "left" ? "rotate-180" : ""}`} />
                     </span>
                   )}
                 </div>
@@ -107,7 +134,7 @@ export default function RegistrationFlow({ steps = [] }) {
                     <ArrowDown className="h-4 w-4" />
                   </span>
                 )}
-                {!isLast && rowEnd && (
+                {!isLast && direction === "down" && (
                   <span
                     className="absolute bottom-[-36px] left-1/2 z-10 hidden h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-[#F2C94C]/60 bg-[#08743D] text-[#F2C94C] lg:flex"
                     aria-hidden="true"
@@ -119,6 +146,7 @@ export default function RegistrationFlow({ steps = [] }) {
               </div>
             );
           })}
+          <div className="hidden lg:order-10 lg:block" aria-hidden="true" />
         </div>
       </div>
     </section>

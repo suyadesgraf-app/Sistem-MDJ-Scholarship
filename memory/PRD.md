@@ -377,3 +377,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   kartu disentuh.
 - Diuji di browser: dropdown awal desktop tersembunyi, posisi dropdown berada di bawah kartu,
   perpindahan antar tahap benar, dan mobile 390px tidak mengalami horizontal overflow.
+
+## 2026-09 — Urutan zig-zag Alur Pendaftaran
+- Alur desktop kini mengikuti pola proses visual: **01 → 02 → 03**, turun ke **04 ← 05 ← 06**,
+  turun ke **07 → 08 → 09**, lalu turun ke **11 ← 10**. Panah berubah arah mengikuti alurnya.
+- Tampilan ponsel tetap vertikal 01 sampai 11 agar mudah dibaca dan disentuh, tanpa mengubah urutan
+  proses sebenarnya.
+- Diuji di browser: posisi setiap kartu dan arah urutan desktop tervalidasi; dropdown hover tetap
+  berfungsi dan layar mobile 390px tidak mengalami horizontal overflow.
