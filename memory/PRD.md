@@ -368,3 +368,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Halaman Masuk serta Daftar kini selalu menampilkan tombol **Kembali ke Beranda**, termasuk pada
   layar desktop.
 - Diuji di browser: seluruh navigasi Beranda/Daftar berfungsi dan tampilan ponsel 390px tidak overflow.
+
+## 2026-09 — Dropdown keterangan Alur Pendaftaran
+- Keterangan alur tidak lagi tampil sebagai panel global di bawah seluruh rangkaian. Pada desktop,
+  dropdown kini muncul tepat di bawah kartu tahap yang sedang diarahkan kursor atau menerima fokus.
+- Saat pengguna mengarahkan kursor ke tahap lain, dropdown sebelumnya tertutup dan keterangan tahap
+  baru terbuka. Di ponsel, satu dropdown tahap aktif tetap terbuka secara otomatis dan berubah saat
+  kartu disentuh.
+- Diuji di browser: dropdown awal desktop tersembunyi, posisi dropdown berada di bawah kartu,
+  perpindahan antar tahap benar, dan mobile 390px tidak mengalami horizontal overflow.
