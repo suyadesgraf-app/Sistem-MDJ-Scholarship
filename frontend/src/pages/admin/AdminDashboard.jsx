@@ -5,12 +5,14 @@ import AdminRegistrationSummary from "@/components/AdminRegistrationSummary";
 import ParticipantsPanel from "@/components/ParticipantsPanel";
 import CampusManager from "@/components/CampusManager";
 import DisbursementManager from "@/components/DisbursementManager";
+import ActiveLetterApprovalManager from "@/components/ActiveLetterApprovalManager";
 import SelectionImportManager from "@/components/SelectionImportManager";
 import AiAdministrativeVerification from "@/components/AiAdministrativeVerification";
 import AdminUsers from "@/components/AdminUsers";
 import { useAuth } from "@/context/AuthContext";
 import {
   Building2,
+  FileCheck2,
   HandCoins,
   FileSpreadsheet,
   Home,
@@ -37,6 +39,7 @@ export default function AdminDashboard() {
     return [
       ...BASE_MENU,
       { id: "kampus", label: "Kampus", icon: Building2 },
+      { id: "surat-aktif", label: "Surat Aktif AI", icon: FileCheck2 },
       { id: "admin-wilayah", label: "Admin Wilayah", icon: ShieldCheck },
     ];
   }, [isRegionalAdmin]);
@@ -61,6 +64,7 @@ export default function AdminDashboard() {
       {active === "verifikasi-ai" && <AiAdministrativeVerification />}
       {active === "import-seleksi" && <SelectionImportManager />}
       {active === "kampus" && <CampusManager />}
+      {active === "surat-aktif" && <ActiveLetterApprovalManager />}
       {active === "admin-wilayah" && <AdminUsers canManageProvincial={false} />}
     </DashboardShell>
   );

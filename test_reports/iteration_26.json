@@ -1,0 +1,53 @@
+{
+  "summary": "Iteration 26 backend regression + new feature tests. Verified: (a) Pencairan Dana campus listing API now returns `students` (name+region), `expected_amount` (=recipient_count*3jt when no transfer), `remarks` array on stage_one/stage_two; per-region detail also exposes expected_amount and remarks. (b) Manual aggregate PUT stamps manually_edited=True/manually_edited_at/manually_edited_by AND API remarks include 'Data diedit oleh Admin' plus any admin note. Test restored the record. (c) New endpoints /api/student/disbursement-proofs (list) and /api/student/disbursement-proofs/{source_id} (download) properly scope by recipient_user_ids: seeded matching + non-matching campus_disbursements docs; list returns only matching, download returns 404 for non-recipient. Admin Wilayah 403 on student proof list. (d) Active-letter decision endpoint contract change verified: `workflow` is REQUIRED, and `apply_all` requires nonempty `source_ids`. Bulk approve is properly scoped: seeded rec A in src_a + rec B in src_b + quarantined rec in src_a; POST with source_ids=[src_a] processed exactly 1 (rec A); rec B stayed pending; quarantined rec stayed pending; all 8 UMT is_demo_active_letter candidates remained in wawancara before AND after. (e) Stale approval path: seeding a registration with status=ditolak then approving the recommendation marks the recommendation `stale` and leaves registration untouched. (f) Frontend selectors confirmed in source: campus-disbursements-table (10 columns: No, Nama Perguruan Tinggi, Jumlah Mahasiswa, Nama Mahasiswa, Nominal Pengajuan, Waktu Transfer, Nominal Transfer, Bukti TF, Keterangan, Rincian), campus-student-names, disbursement-remarks, preview-transfer-proof-{source_id}, 'Bukti TF {n}' label, transfer-proof-region-select, active-letter-workflow-selector, approve-all-active-letter-button, student-disbursement-proofs, student-proof-empty-state. Combined pytest run: 92 passed, 0 failed across test_disbursement_proofs_iter26.py (new) + test_active_letter_approvals.py (updated) + test_campus_disbursements.py + test_transfer_proof_region.py + test_transfer_financials.py. No persistent storage objects created; all temp campus_disbursements/beneficiary_sources with test_tag=TEST_iter26 or TEST_active_letter cleaned by module fixtures. Live Gemini upload path NOT exercised (per instruction). Browser E2E was blocked at login by known Emergent visual-editor DOM mutation issue (documented in iter25); frontend rendering verified via source inspection instead.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verification_results": {
+    "eight_umt_demos_wawancara_before_and_after": true,
+    "bulk_approve_requires_workflow_and_source_ids": true,
+    "bulk_approve_scoped_to_source_ids_only": true,
+    "stale_when_registration_status_changed": true,
+    "campus_list_returns_students_array": true,
+    "expected_amount_equals_recipients_times_3jt": true,
+    "remarks_array_present_on_stages": true,
+    "manual_edit_stamps_and_remarks_data_diedit_oleh_admin": true,
+    "student_proof_list_scoped_by_recipient": true,
+    "student_proof_download_denies_non_recipient": true,
+    "admin_wilayah_forbidden_on_student_proof_endpoint": true,
+    "admin_wilayah_forbidden_on_transfer_proofs_endpoint": true,
+    "admin_wilayah_forbidden_on_active_letter_endpoints": true,
+    "table_has_10_columns_matching_pdf_spec": true,
+    "demo_tf_dataset_preserved_24_users": true,
+    "regression_92_passed_0_failed": true
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_disbursement_proofs_iter26.py",
+    "/app/backend/tests/test_active_letter_approvals.py",
+    "/app/test_reports/pytest/iter26_final.xml"
+  ],
+  "action_items": [
+    "Optional: install pytest-asyncio into /app/backend/requirements.txt if not persisted.",
+    "Optional: add a small unit assertion using existing test_transfer_financials.py path to also exercise Rp3.000.101 through refresh_campus_transfer_financials via API-facing route (already covered indirectly)."
+  ],
+  "critical_code_review_comments": [
+    "server.py:2737-2750 decide_active_letter_approvals correctly requires workflow and, when apply_all=True, requires nonempty source_ids. This fixes the iter25 regression that touched all 8 UMT demos. Recommend adding a debug log line when source_ids is provided showing count of matched vs skipped for future auditability.",
+    "server.py:1998-2022 list_student_disbursement_proofs uses `recipient_user_ids` filter on campus_disbursements to scope proofs. Ensure `recipient_user_ids` is populated on EVERY write path (ensure_campus_disbursement + attach_transfer_to_campus_bank_disbursement). Grep confirms it is.",
+    "server.py:2025-2053 download_student_disbursement_proof correctly performs a two-step check: recipient membership on campus_disbursements THEN storage lookup on beneficiary_sources. Returns 404 in both failure modes (no info leak).",
+    "server.py:1583-1588 build_disbursement_remarks appends 'Data diedit oleh Admin' when manually_edited=True and additionally appends `notes`. combine_campus_stage line 1620 dedupes remarks across regions using dict.fromkeys – good.",
+    "DisbursementManager.jsx:302-315 headers exactly match the requested PDF layout (10 columns). campus-student-names data-testid is on the list at line 508; disbursement-remarks at line 540; preview-transfer-proof-{source_id} at 525 with label 'Bukti TF {index+1}'.",
+    "StudentDisbursementProofs.jsx:42+58 renders empty state with data-testid='student-proof-empty-state' and 'Bukti TF {n}' + 'Lihat Bukti TF' actions – aligned with spec.",
+    "Pydantic model ActiveLetterDecisionInput (server.py:430) has `workflow: str` REQUIRED but Pydantic returns 422 (not 400) for missing/invalid. The extra runtime check at line 2737 catches invalid workflow VALUES but validation-missing case still surfaces as 422. Consider making `workflow: Optional[str] = None` + manual 400 for consistency, but the current 422 is acceptable/HTTP standard.",
+    "Consider adding a role check test: super_admin (not just admin) also allowed on decision endpoint – present in code (PM_MANAGERS) but not covered by new tests."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_active_letter_approvals.py",
+    "/app/backend/tests/test_disbursement_proofs_iter26.py"
+  ],
+  "success_rate": {"backend": "100% (92/92)", "frontend": "verified via source; browser E2E blocked by known visual-editor DOM mutation on login page"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026! | admin.mdj@baznasbazisdki.id / AdminMDJ2026! | mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!",
+  "seed_data_creation": "Only temporary docs (campus_disbursements + beneficiary_sources + registrations + users) tagged test_tag='TEST_iter26' or 'TEST_active_letter'. All cleaned by module-scope fixtures. No live Gemini/storage/notification uploads.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 26 added: (1) 'students' array + 'expected_amount' + 'remarks' in campus disbursement API (server.py:1698-1712, 1591-1596), (2) manually_edited stamp on PUT (server.py:1818-1820) surfaced via build_disbursement_remarks (server.py:1583), (3) new endpoints GET /api/student/disbursement-proofs and GET /api/student/disbursement-proofs/{source_id} scoped by recipient_user_ids (server.py:1998-2053), (4) ActiveLetterDecisionInput now REQUIRES workflow field and enforces source_ids when apply_all=True (server.py:430-435, 2737-2754). Tests live at /app/backend/tests/test_disbursement_proofs_iter26.py (new) and /app/backend/tests/test_active_letter_approvals.py (updated for new contract). If Pydantic missing-workflow returning 422 instead of 400 becomes an issue, change to Optional[str]=None with manual 400. Browser tests blocked at login by visual-editor mutating input[type='email'] to have injected x-* attrs; workaround: use page.evaluate to fill and submit. Frontend selectors validated via source grep (see DisbursementManager.jsx:302,508,525,540 + StudentDisbursementProofs.jsx:42,58,74,90 + ActiveLetterApprovalManager.jsx:117,177). DEMO-TF dataset = 24 users matching email regex 'demo.?tf|DEMO_TF'. 8 UMT demos = registrations with is_demo_active_letter=True in status='wawancara'.",
+  "rca of the issue": "None new. Iter25 fix (recipient_count upsert conflict) remains intact; iter26 verified the follow-on contract fix for ActiveLetterDecisionInput (workflow required + source_ids scoping) prevents the unscoped-approve-all regression that had lost 7/8 UMT wawancara statuses. New tests reproduce the scoped behaviour with two temp source IDs and confirm the other source stays untouched and all 8 demo UMTs stay in wawancara before AND after."
+}

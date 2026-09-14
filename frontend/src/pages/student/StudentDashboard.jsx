@@ -6,6 +6,7 @@ import DashboardShell, { StatusBadge, STATUS_META } from "@/components/Dashboard
 import StudentProfile, { profileProgress } from "@/components/StudentProfile";
 import AccountSettings from "@/components/AccountSettings";
 import RegistrationSections from "@/components/RegistrationSections";
+import StudentDisbursementProofs from "@/components/StudentDisbursementProofs";
 import { docFileUrl } from "@/components/DocPreview";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
@@ -17,6 +18,7 @@ const MENU = [
   { id: "profil", label: "Profil Saya", icon: User },
   { id: "daftar", label: "Pendaftaran", icon: FileText },
   { id: "status", label: "Status Seleksi", icon: Activity },
+  { id: "bukti-transfer", label: "Bukti Transfer", icon: FileCheck },
   { id: "pengumuman", label: "Pengumuman", icon: Megaphone },
   { id: "pengaturan", label: "Pengaturan", icon: Settings },
 ];
@@ -122,7 +124,11 @@ export default function StudentDashboard() {
       )));
       setUnreadNotificationCount((previous) => Math.max(previous - 1, 0));
     }
-    setActive(notification.type === "announcement" ? "pengumuman" : "status");
+    if (notification.type === "announcement") {
+      setActive("pengumuman");
+      return;
+    }
+    setActive(notification.type === "disbursement_proof" ? "bukti-transfer" : "status");
   };
 
   const markAllNotificationsRead = async () => {
@@ -267,6 +273,8 @@ export default function StudentDashboard() {
           )}
         </Card>
       )}
+
+      {active === "bukti-transfer" && <StudentDisbursementProofs />}
 
       {active === "pengumuman" && (
         <div className="space-y-4">

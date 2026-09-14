@@ -12,7 +12,12 @@ import {
 } from "lucide-react";
 import api from "@/lib/api";
 
-const emptyForm = { name: "", code: "" };
+const emptyForm = {
+  name: "",
+  code: "",
+  bank_account_holder_name: "",
+  bank_account_number: "",
+};
 
 export default function CampusManager() {
   const importRef = useRef(null);
@@ -45,7 +50,9 @@ export default function CampusManager() {
     const keyword = query.trim().toLowerCase();
     if (!keyword) return campuses;
     return campuses.filter((campus) => (
-      `${campus.name} ${campus.code || ""}`.toLowerCase().includes(keyword)
+      `${campus.name} ${campus.code || ""} ${campus.bank_account_holder_name || ""}`
+        .toLowerCase()
+        .includes(keyword)
     ));
   }, [campuses, query]);
 
@@ -117,7 +124,7 @@ export default function CampusManager() {
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
           <p className="text-sm text-[#6B7280]">
-            Kelola daftar kampus yang menjadi pilihan mahasiswa saat mendaftar.
+            Kelola kampus serta rekening tujuan yang menjadi acuan pencocokan bukti transfer.
           </p>
           <p className="mt-1 text-xs font-semibold text-[#0B6B3A]" data-testid="campus-total">
             {campuses.length} kampus terdaftar
@@ -156,7 +163,7 @@ export default function CampusManager() {
 
       <form
         onSubmit={submit}
-        className="grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-[1fr_12rem_auto]"
+        className="grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-[1fr_11rem_1fr_1fr_auto]"
         data-testid="campus-form"
       >
         <input
@@ -165,6 +172,27 @@ export default function CampusManager() {
           onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
           placeholder="Nama kampus"
           data-testid="campus-name-input"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#27AE60] focus:ring-2 focus:ring-[#27AE60]/20"
+        />
+        <input
+          value={form.bank_account_holder_name}
+          onChange={(event) => setForm((previous) => ({
+            ...previous,
+            bank_account_holder_name: event.target.value,
+          }))}
+          placeholder="Atas nama rekening"
+          data-testid="campus-account-holder-input"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#27AE60] focus:ring-2 focus:ring-[#27AE60]/20"
+        />
+        <input
+          inputMode="numeric"
+          value={form.bank_account_number}
+          onChange={(event) => setForm((previous) => ({
+            ...previous,
+            bank_account_number: event.target.value,
+          }))}
+          placeholder={editing?.bank_account_number_masked || "Nomor rekening kampus"}
+          data-testid="campus-account-number-input"
           className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#27AE60] focus:ring-2 focus:ring-[#27AE60]/20"
         />
         <input
@@ -210,25 +238,27 @@ export default function CampusManager() {
       </div>
 
       <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-        <table className="w-full min-w-[44rem] text-left">
+        <table className="w-full min-w-[66rem] text-left">
           <thead className="border-b border-gray-100 bg-[#F9FAFB] text-xs text-[#6B7280]">
             <tr>
               <th className="w-16 px-5 py-3 font-semibold">No.</th>
               <th className="px-5 py-3 font-semibold">Nama Kampus</th>
               <th className="px-5 py-3 font-semibold">Kode Kampus</th>
+              <th className="px-5 py-3 font-semibold">Atas Nama Rekening</th>
+              <th className="px-5 py-3 font-semibold">Nomor Rekening</th>
               <th className="px-5 py-3 text-right font-semibold">Aksi</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="4" className="px-5 py-10 text-center" data-testid="campus-loading-state">
+                <td colSpan="6" className="px-5 py-10 text-center" data-testid="campus-loading-state">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#27AE60]" />
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan="4" className="px-5 py-10 text-center text-sm text-[#6B7280]" data-testid="campus-empty-state">
+                <td colSpan="6" className="px-5 py-10 text-center text-sm text-[#6B7280]" data-testid="campus-empty-state">
                   Belum ada kampus yang sesuai.
                 </td>
               </tr>
@@ -247,6 +277,12 @@ export default function CampusManager() {
                   </td>
                   <td className="px-5 py-3.5 text-sm font-semibold text-[#1F2937]">{campus.name}</td>
                   <td className="px-5 py-3.5 text-sm text-[#6B7280]">{campus.code || "—"}</td>
+                  <td className="px-5 py-3.5 text-sm text-[#6B7280]">
+                    {campus.bank_account_holder_name || "Belum dicatat"}
+                  </td>
+                  <td className="px-5 py-3.5 text-sm font-semibold text-[#0B6B3A]">
+                    {campus.bank_account_number_masked || "Belum dicatat"}
+                  </td>
                   <td className="px-5 py-3.5">
                     <div className="flex justify-end gap-1">
                       <button
@@ -254,7 +290,12 @@ export default function CampusManager() {
                         title="Edit kampus"
                         onClick={() => {
                           setEditing(campus);
-                          setForm({ name: campus.name, code: campus.code || "" });
+                          setForm({
+                            name: campus.name,
+                            code: campus.code || "",
+                            bank_account_holder_name: campus.bank_account_holder_name || "",
+                            bank_account_number: "",
+                          });
                         }}
                         data-testid={`edit-campus-${campus.id}`}
                         className="rounded-lg p-2 text-[#0B6B3A] hover:bg-[#E8F6EE]"

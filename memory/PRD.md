@@ -281,7 +281,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Rincian kampus membagi data menurut wilayah. Setiap kombinasi kampus + wilayah + tahap memiliki
   status, nominal kolektif, tanggal, referensi, catatan, bukti, transaksi cocok, dan daftar mahasiswa.
 - Bukti transfer sumber disimpan sekali, tetapi dapat dihubungkan ke beberapa agregat kampus/wilayah
-  berdasarkan pencocokan nama serta NIM. Hasil tanpa kecocokan yang cukup tetap berada di tinjauan.
+  berdasarkan nama kampus, nomor rekening kampus, serta atas nama rekening. Hasil tanpa kecocokan
+  yang cukup tetap berada di tinjauan.
 - Admin Wilayah hanya melihat kampus dan mahasiswa wilayahnya; semua mutasi, unggahan, pemetaan,
   serta unduhan sumber tetap ditolak di server. Admin Provinsi dan Super Admin mengelola agregat.
 - Kontrol unggah surat keterangan mahasiswa aktif dihapus dari halaman Pencairan Dana agar fokus
@@ -307,8 +308,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   transfer. Server menolak wilayah kosong, tidak valid, maupun format yang tidak persis cocok sebelum
   proses OCR dimulai.
 - Wilayah pilihan disimpan sebagai `selected_region` pada sumber bukti dan masuk ke konteks OCR.
-  Pencocokan deterministik nama+NIM hanya mempertimbangkan Penerima Manfaat lulus akhir dari wilayah
-  tersebut; transaksi wilayah lain masuk tinjauan.
+  Pencocokan deterministik kampus/rekening hanya mempertimbangkan Penerima Manfaat lulus akhir dari
+  wilayah tersebut; transaksi wilayah lain masuk tinjauan.
 - Pemilihan wilayah unggahan otomatis menyaring ringkasan, tabel kampus, filter wilayah, dan antrean
   tinjauan di bawahnya. Indikator halaman menyebutkan wilayah yang sedang ditampilkan.
 - Penyelesaian tinjauan juga dikunci: bukti berwilayah tidak dapat dipetakan manual ke mahasiswa dari
@@ -316,3 +317,37 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Diuji: 71/71 regresi backend lulus untuk validasi wilayah, pembatasan Admin Wilayah, dan guard
   pemetaan lintas wilayah. Browser mengonfirmasi pilihan Jakarta Utara langsung menyaring data kampus
   serta layar 390px tanpa overflow.
+
+## 2026-09 — Master rekening kampus dan data demo bukti transfer
+- Master Kampus kini menyimpan **atas nama rekening** serta nomor rekening kampus terenkripsi.
+  Nomor penuh tidak pernah dikirim ke browser; admin hanya melihat nomor tersamarkan.
+- OCR bukti transfer tidak lagi memakai nama atau NIM mahasiswa. Pencocokan otomatis memerlukan
+  nama kampus, nomor rekening tujuan, dan atas nama rekening yang cocok pada master kampus, lalu
+  hanya memproses Penerima Manfaat di wilayah unggahan.
+- Tiga contoh bukti transfer digunakan sebagai data demo acuan: 24 master `DEMO-TF` dan 24 Penerima
+  Manfaat demo berstatus lulus akhir pada Jakarta Utara (18), Jakarta Pusat (4), dan Jakarta Timur (2).
+  Berkas sumber tidak diunggah otomatis sehingga tetap dapat dipakai untuk uji unggahan manual.
+
+## 2026-09 — Surat Aktif AI dengan persetujuan eksplisit
+- Menu **Surat Aktif AI** untuk Admin Provinsi dan Super Admin memiliki dua proses: Verifikasi Faktual
+  serta kelayakan Pencairan Tahap II. AI mengidentifikasi kampus dan tabel mahasiswa, membuat
+  rekomendasi/karantina, dan tidak mengubah status secara otomatis.
+- Persetujuan Verifikasi Faktual mengubah peserta wawancara menjadi lulus; persetujuan Tahap II hanya
+  membuat catatan kelayakan Tahap II. Seluruh keputusan, notifikasi, dan audit dicatat.
+- Persetujuan massal kini wajib dibatasi oleh workflow dan daftar source ID unggahan yang tampil.
+  Rekomendasi berkas lain serta kandidat yang statusnya telah berubah tidak dapat ikut terproses.
+- Delapan kandidat demo Universitas Muhammadiyah Tangerang dari surat contoh dipertahankan dalam
+  status `wawancara` untuk pengujian manual.
+
+## 2026-09 — Format rekap PDF dan Bukti TF mahasiswa
+- Tabel Pencairan Dana mengikuti format rekap: nomor, perguruan tinggi, jumlah/nama mahasiswa,
+  nominal pengajuan, waktu transfer, nominal transfer, Bukti TF, keterangan, dan rincian.
+- Setiap bukti yang terhubung tampil sebagai **Bukti TF 1/2/3** dengan ikon mata untuk meninjau berkas.
+  Penerima manfaat yang tercakup memperoleh notifikasi dan dapat membuka bukti TF miliknya melalui
+  menu Bukti Transfer pada dashboard mahasiswa; akses dibatasi ke bukti yang memang tertaut kepadanya.
+- Keterangan otomatis memuat kekurangan atau kelebihan transfer. Selisih positif hingga Rp101 dianggap
+  kode unik dan tetap dinilai sesuai. Perubahan manual menambahkan penanda “Data diedit oleh Admin”
+  serta catatan operator bila ada.
+- Diuji menyeluruh: 92/92 regresi backend lulus, termasuk pemulihan delapan demo UMT, scope persetujuan
+  massal, nominal/remark, bukti mahasiswa, RBAC, data demo, dan format tabel. Tampilan rekap desktop
+  serta mobile 390px juga diverifikasi tanpa overflow.

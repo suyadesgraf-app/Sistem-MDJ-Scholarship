@@ -4,6 +4,7 @@ import {
   Banknote,
   Building2,
   CheckCircle2,
+  Eye,
   FileUp,
   Loader2,
   Search,
@@ -51,7 +52,7 @@ export default function DisbursementManager() {
   const proofInput = useRef(null);
   const [campuses, setCampuses] = useState([]);
   const [reviews, setReviews] = useState([]);
-  const [reviewRecipients, setReviewRecipients] = useState([]);
+  const [reviewCampuses, setReviewCampuses] = useState([]);
   const [reviewMapping, setReviewMapping] = useState({});
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState("all");
@@ -69,14 +70,14 @@ export default function DisbursementManager() {
       const response = await api.get("/admin/disbursements/campuses", { params });
       setCampuses(response.data || []);
       if (isManager) {
-        const [reviewResponse, recipientResponse] = await Promise.all([
+        const [reviewResponse, campusResponse] = await Promise.all([
           api.get("/admin/beneficiary-reviews", {
             params: { stage: activeStage, region: uploadRegion || undefined },
           }),
-          api.get("/admin/beneficiaries"),
+          api.get("/campuses"),
         ]);
         setReviews(reviewResponse.data || []);
-        setReviewRecipients(recipientResponse.data || []);
+        setReviewCampuses(campusResponse.data || []);
       }
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
@@ -149,15 +150,28 @@ export default function DisbursementManager() {
   };
 
   const resolveReview = async (reviewId) => {
-    const userId = reviewMapping[reviewId];
-    if (!userId) {
-      toast.error("Pilih mahasiswa penerima untuk menyelesaikan tinjauan.");
+    const campusId = reviewMapping[reviewId];
+    if (!campusId) {
+      toast.error("Pilih kampus untuk menyelesaikan tinjauan.");
       return;
     }
     try {
-      await api.post(`/admin/beneficiary-reviews/${reviewId}/resolve`, { user_id: userId });
+      await api.post(`/admin/beneficiary-reviews/${reviewId}/resolve`, { campus_id: campusId });
       toast.success("Item tinjauan berhasil dipetakan.");
       await load();
+    } catch (error) {
+      toast.error(formatApiError(error.response?.data?.detail));
+    }
+  };
+
+  const previewProof = async (proof) => {
+    try {
+      const response = await api.get(`/admin/beneficiary-files/${proof.source_id}`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(response.data);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 60000);
     } catch (error) {
       toast.error(formatApiError(error.response?.data?.detail));
     }
@@ -241,6 +255,17 @@ export default function DisbursementManager() {
       )}
 
       <section className="space-y-4" data-testid="campus-disbursement-table-section">
+        <div className="border-b-2 border-[#0B6B3A] pb-4 text-center">
+          <p className="text-xs font-bold uppercase tracking-wide text-[#1F2937]">
+            Rekapitulasi Pengajuan Beasiswa Masa Depan Jakarta
+          </p>
+          <p className="mt-1 text-xs font-semibold uppercase text-[#1F2937]">
+            BAZNAS (BAZIS) Provinsi DKI Jakarta
+          </p>
+          <p className="mt-1 text-xs font-bold uppercase text-[#0B6B3A]" data-testid="disbursement-recap-title">
+            {stageLabel(activeStage)} Wilayah {region === "all" ? "Seluruh DKI Jakarta" : region}
+          </p>
+        </div>
         <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
           <div className="relative w-full sm:max-w-md">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -274,15 +299,18 @@ export default function DisbursementManager() {
         )}
 
         <div className="overflow-x-auto rounded-xl border border-gray-100 bg-white shadow-sm">
-          <table className="w-full min-w-[68rem] text-left text-sm" data-testid="campus-disbursements-table">
+          <table className="w-full min-w-[96rem] text-left text-sm" data-testid="campus-disbursements-table">
             <thead className="border-b border-gray-100 bg-[#F9FAFB] text-xs text-[#6B7280]">
               <tr>
                 <th className="px-4 py-3 font-semibold">No.</th>
-                <th className="px-4 py-3 font-semibold">Kampus</th>
-                <th className="px-4 py-3 font-semibold">Penerima Manfaat</th>
-                <th className="px-4 py-3 font-semibold">Wilayah</th>
-                <th className="px-4 py-3 font-semibold">Status {stageLabel(activeStage)}</th>
-                <th className="px-4 py-3 font-semibold">Bukti {stageLabel(activeStage)}</th>
+                <th className="px-4 py-3 font-semibold">Nama Perguruan Tinggi</th>
+                <th className="px-4 py-3 font-semibold">Jumlah Mahasiswa</th>
+                <th className="px-4 py-3 font-semibold">Nama Mahasiswa</th>
+                <th className="px-4 py-3 font-semibold">Nominal Pengajuan</th>
+                <th className="px-4 py-3 font-semibold">Waktu Transfer</th>
+                <th className="px-4 py-3 font-semibold">Nominal Transfer</th>
+                <th className="px-4 py-3 font-semibold">Bukti TF</th>
+                <th className="px-4 py-3 font-semibold">Keterangan</th>
                 <th className="px-4 py-3 text-right font-semibold">Rincian</th>
               </tr>
             </thead>
@@ -297,11 +325,29 @@ export default function DisbursementManager() {
                       {index + 1}
                     </td>
                     <td className="px-4 py-3.5 font-bold text-[#1F2937]">{campus.campus}</td>
-                    <td className="px-4 py-3.5 text-[#6B7280]">{campus.recipient_count} mahasiswa</td>
-                    <td className="px-4 py-3.5 text-[#6B7280]">{campus.region_count} wilayah</td>
-                    <td className="px-4 py-3.5"><StatusTag value={campus[activeStageField]} /></td>
-                    <td className="px-4 py-3.5 font-bold text-[#0B6B3A]">
-                      {campus[activeStageField].proof_count || 0} berkas
+                    <td className="px-4 py-3.5 text-center font-bold text-[#1F2937]">
+                      {campus.recipient_count}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <StudentNames students={campus.students} />
+                    </td>
+                    <td className="px-4 py-3.5 font-bold text-[#1F2937]">
+                      {money(campus[activeStageField].expected_amount)}
+                    </td>
+                    <td className="px-4 py-3.5 text-xs text-[#6B7280]">
+                      {formatTransferDate(campus[activeStageField].disbursed_at)}
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <TransferAmountCell value={campus[activeStageField]} />
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <ProofButtons
+                        proofs={campus[activeStageField].proofs || []}
+                        onPreview={previewProof}
+                      />
+                    </td>
+                    <td className="px-4 py-3.5">
+                      <RemarksCell value={campus[activeStageField]} />
                     </td>
                     <td className="px-4 py-3.5 text-right">
                       <button
@@ -325,7 +371,7 @@ export default function DisbursementManager() {
         <ReviewQueue
           reviews={reviews}
           activeStage={activeStage}
-          recipients={reviewRecipients}
+          campuses={reviewCampuses}
           mapping={reviewMapping}
           onMappingChange={(reviewId, userId) => setReviewMapping((current) => ({
             ...current,
@@ -440,10 +486,89 @@ function StatusTag({ value }) {
   return <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${color}`}>{label}</span>;
 }
 
+function TransferAmountCell({ value }) {
+  if (!value?.transfer_amount) {
+    return <span className="text-xs text-[#6B7280]">Belum ada transfer</span>;
+  }
+  const totalRecipients = value.recipient_count || 0;
+  return (
+    <div data-testid={`transfer-amount-${value.stage}`}>
+      <p className="font-bold text-[#1F2937]">{money(value.transfer_amount)}</p>
+      <p className="mt-1 text-xs text-[#6B7280]">
+        {value.paid_student_count || 0}/{totalRecipients} mahasiswa terbayar
+      </p>
+      <PaymentAssessment value={value} compact />
+    </div>
+  );
+}
+
+function StudentNames({ students = [] }) {
+  if (!students.length) return <span className="text-xs text-[#6B7280]">Belum ada mahasiswa</span>;
+  return (
+    <ol className="space-y-1 text-xs text-[#1F2937]" data-testid="campus-student-names">
+      {students.map((student, index) => (
+        <li key={`${student.name}-${index}`}>{index + 1}. {student.name}</li>
+      ))}
+    </ol>
+  );
+}
+
+function ProofButtons({ proofs, onPreview }) {
+  if (!proofs.length) return <span className="text-xs text-[#6B7280]">Belum ada bukti</span>;
+  return (
+    <div className="flex min-w-36 flex-col gap-1.5">
+      {proofs.map((proof, index) => (
+        <button
+          key={proof.source_id}
+          type="button"
+          onClick={() => onPreview(proof)}
+          data-testid={`preview-transfer-proof-${proof.source_id}`}
+          className="inline-flex items-center gap-1.5 text-left text-xs font-bold text-[#0B6B3A] hover:underline"
+        >
+          <Eye className="h-3.5 w-3.5" />
+          Bukti TF {index + 1}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function RemarksCell({ value }) {
+  const remarks = value?.remarks || [];
+  if (!remarks.length) return <span className="text-xs text-[#6B7280]">—</span>;
+  return (
+    <ul className="min-w-44 space-y-1 text-xs font-semibold text-[#92400E]" data-testid="disbursement-remarks">
+      {remarks.map((remark, index) => <li key={`${remark}-${index}`}>{remark}</li>)}
+    </ul>
+  );
+}
+
+function formatTransferDate(value) {
+  if (!value) return "Belum ditransfer";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("id-ID", { dateStyle: "medium" }).format(date);
+}
+
+function PaymentAssessment({ value, compact = false }) {
+  const assessment = value?.payment_assessment;
+  if (!value?.transfer_amount || !assessment || assessment === "belum_ada_transfer") return null;
+  if (assessment === "sesuai") {
+    return <p className="mt-1 text-xs font-bold text-[#0B6B3A]">Nominal sesuai</p>;
+  }
+  const amount = money(Math.abs(value.payment_difference || 0));
+  const label = assessment === "kurang" ? `Kurang ${amount}` : `Lebih ${amount}`;
+  return (
+    <p className={`mt-1 text-xs font-bold ${compact ? "text-[#B45309]" : "text-[#B45309]"}`}>
+      {label}
+    </p>
+  );
+}
+
 function LoadingRow() {
   return (
     <tr>
-      <td colSpan={7} className="px-5 py-12 text-center" data-testid="campus-disbursement-loading-state">
+      <td colSpan={10} className="px-5 py-12 text-center" data-testid="campus-disbursement-loading-state">
         <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#27AE60]" />
       </td>
     </tr>
@@ -453,14 +578,14 @@ function LoadingRow() {
 function EmptyRow() {
   return (
     <tr>
-      <td colSpan={7} className="px-5 py-12 text-center text-sm text-[#6B7280]" data-testid="campus-disbursement-empty-state">
+      <td colSpan={10} className="px-5 py-12 text-center text-sm text-[#6B7280]" data-testid="campus-disbursement-empty-state">
         Belum ada kampus dengan Penerima Manfaat lulus akhir.
       </td>
     </tr>
   );
 }
 
-function ReviewQueue({ reviews, activeStage, recipients, mapping, onMappingChange, onResolve }) {
+function ReviewQueue({ reviews, activeStage, campuses, mapping, onMappingChange, onResolve }) {
   return (
     <section className="border border-[#FDE68A] bg-[#FFFBEB] p-5" data-testid="disbursement-review-queue">
       <div className="flex items-center gap-2">
@@ -471,14 +596,18 @@ function ReviewQueue({ reviews, activeStage, recipients, mapping, onMappingChang
       </div>
       <div className="mt-4 space-y-3">
         {reviews.map((review) => {
-          const availableRecipients = review.selected_region
-            ? recipients.filter((recipient) => recipient.region === review.selected_region)
-            : recipients;
+          const accountNumber = String(review.payload?.account_number || "");
+          const maskedAccount = accountNumber
+            ? `••••${accountNumber.replace(/\D/g, "").slice(-4)}`
+            : "Rekening tidak terbaca";
           return (
           <div key={review.id} className="border border-[#FDE68A] bg-white p-4">
             <p className="text-sm font-bold text-[#1F2937]">{review.reason}</p>
             <p className="mt-1 text-xs text-[#6B7280]">
-              {review.payload?.name || "Tanpa nama"} · {review.payload?.nim || "Tanpa NIM"}
+              {review.payload?.campus || "Nama kampus tidak terbaca"} · {maskedAccount}
+            </p>
+            <p className="mt-1 text-xs text-[#6B7280]">
+              Atas nama: {review.payload?.account_holder_name || "belum terbaca"}
             </p>
             {review.selected_region && (
               <p className="mt-1 text-xs font-bold text-[#0B6B3A]">
@@ -489,13 +618,13 @@ function ReviewQueue({ reviews, activeStage, recipients, mapping, onMappingChang
               <select
                 value={mapping[review.id] || ""}
                 onChange={(event) => onMappingChange(review.id, event.target.value)}
-                data-testid={`disbursement-review-recipient-${review.id}`}
+                data-testid={`disbursement-review-campus-${review.id}`}
                 className="min-w-0 flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm"
               >
-                <option value="">Pilih mahasiswa penerima</option>
-                {availableRecipients.map((recipient) => (
-                  <option key={recipient.user_id} value={recipient.user_id}>
-                    {recipient.name} · {recipient.nim} · {recipient.campus}
+                <option value="">Pilih kampus acuan</option>
+                {campuses.map((campus) => (
+                  <option key={campus.id} value={campus.id}>
+                    {campus.name} · {campus.bank_account_holder_name || "tanpa rekening"}
                   </option>
                 ))}
               </select>
@@ -651,6 +780,28 @@ function CampusStageCard({ stage, campusKey, region, isManager, onSaved }) {
       <div className="flex items-center justify-between gap-3">
         <h5 className="font-display text-base font-bold text-[#1F2937]">{stageLabel(stage.stage)}</h5>
         <StatusTag value={stage} />
+      </div>
+      <div className="mt-4 border-y border-gray-100 py-3" data-testid={`campus-stage-financials-${stage.stage}-${region}`}>
+        <div className="grid gap-2 text-sm sm:grid-cols-2">
+          <div>
+            <p className="text-xs text-[#6B7280]">Nominal Transfer AI</p>
+            <p className="mt-1 font-bold text-[#1F2937]">{money(stage.transfer_amount)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[#6B7280]">Target ({stage.recipient_count || 0} × Rp3 juta)</p>
+            <p className="mt-1 font-bold text-[#1F2937]">{money(stage.expected_amount)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-[#6B7280]">Mahasiswa Terbayar</p>
+            <p className="mt-1 font-bold text-[#0B6B3A]">
+              {stage.paid_student_count || 0}/{stage.recipient_count || 0} mahasiswa
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-[#6B7280]">Kesesuaian Nominal</p>
+            <PaymentAssessment value={stage} />
+          </div>
+        </div>
       </div>
       {isManager ? (
         <div className="mt-4 space-y-3">

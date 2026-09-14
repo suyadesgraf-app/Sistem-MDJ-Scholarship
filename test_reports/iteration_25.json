@@ -1,0 +1,55 @@
+{
+  "summary": "Verified new Nominal Transfer / paid_student_count / payment_assessment feature end-to-end at the backend. Created /app/backend/tests/test_transfer_financials.py (19 tests, all passing) covering: (a) API GET /api/admin/disbursements/campuses list and /{campus_key} detail expose transfer_amount, expected_amount, paid_student_count, recipient_count, payment_assessment, payment_difference on both stage_one and stage_two; (b) parse_transfer_amount robust across 'Rp3.000.000', '3.000.000,00', '3,000,000', ints, floats, empties, unique-code strings; (c) refresh_campus_transfer_financials unit-style via directly seeded aggregates: Rp3.000.000 -> sesuai + 1 paid + diff=0; Rp3.000.101 (unique code) -> sesuai + 1 paid + diff=101; Rp2.999.999 -> kurang + 0 paid + diff=-1; Rp3.000.102 -> lebih + 1 paid + diff=102 (paid_student_count capped by recipient_count); multi-tx aggregation Rp1.5jt + Rp1.5jt + Rp3.000.050 = Rp6.000.050 for 2 recipients -> sesuai + 2 paid; no-tx -> belum_ada_transfer + expected_amount = recipients * Rp3jt (no false short/excess); paid_student_count capped by recipient_count when massively overpaid (10jt/1 recipient -> 1 paid + lebih); (d) 24 DEMO-TF campuses preserved. Combined regression across test_transfer_financials.py + test_campus_disbursements.py + test_campuses.py + test_transfer_proof_region.py = 69 passed / 1 skipped (test_reimport_xlsx skipped because /tmp xlsx not present in preview container). DISCOVERED + FIXED a real MongoDB bug in server.py:ensure_campus_disbursement — after the new feature added 'recipient_count' to default_campus_disbursement(), the upsert had 'recipient_count' in both $setOnInsert (via defaults) and $set (via {recipient_count: len(recipient_ids)}), which MongoDB rejects with 'Updating the path recipient_count would create a conflict'. This caused PUT /api/admin/disbursements/campuses/{key}/regions/{region}/stages/{stage} to return HTTP 500 for any (campus, region, stage) triple that did not yet have an aggregate row (i.e., every first-time save from the UI). Reproduced with test_update_persists_and_reverts + test_stage_1_and_2_are_isolated in the existing suite. Fixed by popping recipient_count from defaults before $setOnInsert (server.py:1514). Post-fix all 69 tests pass. Frontend DisbursementManager.jsx verified via source grep to correctly reference transfer_amount / paid_student_count / expected_amount / payment_assessment and to render the 'Nominal Transfer' column (line 286), transfer-amount-1 cells, and campus-stage-financials-{stage}-{region} panel with 'Nominal Transfer AI', 'Target (N × Rp3 juta)', and 'Mahasiswa Terbayar'. Browser E2E attempts on the preview URL were blocked by the Emergent visual-editor mutating x-* attributes on <button>, causing 'element was detached from the DOM, retrying' on Playwright clicks — the previous iteration_24 agent had already verified the UI visually and the frontend rendering path is unchanged in this iteration. No live Gemini or user PDF uploads were performed per the request. Temporary campus_disbursements docs (campus_key prefix TEST_TF_UNIT_*) were cleaned up by fixture teardown; verified none remain.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "verification_results": {
+    "api_list_stage_one_two_expose_new_fields": true,
+    "api_detail_region_stage_expose_new_fields": true,
+    "exact_3jt_is_sesuai_1_paid": true,
+    "unique_code_plus_101_is_sesuai": true,
+    "shortage_is_kurang_0_paid": true,
+    "excess_plus_102_is_lebih": true,
+    "multi_transaction_sum_correct": true,
+    "paid_count_floor_and_capped_by_recipient": true,
+    "no_tx_belum_ada_transfer_no_false_short_or_excess": true,
+    "expected_amount_equals_recipients_times_3jt_when_no_tx": true,
+    "parse_transfer_amount_handles_id_locales_and_types": true,
+    "demo_tf_dataset_preserved_24": true,
+    "regression_69_passed_1_skipped": true,
+    "fixed_mongo_upsert_recipient_count_conflict": true,
+    "frontend_renders_new_fields_via_source": true
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_transfer_financials.py",
+    "/app/test_reports/pytest/iter25.xml",
+    "/app/test_reports/pytest/iter25_full.xml"
+  ],
+  "action_items": [
+    "Main agent: review the ensure_campus_disbursement fix (server.py:1514, defaults.pop('recipient_count')). Consider adding recipient_user_ids to the same pop() defensively if it is ever moved into defaults in the future.",
+    "Main agent (optional): install pytest-asyncio into /app/backend/requirements.txt (it was installed at test time). Tests require pytest-asyncio>=0.23.",
+    "Main agent (optional): remove duplicate @pytest.mark.asyncio decorators inside TestRefreshFinancials — cosmetic only; class-level marker is enough with pytest-asyncio 1.x but per-method markers were added defensively."
+  ],
+  "critical_code_review_comments": [
+    "server.py:1506 ensure_campus_disbursement had a MongoDB upsert conflict on recipient_count. Root cause: default_campus_disbursement() (server.py:1500) now returns recipient_count:0 as part of the feature's new financial defaults, but the same key is unconditionally set in $set. Fixed by popping recipient_count from defaults before merging into $setOnInsert. Suggest a comment/guard so future new default keys that are also written by $set do not regress this.",
+    "server.py:1944 refresh_campus_transfer_financials uses 0 <= payment_difference <= UNIQUE_TRANSFER_TOLERANCE (inclusive of 0 and 101). Correct per spec ('kelebihan sampai Rp101 dianggap kode unik'). Diff exactly 0 is sesuai; diff -1 is kurang; diff +102 is lebih. Verified in tests.",
+    "server.py:1954 paid_student_count = min(transfer_amount // 3jt, recipient_count) is correctly capped. Note: for the 'kurang' branch this still returns floor(amount/3jt) which can be >0 even when assessment is 'kurang' (e.g., 5.9jt for 2 recipients would give paid=1 + assessment='kurang'). Verified acceptable and consistent with UI 'X/Y mahasiswa terbayar'.",
+    "server.py:1580 combine_campus_stage falls back to 'bervariasi' when regions disagree; API list therefore never leaks false 'kurang'/'lebih' at the aggregate row when only some regions have transfers. Good.",
+    "server.py:1740 update_campus_disbursement rejects amount <= 0 but does NOT recompute financial fields on manual amount edit. That is expected because refresh_campus_transfer_financials is the source of truth for stage_one/stage_two transfer_amount/paid_student_count, driven by transactions[]. Manual 'amount' is separate.",
+    "Frontend DisbursementManager.jsx TransferAmountCell (line 448) hides everything when transfer_amount is falsy — safe against 0/null. PaymentAssessment (line 464) also short-circuits on 'belum_ada_transfer'. Confirmed no false red short/excess badge when no transfer yet.",
+    "pytest.ini forbids modification; tests use per-test @pytest.mark.asyncio markers and a helper _fresh_db() to rebind server.db to the current event loop because motor client is bound to the first loop pytest-asyncio creates. Working but brittle across pytest-asyncio versions. Long-term, add asyncio_mode=auto + a session-scoped loop OR isolate the async helper into a dedicated module with its own client."
+  ],
+  "updated_files": [
+    "/app/backend/server.py",
+    "/app/backend/tests/test_transfer_financials.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "verified via source + prior iteration"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026! | admin.mdj@baznasbazisdki.id / AdminMDJ2026! | mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!",
+  "seed_data_creation": "None new. Temporary campus_disbursements docs with campus_key prefix TEST_TF_UNIT_* created and torn down within tests. 24 DEMO-TF campus masters preserved.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "New tests live at /app/backend/tests/test_transfer_financials.py. They rely on pytest-asyncio (installed at runtime; add to requirements.txt if not persisted). Motor client is rebound per-test via _fresh_db() so server.db points to the loop pytest-asyncio owns. TRANSFER_AMOUNT_PER_STUDENT = 3_000_000 and UNIQUE_TRANSFER_TOLERANCE = 101 in server.py:451-452. Assessment matrix: diff∈[0,101] -> sesuai; diff<0 -> kurang; diff>101 -> lebih; no tx -> belum_ada_transfer. Aggregate 'bervariasi' occurs only in combine_campus_stage across regions with mixed states. Fixed bug: server.py:1514 defaults.pop('recipient_count', None) is required for the upsert to not conflict. If new keys are ever added to default_campus_disbursement AND written via $set in ensure_campus_disbursement, they must be popped from defaults similarly. Frontend selectors verified: campus-disbursements-table, transfer-amount-1-*, transfer-amount-2-*, select-disbursement-stage-1, select-disbursement-stage-2, campus-stage-financials-{stage}-{region}. DisbursementManager.jsx TransferAmountCell hides on falsy transfer_amount; PaymentAssessment hides on belum_ada_transfer. Browser Playwright hits an intermittent 'element detached' race caused by Emergent visual-editor injecting x-* attrs on <button data-testid=login-submit-button>; workaround = page.evaluate('()=>document.querySelector(\"[data-testid=login-submit-button]\").click()') then wait for networkidle; direct goto('/admin/disbursements') sometimes loses cookie in a fresh browser context — click sidebar 'Pencairan Dana' instead.",
+  "rca of the issue": "PUT /api/admin/disbursements/campuses/{campus_key}/regions/{region}/stages/{stage} returned HTTP 500 pymongo.errors.WriteError code 40 'Updating the path recipient_count would create a conflict at recipient_count'. Root cause: with the new financial feature, default_campus_disbursement() at server.py:1500 now returns recipient_count:0 as part of the default document. ensure_campus_disbursement() at server.py:1522 did update_one(..., {$setOnInsert: defaults, $set: {recipient_count: len(recipient_ids), synced_at: now}}, upsert=True), causing MongoDB to reject the modification because the same field path cannot appear under both $setOnInsert and $set on an upsert. Reproduction: authenticated as Admin Provinsi, PUT any campus_key/region/stage that does not already have a campus_disbursements aggregate row. Fix: at server.py:1514 pop recipient_count from defaults before merging so it is only set via $set (which is desired since we always want the live recipient count on every write, not only on insert). After fix, all 69 pytest tests pass including test_campus_disbursements.py::TestUpdateAggregate::test_update_persists_and_reverts and test_stage_1_and_2_are_isolated."
+}

@@ -69,6 +69,13 @@ curl -s "$API/api/auth/me" -H "Authorization: Bearer <TOKEN>"
 - `POST /api/admin/disbursements/transfer-proofs` wajib menerima `region` yang persis sama dengan
   salah satu wilayah DKI. Tidak ada OCR sebelum region lolos validasi. Region unggahan juga menjadi
   batas pencocokan otomatis dan pemetaan manual antrean tinjauan.
+- Pencocokan bukti transfer tidak menggunakan nama/NIM mahasiswa. Ia mewajibkan nama kampus, nomor
+  rekening kampus, dan atas nama rekening yang sama dengan master kampus terenkripsi.
+- Endpoint mahasiswa `GET /api/student/disbursement-proofs` dan
+  `GET /api/student/disbursement-proofs/{source_id}` hanya menampilkan/membuka bukti yang tertaut
+  pada `recipient_user_ids` pengguna yang sedang masuk.
+- Persetujuan massal Surat Aktif AI selalu mengirim `workflow` dan `source_ids`; backend menolak
+  persetujuan semua tanpa cakupan sumber dan menandai rekomendasi stale bila status peserta berubah.
 
 ## Super admin only
 - GET/POST /api/admin/users

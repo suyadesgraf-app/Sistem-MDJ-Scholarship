@@ -400,6 +400,8 @@ class SiteContentInput(BaseModel):
 class CampusInput(BaseModel):
     name: str
     code: Optional[str] = None
+    bank_account_number: Optional[str] = None
+    bank_account_holder_name: Optional[str] = None
 
 
 class VerificationApprovalInput(BaseModel):
@@ -421,7 +423,16 @@ class DisbursementInput(BaseModel):
 
 
 class BeneficiaryReviewResolveInput(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
+    campus_id: Optional[str] = None
+
+
+class ActiveLetterDecisionInput(BaseModel):
+    recommendation_ids: List[str] = []
+    action: str
+    apply_all: bool = False
+    workflow: str
+    source_ids: List[str] = []
 
 
 REG_STATUSES = ["draft", "submitted", "verifikasi", "lolos_administrasi", "wawancara",
@@ -445,6 +456,8 @@ DISBURSEMENT_STATUSES = [
     "dicairkan",
     "ditunda",
 ]
+TRANSFER_AMOUNT_PER_STUDENT = 3_000_000
+UNIQUE_TRANSFER_TOLERANCE = 101
 PM_MANAGERS = ("admin", "super_admin")
 PM_ALLOWED_EXTENSIONS = {"pdf", "jpg", "jpeg", "png"}
 
@@ -510,6 +523,17 @@ def normalize_nim(value: Any) -> str:
 
 def normalize_account_number(value: Any) -> str:
     return re.sub(r"\D", "", str(value or ""))
+
+
+def parse_transfer_amount(value: Any) -> Optional[int]:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return int(round(value))
+    text = str(value or "").strip()
+    if not text:
+        return None
+    text = re.sub(r"[.,]\d{2}$", "", text)
+    digits = re.sub(r"\D", "", text)
+    return int(digits) if digits else None
 
 
 def mask_account_number(value: str) -> str:
@@ -1210,6 +1234,7 @@ PM_ACTIVE_LETTER_PROMPT = """Anda adalah mesin OCR dokumen kampus Indonesia.
 Dokumen adalah surat keterangan mahasiswa aktif atau surat jawaban verifikasi yang dapat
 berisi tabel banyak mahasiswa. Kembalikan HANYA JSON valid dengan skema:
 {
+  "campus": string,
   "students": [
     {
       "name": string,
@@ -1228,10 +1253,9 @@ Bukti dapat berupa transfer massal dengan banyak transaksi. Kembalikan HANYA JSO
 {
   "transactions": [
     {
-      "name": string,
-      "nim": string,
       "campus": string,
       "account_number": string,
+      "account_holder_name": string,
       "bank_name": string,
       "status": string,
       "amount": string,
@@ -1242,8 +1266,10 @@ Bukti dapat berupa transfer massal dengan banyak transaksi. Kembalikan HANYA JSO
   ],
   "summary": {"total_amount": string, "date": string, "reference": string}
 }
-Prioritaskan nomor rekening penerima. Ekstrak semua transaksi yang terlihat, jangan
-menebak digit rekening, dan gunakan string kosong untuk data yang tidak terbaca."""
+Gunakan HANYA nama kampus, nomor rekening tujuan, dan nama pemilik rekening sebagai dasar
+informasi transaksi. JANGAN memakai atau mengekstrak nama mahasiswa maupun NIM. Prioritaskan
+nomor rekening tujuan, ekstrak semua transaksi yang terlihat, jangan menebak digit rekening,
+dan gunakan string kosong untuk data yang tidak terbaca."""
 
 
 def pm_content_type(ext: str) -> str:
@@ -1422,6 +1448,51 @@ async def final_beneficiary_rows(user: Optional[dict] = None) -> List[dict]:
     return rows
 
 
+async def campus_bank_candidates_for_region(region: str) -> List[dict]:
+    beneficiaries = await final_beneficiary_rows()
+    rows_by_campus = {}
+    for row in beneficiaries:
+        if row["region"] != region:
+            continue
+        rows_by_campus.setdefault(row["campus_key"], []).append(row)
+    if not rows_by_campus:
+        return []
+    campuses = await db.campuses.find(
+        {"bank_account_cipher": {"$exists": True}},
+        {"_id": 0},
+    ).to_list(5000)
+    candidates = []
+    for campus in campuses:
+        campus_key = campus_disbursement_key(campus.get("name", ""))
+        account_number = decrypt_account_number(campus.get("bank_account_cipher", ""))
+        account_holder_name = normalized_name(campus.get("bank_account_holder_name", ""))
+        if campus_key not in rows_by_campus or not account_number or not account_holder_name:
+            continue
+        candidates.append({
+            "campus": campus,
+            "recipient_rows": rows_by_campus[campus_key],
+            "campus_key": campus_key,
+            "account_number": account_number,
+            "account_holder_name": account_holder_name,
+        })
+    return candidates
+
+
+def match_campus_bank_transaction(transaction: dict, candidates: List[dict]) -> List[dict]:
+    campus_name = normalized_name(transaction.get("campus"))
+    account_number = normalize_account_number(transaction.get("account_number"))
+    account_holder_name = normalized_name(transaction.get("account_holder_name"))
+    if not campus_name or not account_number or not account_holder_name:
+        return []
+    return [
+        candidate
+        for candidate in candidates
+        if normalized_name(candidate["campus"].get("name", "")) == campus_name
+        and candidate["account_number"] == account_number
+        and candidate["account_holder_name"] == account_holder_name
+    ]
+
+
 def default_campus_disbursement(stage: int) -> dict:
     return {
         "stage": stage,
@@ -1432,6 +1503,13 @@ def default_campus_disbursement(stage: int) -> dict:
         "notes": "",
         "proofs": [],
         "transactions": [],
+        "transfer_amount": None,
+        "expected_amount": None,
+        "paid_student_count": 0,
+        "recipient_count": 0,
+        "payment_assessment": "belum_ada_transfer",
+        "payment_difference": None,
+        "remarks": [],
     }
 
 
@@ -1444,6 +1522,9 @@ async def ensure_campus_disbursement(
 ) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     defaults = default_campus_disbursement(stage)
+    # Fields also set in $set below must NOT be in $setOnInsert (MongoDB
+    # rejects overlapping paths).
+    defaults.pop("recipient_count", None)
     defaults.update({
         "id": str(uuid.uuid4()),
         "campus_key": campus_key,
@@ -1455,7 +1536,11 @@ async def ensure_campus_disbursement(
         {"campus_key": campus_key, "region": region, "stage": stage},
         {
             "$setOnInsert": defaults,
-            "$set": {"recipient_user_ids": recipient_ids, "synced_at": now},
+            "$set": {
+                "recipient_user_ids": recipient_ids,
+                "recipient_count": len(recipient_ids),
+                "synced_at": now,
+            },
         },
         upsert=True,
     )
@@ -1476,8 +1561,39 @@ def serialize_campus_disbursement(record: Optional[dict], stage: int) -> dict:
         "notes": data.get("notes", ""),
         "proofs": data.get("proofs", []),
         "transactions": data.get("transactions", []),
+        "transfer_amount": data.get("transfer_amount"),
+        "expected_amount": data.get("expected_amount"),
+        "paid_student_count": data.get("paid_student_count", 0),
+        "recipient_count": data.get("recipient_count", 0),
+        "payment_assessment": data.get("payment_assessment", "belum_ada_transfer"),
+        "payment_difference": data.get("payment_difference"),
+        "remarks": build_disbursement_remarks(data),
         "updated_at": data.get("updated_at"),
     }
+
+
+def build_disbursement_remarks(data: dict) -> List[str]:
+    remarks = []
+    assessment = data.get("payment_assessment")
+    difference = abs(int(data.get("payment_difference") or 0))
+    if assessment == "kurang" and difference:
+        remarks.append(f"Kekurangan transfer Rp{difference:,.0f}".replace(",", "."))
+    if assessment == "lebih" and difference:
+        remarks.append(f"Kelebihan transfer Rp{difference:,.0f}".replace(",", "."))
+    if data.get("manually_edited"):
+        remarks.append("Data diedit oleh Admin")
+    notes = str(data.get("notes") or "").strip()
+    if notes:
+        remarks.append(notes)
+    return remarks
+
+
+def apply_recipient_financial_defaults(stage_data: dict, recipient_count: int) -> dict:
+    data = dict(stage_data)
+    data["recipient_count"] = recipient_count
+    if data.get("expected_amount") is None:
+        data["expected_amount"] = recipient_count * TRANSFER_AMOUNT_PER_STUDENT
+    return data
 
 
 def combine_campus_stage(records: List[dict], stage: int) -> dict:
@@ -1491,12 +1607,38 @@ def combine_campus_stage(records: List[dict], stage: int) -> dict:
         for proof in item.get("proofs", [])
         if proof.get("source_id")
     }
+    transfer_amount = sum(int(item.get("transfer_amount") or 0) for item in items)
+    expected_amount = sum(int(item.get("expected_amount") or 0) for item in items)
+    paid_student_count = sum(int(item.get("paid_student_count") or 0) for item in items)
+    assessments = {item.get("payment_assessment") for item in items if item.get("transfer_amount")}
+    proof_map = {
+        proof.get("source_id"): proof
+        for item in items
+        for proof in item.get("proofs", [])
+        if proof.get("source_id")
+    }
+    remarks = list(dict.fromkeys(
+        remark
+        for item in items
+        for remark in item.get("remarks", [])
+        if remark
+    ))
+    dates = {item.get("disbursed_at") for item in items if item.get("disbursed_at")}
     return {
         "stage": stage,
         "status": statuses.pop() if len(statuses) == 1 else "bervariasi",
         "amount": sum(float(item["amount"] or 0) for item in items) or None,
         "proof_count": len(proof_ids),
         "region_count": len(items),
+        "transfer_amount": transfer_amount or None,
+        "expected_amount": expected_amount or None,
+        "paid_student_count": paid_student_count,
+        "recipient_count": sum(int(item.get("recipient_count") or 0) for item in items),
+        "payment_assessment": assessments.pop() if len(assessments) == 1 else "bervariasi",
+        "payment_difference": transfer_amount - expected_amount if transfer_amount else None,
+        "disbursed_at": dates.pop() if len(dates) == 1 else None,
+        "proofs": list(proof_map.values()),
+        "remarks": remarks,
     }
 
 
@@ -1551,12 +1693,22 @@ async def list_campus_disbursements(
             2,
         )
         recipient_count = sum(len(items) for items in group["by_region"].values())
+        stage_one = apply_recipient_financial_defaults(stage_one, recipient_count)
+        stage_two = apply_recipient_financial_defaults(stage_two, recipient_count)
         result.append({
             "campus_key": group["campus_key"],
             "campus": group["campus"],
             "recipient_count": recipient_count,
             "region_count": len(group["by_region"]),
             "regions": sorted(group["by_region"]),
+            "students": sorted(
+                [
+                    {"name": row["name"], "region": row["region"]}
+                    for students in group["by_region"].values()
+                    for row in students
+                ],
+                key=lambda item: item["name"].lower(),
+            ),
             "stage_one": stage_one,
             "stage_two": stage_two,
             "proof_count": len({
@@ -1584,12 +1736,19 @@ async def campus_disbursement_detail(
     regions = []
     for region, recipients in sorted(group["by_region"].items()):
         records = region_records.get(region, {})
+        recipient_count = len(recipients)
         regions.append({
             "region": region,
-            "recipient_count": len(recipients),
+            "recipient_count": recipient_count,
             "recipients": recipients,
-            "stage_one": serialize_campus_disbursement(records.get(1), 1),
-            "stage_two": serialize_campus_disbursement(records.get(2), 2),
+            "stage_one": apply_recipient_financial_defaults(
+                serialize_campus_disbursement(records.get(1), 1),
+                recipient_count,
+            ),
+            "stage_two": apply_recipient_financial_defaults(
+                serialize_campus_disbursement(records.get(2), 2),
+                recipient_count,
+            ),
         })
     return {
         "campus_key": campus_key,
@@ -1656,6 +1815,9 @@ async def update_campus_disbursement(
                 "disbursed_at": payload.disbursed_at,
                 "reference": payload.reference.strip(),
                 "notes": payload.notes.strip(),
+                "manually_edited": True,
+                "manually_edited_at": datetime.now(timezone.utc).isoformat(),
+                "manually_edited_by": user["user_id"],
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "updated_by": user["user_id"],
             }
@@ -1730,6 +1892,216 @@ async def attach_transfer_to_campus_disbursement(
         "attach_transfer_to_campus_disbursement",
         registration["user_id"],
         {"campus_key": campus_key, "region": region, "stage": stage, "source_id": source["id"]},
+    )
+
+
+async def attach_transfer_to_campus_bank_disbursement(
+    actor: dict,
+    source: dict,
+    transaction: dict,
+    candidate: dict,
+    match_basis: str = "campus_bank_account",
+) -> None:
+    campus = candidate["campus"]
+    recipient_rows = candidate["recipient_rows"]
+    campus_name = campus["name"]
+    campus_key = candidate["campus_key"]
+    region = source["selected_region"]
+    stage = int(source["stage"])
+    await ensure_campus_disbursement(
+        campus_key,
+        campus_name,
+        region,
+        stage,
+        [row["user_id"] for row in recipient_rows],
+    )
+    proof = {
+        "source_id": source["id"],
+        "original_filename": source["original_filename"],
+        "attached_at": datetime.now(timezone.utc).isoformat(),
+    }
+    transaction_entry = {
+        "source_id": source["id"],
+        "campus_id": campus["id"],
+        "campus": campus_name,
+        "account_number_masked": mask_account_number(transaction.get("account_number")),
+        "account_holder_name": str(transaction.get("account_holder_name") or ""),
+        "amount": str(transaction.get("amount") or ""),
+        "reference": str(transaction.get("reference") or ""),
+        "date": str(transaction.get("date") or ""),
+        "transaction_status": str(transaction.get("status") or ""),
+        "match_basis": match_basis,
+    }
+    aggregate = await db.campus_disbursements.find_one(
+        {"campus_key": campus_key, "region": region, "stage": stage},
+        {"_id": 0},
+    ) or {}
+    existing_transactions = aggregate.get("transactions", [])
+    if not any(
+        item.get("source_id") == source["id"]
+        and item.get("campus_id") == campus["id"]
+        for item in existing_transactions
+    ):
+        await db.campus_disbursements.update_one(
+            {"campus_key": campus_key, "region": region, "stage": stage},
+            {
+                "$addToSet": {"proofs": proof},
+                "$push": {"transactions": transaction_entry},
+                "$set": {"updated_at": datetime.now(timezone.utc).isoformat()},
+            },
+        )
+    await refresh_campus_transfer_financials(
+        campus_key,
+        region,
+        stage,
+        len(recipient_rows),
+    )
+    for row in recipient_rows:
+        existing_notice = await db.notifications.find_one(
+            {
+                "user_id": row["user_id"],
+                "type": "disbursement_proof",
+                "source_id": source["id"],
+            },
+            {"_id": 0, "id": 1},
+        )
+        if existing_notice:
+            continue
+        await db.notifications.insert_one({
+            "id": str(uuid.uuid4()),
+            "user_id": row["user_id"],
+            "type": "disbursement_proof",
+            "source_id": source["id"],
+            "stage": stage,
+            "campus": campus_name,
+            "message": (
+                f"Bukti transfer Pencairan Tahap {'I' if stage == 1 else 'II'} "
+                f"untuk {campus_name} telah tersedia."
+            ),
+            "is_read": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        })
+    await audit_beneficiary_action(
+        actor,
+        "attach_transfer_by_campus_bank",
+        detail={
+            "campus_id": campus["id"],
+            "campus_key": campus_key,
+            "region": region,
+            "stage": stage,
+            "source_id": source["id"],
+            "match_basis": match_basis,
+        },
+    )
+
+
+@api_router.get("/student/disbursement-proofs")
+async def list_student_disbursement_proofs(
+    user: dict = Depends(require_roles("student")),
+):
+    records = await db.campus_disbursements.find(
+        {"recipient_user_ids": user["user_id"]},
+        {"_id": 0, "campus": 1, "region": 1, "stage": 1, "proofs": 1},
+    ).to_list(200)
+    proof_items = {}
+    for record in records:
+        for proof in record.get("proofs", []):
+            source_id = proof.get("source_id")
+            if not source_id:
+                continue
+            item = proof_items.setdefault(source_id, {
+                "source_id": source_id,
+                "filename": proof.get("original_filename", "Bukti Transfer"),
+                "campuses": [],
+            })
+            item["campuses"].append({
+                "campus": record.get("campus", "-"),
+                "region": record.get("region", "-"),
+                "stage": record.get("stage"),
+            })
+    return list(proof_items.values())
+
+
+@api_router.get("/student/disbursement-proofs/{source_id}")
+async def download_student_disbursement_proof(
+    source_id: str,
+    user: dict = Depends(require_roles("student")),
+):
+    access = await db.campus_disbursements.find_one(
+        {"recipient_user_ids": user["user_id"], "proofs.source_id": source_id},
+        {"_id": 0, "id": 1},
+    )
+    if not access:
+        raise HTTPException(status_code=404, detail="Bukti transfer tidak ditemukan.")
+    source = await db.beneficiary_sources.find_one(
+        {"id": source_id, "source_type": "transfer_proof"},
+        {"_id": 0},
+    )
+    if not source:
+        raise HTTPException(status_code=404, detail="Berkas bukti transfer tidak ditemukan.")
+    data, content_type = get_object(source["storage_path"])
+    await audit_beneficiary_action(
+        user,
+        "student_download_disbursement_proof",
+        user["user_id"],
+        {"source_id": source_id},
+    )
+    return StarletteResponse(
+        content=data,
+        media_type=source.get("content_type", content_type),
+        headers={"Content-Disposition": f'inline; filename="{source["original_filename"]}"'},
+    )
+
+
+async def refresh_campus_transfer_financials(
+    campus_key: str,
+    region: str,
+    stage: int,
+    recipient_count: int,
+) -> None:
+    aggregate = await db.campus_disbursements.find_one(
+        {"campus_key": campus_key, "region": region, "stage": stage},
+        {"_id": 0},
+    ) or {}
+    amounts = [
+        amount
+        for amount in (parse_transfer_amount(item.get("amount")) for item in aggregate.get("transactions", []))
+        if amount is not None
+    ]
+    expected_amount = recipient_count * TRANSFER_AMOUNT_PER_STUDENT
+    if not amounts:
+        financials = {
+            "transfer_amount": None,
+            "expected_amount": expected_amount,
+            "paid_student_count": 0,
+            "recipient_count": recipient_count,
+            "payment_assessment": "belum_ada_transfer",
+            "payment_difference": None,
+        }
+    else:
+        transfer_amount = sum(amounts)
+        payment_difference = transfer_amount - expected_amount
+        if 0 <= payment_difference <= UNIQUE_TRANSFER_TOLERANCE:
+            assessment = "sesuai"
+        elif payment_difference < 0:
+            assessment = "kurang"
+        else:
+            assessment = "lebih"
+        financials = {
+            "amount": transfer_amount,
+            "transfer_amount": transfer_amount,
+            "expected_amount": expected_amount,
+            "paid_student_count": min(
+                transfer_amount // TRANSFER_AMOUNT_PER_STUDENT,
+                recipient_count,
+            ),
+            "recipient_count": recipient_count,
+            "payment_assessment": assessment,
+            "payment_difference": payment_difference,
+        }
+    await db.campus_disbursements.update_one(
+        {"campus_key": campus_key, "region": region, "stage": stage},
+        {"$set": {**financials, "updated_at": datetime.now(timezone.utc).isoformat()}},
     )
 
 
@@ -2181,6 +2553,287 @@ async def upload_active_letters(
     return {"summary": summary, "sources": sources}
 
 
+async def active_letter_candidate_index(workflow: str) -> Dict[str, List[dict]]:
+    statuses = ["wawancara", "verifikasi_faktual"] if workflow == "factual_verification" else ["lolos"]
+    registrations = await db.registrations.find(
+        {"status": {"$in": statuses}},
+        {"_id": 0},
+    ).to_list(5000)
+    user_ids = [item["user_id"] for item in registrations]
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "data": 1},
+    ).to_list(5000)
+    profiles_by_user = {item["user_id"]: item.get("data", {}) for item in profiles}
+    index: Dict[str, List[dict]] = {}
+    for registration in registrations:
+        profile = profiles_by_user.get(registration["user_id"], {})
+        name = registration.get("name") or profile.get("namaLengkap", "")
+        nim = normalize_nim(profile.get("nim"))
+        if not normalized_name(name) or not nim:
+            continue
+        index.setdefault(f"{normalized_name(name)}|{nim}", []).append({
+            "registration": registration,
+            "profile": profile,
+            "region": profile_region(profile),
+        })
+    return index
+
+
+async def create_active_letter_recommendation(
+    source: dict,
+    workflow: str,
+    student: dict,
+    match: Optional[dict],
+    recommendation: str,
+    reason: str,
+) -> None:
+    document = {
+        "id": str(uuid.uuid4()),
+        "source_id": source["id"],
+        "workflow": workflow,
+        "campus": source.get("extracted_campus", ""),
+        "student": student,
+        "user_id": match["registration"]["user_id"] if match else None,
+        "region": match.get("region") if match else None,
+        "recommendation": recommendation,
+        "reason": reason,
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.active_letter_approvals.insert_one(document)
+
+
+@api_router.post("/admin/active-letter-approvals/upload")
+async def upload_active_letter_for_approval(
+    workflow: str = Form(...),
+    files: List[UploadFile] = File(...),
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    if workflow not in {"factual_verification", "stage_ii_disbursement"}:
+        raise HTTPException(status_code=400, detail="Jenis proses surat aktif tidak valid.")
+    if not files or len(files) > 20:
+        raise HTTPException(status_code=400, detail="Unggah antara 1 hingga 20 surat aktif.")
+    candidate_index = await active_letter_candidate_index(workflow)
+    summary = {"uploaded": 0, "recommended": 0, "quarantined": 0, "failed": 0}
+    sources = []
+    for file in files:
+        filename, ext, data, content_type = await read_pm_upload(file)
+        source = await store_pm_source(
+            user,
+            "active_letter_approval",
+            filename,
+            ext,
+            data,
+            content_type,
+        )
+        summary["uploaded"] += 1
+        try:
+            extracted = await extract_pm_payload(
+                data,
+                content_type,
+                user,
+                PM_ACTIVE_LETTER_PROMPT,
+                "surat keterangan mahasiswa aktif untuk persetujuan",
+            )
+            campus = str(extracted.get("campus") or "").strip()
+            source["extracted_campus"] = campus
+            students = extracted.get("students", [])
+            if not isinstance(students, list):
+                students = []
+            matched_user_ids = []
+            for raw_student in students:
+                student = raw_student if isinstance(raw_student, dict) else {}
+                name = normalized_name(student.get("name"))
+                nim = normalize_nim(student.get("nim"))
+                if not campus or not name or not nim:
+                    await create_active_letter_recommendation(
+                        source,
+                        workflow,
+                        student,
+                        None,
+                        "quarantined",
+                        "Nama kampus, nama mahasiswa, atau NIM tidak terbaca lengkap.",
+                    )
+                    summary["quarantined"] += 1
+                    continue
+                matches = [
+                    item
+                    for item in candidate_index.get(f"{name}|{nim}", [])
+                    if normalized_name(beneficiary_campus(item["profile"])) == normalized_name(campus)
+                ]
+                if len(matches) != 1:
+                    reason = (
+                        "Mahasiswa tidak ditemukan pada proses atau kampus yang sesuai."
+                        if not matches
+                        else "Mahasiswa cocok ke lebih dari satu data penerima."
+                    )
+                    await create_active_letter_recommendation(
+                        source,
+                        workflow,
+                        student,
+                        None,
+                        "quarantined",
+                        reason,
+                    )
+                    summary["quarantined"] += 1
+                    continue
+                match = matches[0]
+                await create_active_letter_recommendation(
+                    source,
+                    workflow,
+                    student,
+                    match,
+                    "recommended",
+                    "Cocok berdasarkan kampus, nama, dan NIM pada surat aktif.",
+                )
+                matched_user_ids.append(match["registration"]["user_id"])
+                summary["recommended"] += 1
+            await db.beneficiary_sources.update_one(
+                {"id": source["id"]},
+                {
+                    "$set": {
+                        "workflow": workflow,
+                        "status": "processed" if students else "needs_review",
+                        "extraction": {"campus": campus, "students": students},
+                        "extracted_campus": campus,
+                        "matched_user_ids": matched_user_ids,
+                        "processed_at": datetime.now(timezone.utc).isoformat(),
+                    }
+                },
+            )
+        except HTTPException as error:
+            await db.beneficiary_sources.update_one(
+                {"id": source["id"]},
+                {"$set": {"status": "failed", "error": error.detail, "workflow": workflow}},
+            )
+            summary["failed"] += 1
+        sources.append({"id": source["id"], "filename": filename})
+    await audit_beneficiary_action(user, "upload_active_letter_for_approval", detail={"workflow": workflow})
+    return {"summary": summary, "sources": sources}
+
+
+@api_router.get("/admin/active-letter-approvals")
+async def list_active_letter_approvals(
+    workflow: Optional[str] = None,
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    query = {"status": "pending"}
+    if workflow:
+        query["workflow"] = workflow
+    return await db.active_letter_approvals.find(query, {"_id": 0}).sort(
+        "created_at",
+        -1,
+    ).to_list(5000)
+
+
+@api_router.post("/admin/active-letter-approvals/decision")
+async def decide_active_letter_approvals(
+    payload: ActiveLetterDecisionInput,
+    user: dict = Depends(require_roles(*PM_MANAGERS)),
+):
+    if payload.action not in {"approve", "reject"}:
+        raise HTTPException(status_code=400, detail="Keputusan surat aktif tidak valid.")
+    if payload.workflow not in {"factual_verification", "stage_ii_disbursement"}:
+        raise HTTPException(status_code=400, detail="Jenis proses surat aktif tidak valid.")
+    query = {
+        "status": "pending",
+        "recommendation": "recommended",
+        "workflow": payload.workflow,
+    }
+    if payload.apply_all:
+        if not payload.source_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="Persetujuan semua harus dibatasi ke berkas sumber yang dipilih.",
+            )
+        query["source_id"] = {"$in": payload.source_ids}
+    else:
+        if not payload.recommendation_ids:
+            raise HTTPException(status_code=400, detail="Pilih rekomendasi untuk diproses.")
+        query["id"] = {"$in": payload.recommendation_ids}
+    recommendations = await db.active_letter_approvals.find(query, {"_id": 0}).to_list(5000)
+    if not recommendations:
+        raise HTTPException(status_code=404, detail="Tidak ada rekomendasi yang dapat diproses.")
+    now = datetime.now(timezone.utc).isoformat()
+    processed = 0
+    skipped = 0
+    for recommendation in recommendations:
+        user_id = recommendation.get("user_id")
+        if payload.action == "approve" and user_id:
+            if recommendation["workflow"] == "factual_verification":
+                update_result = await db.registrations.update_one(
+                    {
+                        "user_id": user_id,
+                        "status": {"$in": ["wawancara", "verifikasi_faktual"]},
+                    },
+                    {
+                        "$set": {
+                            "status": "lolos",
+                            "factual_verification_status": "approved",
+                            "factual_verification_source_id": recommendation["source_id"],
+                            "updated_at": now,
+                        }
+                    },
+                )
+                if not update_result.modified_count:
+                    await db.active_letter_approvals.update_one(
+                        {"id": recommendation["id"], "status": "pending"},
+                        {
+                            "$set": {
+                                "status": "stale",
+                                "stale_at": now,
+                                "stale_reason": "Status peserta telah berubah sebelum persetujuan.",
+                            }
+                        },
+                    )
+                    skipped += 1
+                    continue
+            else:
+                await db.stage_ii_eligibilities.update_one(
+                    {"user_id": user_id},
+                    {
+                        "$set": {
+                            "status": "approved",
+                            "source_id": recommendation["source_id"],
+                            "approved_at": now,
+                            "approved_by": user["user_id"],
+                        }
+                    },
+                    upsert=True,
+                )
+            message = (
+                "Surat aktif kampus Anda disetujui untuk Verifikasi Faktual."
+                if recommendation["workflow"] == "factual_verification"
+                else "Surat aktif kampus Anda disetujui untuk kelayakan Pencairan Tahap II."
+            )
+            await db.notifications.insert_one({
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "message": message,
+                "is_read": False,
+                "created_at": now,
+            })
+        await db.active_letter_approvals.update_one(
+            {"id": recommendation["id"], "status": "pending"},
+            {
+                "$set": {
+                    "status": "approved" if payload.action == "approve" else "rejected",
+                    "decided_by": user["user_id"],
+                    "decided_at": now,
+                }
+            },
+        )
+        await audit_beneficiary_action(
+            user,
+            f"{payload.action}_active_letter_recommendation",
+            user_id,
+            {"recommendation_id": recommendation["id"], "workflow": recommendation["workflow"]},
+        )
+        processed += 1
+    return {"processed": processed, "skipped": skipped, "action": payload.action}
+
+
 async def attach_transfer_transaction(
     actor: dict,
     source: dict,
@@ -2252,7 +2905,7 @@ async def upload_disbursement_proofs(
         raise HTTPException(status_code=400, detail="Pilih wilayah pencairan yang valid.")
     if not files or len(files) > 20:
         raise HTTPException(status_code=400, detail="Unggah antara 1 hingga 20 bukti transfer.")
-    beneficiary_index = await final_beneficiary_index()
+    campus_candidates = await campus_bank_candidates_for_region(region)
     summary = {"uploaded": 0, "matched": 0, "review": 0, "failed": 0}
     sources = []
     for file in files:
@@ -2274,7 +2927,7 @@ async def upload_disbursement_proofs(
                 content_type,
                 user,
                 f"{PM_TRANSFER_PROOF_PROMPT}\n\nKONTEKS WILAYAH UNGGAHAN: {region}. "
-                "Prioritaskan pembacaan transaksi untuk kampus dan penerima di wilayah ini. "
+                "Prioritaskan pembacaan transaksi untuk kampus di wilayah ini. "
                 "Jangan menyimpulkan wilayah lain sebagai kecocokan otomatis.",
                 "bukti transfer",
             )
@@ -2282,43 +2935,49 @@ async def upload_disbursement_proofs(
             if not isinstance(transactions, list):
                 transactions = []
             matched_user_ids = []
+            matched_campus_ids = []
             regions = set()
             for raw_transaction in transactions:
                 transaction = raw_transaction if isinstance(raw_transaction, dict) else {}
-                name = normalized_name(transaction.get("name"))
-                nim = normalize_nim(transaction.get("nim"))
-                if not name or not nim:
+                campus_name = normalized_name(transaction.get("campus"))
+                account_number = normalize_account_number(transaction.get("account_number"))
+                account_holder_name = normalized_name(transaction.get("account_holder_name"))
+                if not campus_name or not account_number or not account_holder_name:
                     await create_beneficiary_review(
                         user,
                         source,
-                        "transfer_incomplete",
+                        "transfer_campus_incomplete",
                         transaction,
-                        "Nama atau NIM tidak cukup untuk memetakan transaksi.",
+                        "Nama kampus, nomor rekening, atau nama pemilik rekening belum lengkap.",
                     )
                     summary["review"] += 1
                     continue
-                all_matches = beneficiary_index.get(f"{name}|{nim}", [])
-                matches = [item for item in all_matches if item["region"] == region]
+                matches = match_campus_bank_transaction(transaction, campus_candidates)
                 if len(matches) != 1:
-                    if all_matches and not matches:
-                        reason = f"Transaksi tidak cocok dengan wilayah unggahan {region}."
-                    elif not matches:
-                        reason = "Transaksi belum dapat dipetakan ke Penerima Manfaat lulus akhir."
-                    else:
-                        reason = "Transaksi cocok ke lebih dari satu Penerima Manfaat."
+                    reason = (
+                        f"Data kampus tidak cocok dengan rekening master wilayah unggahan {region}."
+                        if not matches
+                        else "Data rekening cocok ke lebih dari satu master kampus."
+                    )
                     await create_beneficiary_review(
                         user,
                         source,
-                        "transfer_unmatched",
+                        "transfer_campus_unmatched",
                         transaction,
                         reason,
                     )
                     summary["review"] += 1
                     continue
-                beneficiary = matches[0]
-                await attach_transfer_transaction(user, source, transaction, beneficiary)
-                matched_user_ids.append(beneficiary["registration"]["user_id"])
-                regions.add(beneficiary["region"])
+                candidate = matches[0]
+                await attach_transfer_to_campus_bank_disbursement(
+                    user,
+                    source,
+                    transaction,
+                    candidate,
+                )
+                matched_user_ids.extend(row["user_id"] for row in candidate["recipient_rows"])
+                matched_campus_ids.append(candidate["campus"]["id"])
+                regions.add(region)
                 summary["matched"] += 1
             status = "processed" if transactions else "needs_review"
             await db.beneficiary_sources.update_one(
@@ -2331,6 +2990,7 @@ async def upload_disbursement_proofs(
                             "summary": extracted.get("summary", {}),
                         },
                         "matched_user_ids": matched_user_ids,
+                        "matched_campus_ids": matched_campus_ids,
                         "regions": sorted(regions),
                         "processed_at": datetime.now(timezone.utc).isoformat(),
                     }
@@ -2368,17 +3028,43 @@ async def resolve_beneficiary_review(
     source = await db.beneficiary_sources.find_one({"id": review["source_id"]}, {"_id": 0})
     if not source:
         raise HTTPException(status_code=404, detail="Berkas sumber tidak ditemukan.")
-    beneficiary = await get_final_beneficiary(user, payload.user_id)
     selected_region = source.get("selected_region")
-    if selected_region and profile_region(beneficiary["profile"]) != selected_region:
-        raise HTTPException(
-            status_code=400,
-            detail="Penerima harus berasal dari wilayah yang dipilih saat unggah.",
-        )
     if source["source_type"] == "active_letter":
+        if not payload.user_id:
+            raise HTTPException(status_code=400, detail="Pilih mahasiswa untuk surat aktif.")
+        beneficiary = await get_final_beneficiary(user, payload.user_id)
+        if selected_region and profile_region(beneficiary["profile"]) != selected_region:
+            raise HTTPException(
+                status_code=400,
+                detail="Penerima harus berasal dari wilayah yang dipilih saat unggah.",
+            )
         await attach_active_letter(user, source, review.get("payload", {}), beneficiary)
+        resolved_user_id = payload.user_id
+        resolved_campus_id = None
     elif source["source_type"] == "transfer_proof":
-        await attach_transfer_transaction(user, source, review.get("payload", {}), beneficiary)
+        if not payload.campus_id:
+            raise HTTPException(status_code=400, detail="Pilih kampus untuk bukti transfer.")
+        if not selected_region:
+            raise HTTPException(status_code=400, detail="Wilayah sumber bukti transfer tidak tersedia.")
+        candidates = await campus_bank_candidates_for_region(selected_region)
+        candidate = next(
+            (item for item in candidates if item["campus"].get("id") == payload.campus_id),
+            None,
+        )
+        if not candidate:
+            raise HTTPException(
+                status_code=400,
+                detail="Kampus tidak memiliki Penerima Manfaat pada wilayah unggahan.",
+            )
+        await attach_transfer_to_campus_bank_disbursement(
+            user,
+            source,
+            review.get("payload", {}),
+            candidate,
+            "manual_campus_confirmation",
+        )
+        resolved_user_id = None
+        resolved_campus_id = payload.campus_id
     else:
         raise HTTPException(status_code=400, detail="Jenis item tinjauan tidak didukung.")
     await db.beneficiary_reviews.update_one(
@@ -2386,7 +3072,8 @@ async def resolve_beneficiary_review(
         {
             "$set": {
                 "status": "resolved",
-                "resolved_user_id": payload.user_id,
+                "resolved_user_id": resolved_user_id,
+                "resolved_campus_id": resolved_campus_id,
                 "resolved_by": user["user_id"],
                 "resolved_at": datetime.now(timezone.utc).isoformat(),
             }
@@ -2395,8 +3082,12 @@ async def resolve_beneficiary_review(
     await audit_beneficiary_action(
         user,
         "resolve_pm_review",
-        payload.user_id,
-        {"review_id": review_id, "source_id": source["id"]},
+        resolved_user_id,
+        {
+            "review_id": review_id,
+            "source_id": source["id"],
+            "campus_id": resolved_campus_id,
+        },
     )
     return {"message": "Item tinjauan berhasil dipetakan ke Penerima Manfaat."}
 
@@ -2406,6 +3097,40 @@ async def resolve_beneficiary_review(
 # ---------------------------------------------------------------------------
 def clean_campus_value(value: Any) -> str:
     return str(value or "").strip()
+
+
+def serialize_campus(campus: dict, include_bank_data: bool = False) -> dict:
+    data = dict(campus)
+    data.pop("_id", None)
+    account_number = decrypt_account_number(data.pop("bank_account_cipher", ""))
+    if include_bank_data:
+        data["bank_account_number_masked"] = mask_account_number(account_number)
+        data["bank_account_holder_name"] = data.get("bank_account_holder_name", "")
+        data["has_bank_account"] = bool(account_number)
+    else:
+        data.pop("bank_account_holder_name", None)
+    return data
+
+
+def campus_bank_input(payload: CampusInput, existing: Optional[dict] = None) -> dict:
+    existing = existing or {}
+    account_number = normalize_account_number(payload.bank_account_number)
+    holder_name = clean_campus_value(payload.bank_account_holder_name)
+    current_holder = clean_campus_value(existing.get("bank_account_holder_name"))
+    update = {}
+    if account_number:
+        effective_holder = holder_name or current_holder
+        if not effective_holder:
+            raise HTTPException(
+                status_code=400,
+                detail="Nama pemilik rekening wajib diisi bersama nomor rekening kampus.",
+            )
+        if not 6 <= len(account_number) <= 24:
+            raise HTTPException(status_code=400, detail="Nomor rekening kampus harus 6–24 digit.")
+        update["bank_account_cipher"] = encrypt_account_number(account_number)
+    if holder_name:
+        update["bank_account_holder_name"] = holder_name
+    return update
 
 
 async def create_student_campus_code() -> str:
@@ -2443,7 +3168,8 @@ async def register_student_campus(value: Any) -> Optional[dict]:
 @api_router.get("/campuses")
 async def list_campuses(user: dict = Depends(get_current_user)):
     campuses = await db.campuses.find({}, {"_id": 0}).sort("name", 1).to_list(5000)
-    return campuses
+    include_bank_data = user.get("role") in {"admin", "super_admin"}
+    return [serialize_campus(campus, include_bank_data) for campus in campuses]
 
 
 @api_router.post("/campuses")
@@ -2467,8 +3193,10 @@ async def create_campus(
     }
     if code:
         campus["code"] = code
+    campus.update(campus_bank_input(payload))
     await db.campuses.insert_one(dict(campus))
-    return campus
+    await audit_beneficiary_action(user, "create_campus_bank_master", detail={"campus_id": campus["id"]})
+    return serialize_campus(campus, True)
 
 
 @api_router.put("/campuses/{campus_id}")
@@ -2494,13 +3222,16 @@ async def update_campus(
         "name": name,
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
+    update.update(campus_bank_input(payload, existing))
     operations = {"$set": update}
     if code:
         update["code"] = code
     else:
         operations["$unset"] = {"code": ""}
     await db.campuses.update_one({"id": campus_id}, operations)
-    return {"id": campus_id, **update, "code": code or None}
+    updated = await db.campuses.find_one({"id": campus_id}, {"_id": 0})
+    await audit_beneficiary_action(user, "update_campus_bank_master", detail={"campus_id": campus_id})
+    return serialize_campus(updated or {"id": campus_id, **update}, True)
 
 
 @api_router.delete("/campuses/{campus_id}")
@@ -2530,11 +3261,21 @@ async def import_campuses(
         rows = worksheet.iter_rows(values_only=True)
         name_index = None
         code_index = None
+        account_number_index = None
+        account_holder_index = None
         for header_row in rows:
             headers = [clean_campus_value(value).lower() for value in header_row]
             if "nama kampus" in headers and "kode kampus" in headers:
                 name_index = headers.index("nama kampus")
                 code_index = headers.index("kode kampus")
+                for label in ("nomor rekening", "no rekening", "rekening kampus"):
+                    if label in headers:
+                        account_number_index = headers.index(label)
+                        break
+                for label in ("atas nama rekening", "nama pemilik rekening", "pemilik rekening"):
+                    if label in headers:
+                        account_holder_index = headers.index(label)
+                        break
                 break
         if name_index is None or code_index is None:
             raise ValueError("Kolom kampus tidak ditemukan")
@@ -2553,10 +3294,25 @@ async def import_campuses(
         if not name:
             continue
         query = {"code": code} if code else {"name": name}
-        existing = await db.campuses.find_one(query, {"_id": 0, "id": 1})
+        existing = await db.campuses.find_one(query, {"_id": 0})
         campus_id = existing["id"] if existing else str(uuid.uuid4())
+        account_number = clean_campus_value(
+            row[account_number_index] if account_number_index is not None and len(row) > account_number_index else ""
+        )
+        account_holder_name = clean_campus_value(
+            row[account_holder_index] if account_holder_index is not None and len(row) > account_holder_index else ""
+        )
+        bank_update = campus_bank_input(
+            CampusInput(
+                name=name,
+                code=code or None,
+                bank_account_number=account_number or None,
+                bank_account_holder_name=account_holder_name or None,
+            ),
+            existing,
+        )
         operations = {
-            "$set": {"name": name, "updated_at": now},
+            "$set": {"name": name, "updated_at": now, **bank_update},
             "$setOnInsert": {"id": campus_id, "created_at": now},
         }
         if code:
@@ -3955,6 +4711,11 @@ async def startup():
         unique=True,
     )
     await db.campus_disbursements.create_index([("region", 1), ("stage", 1)])
+    await db.campus_disbursements.create_index("recipient_user_ids")
+    await db.notifications.create_index([("user_id", 1), ("type", 1), ("source_id", 1)])
+    await db.active_letter_approvals.create_index([("workflow", 1), ("status", 1), ("created_at", -1)])
+    await db.active_letter_approvals.create_index([("user_id", 1), ("source_id", 1)])
+    await db.stage_ii_eligibilities.create_index("user_id", unique=True)
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
