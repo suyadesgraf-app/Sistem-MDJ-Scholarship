@@ -408,3 +408,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   sesi aktif lama. Pembatasan permintaan per email/IP juga diperbaiki agar operasi MongoDB atomik.
 - Diuji: pengiriman email Resend HTTP 200, reset berhasil melalui browser, token ulang ditolak, sesi serta
   sandi lama ditolak, sandi baru dapat masuk. Dialog desktop dan ponsel 390px lulus tanpa overflow.
+
+## 2026-09 — Pencarian pemilihan kampus
+- Pemilihan **Perguruan Tinggi** pada Data Pendidikan kini menggunakan daftar yang dapat dicari menurut
+  nama atau kode kampus. Hasil pilihan langsung mengisi data institusi seperti sebelumnya.
+- Opsi **Kampus Lainnya** dipisahkan dari area daftar yang dapat digulir sehingga selalu melekat dan
+  tersedia, termasuk saat hasil pencarian kosong.
+- Diuji melalui browser desktop dan ponsel 390px: pencarian, pemilihan kampus, Kampus Lainnya, serta
+  input nama kampus manual berfungsi tanpa horizontal overflow. Build frontend lulus.

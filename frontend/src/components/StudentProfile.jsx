@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { DocPreview, docFileUrl } from "@/components/DocPreview";
+import CampusSelector from "@/components/CampusSelector";
 import {
   User, MapPin, Image as ImageIcon, ShieldCheck,
   ScanLine, Loader2, CheckCircle2, UploadCloud, Info, Trash2, Camera, FileCheck,
@@ -343,35 +344,22 @@ export const FieldGrid = ({ fields, data, set, campuses = [] }) => {
 };
 
 function CampusField({ field, data, set, campuses, isOther, setOther }) {
-  const knownCampus = campuses.find((campus) => (
-    campus.name.trim().toLowerCase() === String(data[field.k] || "").trim().toLowerCase()
-  ));
-  const selectValue = isOther ? "__other__" : (knownCampus?.name || data[field.k] || "");
-
   return (
     <div className="space-y-2">
-      <select
-        value={selectValue}
-        onChange={(event) => {
-          if (event.target.value === "__other__") {
-            setOther(true);
-            set(field.k, "");
-            return;
-          }
+      <CampusSelector
+        campuses={campuses}
+        fieldKey={field.k}
+        isOther={isOther}
+        value={data[field.k] || ""}
+        onChange={(value) => {
           setOther(false);
-          set(field.k, event.target.value);
+          set(field.k, value);
         }}
-        data-testid={`field-${field.k}`}
-        className={inputCls + " bg-white"}
-      >
-        <option value="">Pilih kampus terdaftar...</option>
-        {campuses.map((campus) => (
-          <option key={campus.id} value={campus.name}>
-            {campus.name}{campus.code ? ` — ${campus.code}` : ""}
-          </option>
-        ))}
-        <option value="__other__">Kampus Lainnya</option>
-      </select>
+        onSelectOther={() => {
+          setOther(true);
+          set(field.k, "");
+        }}
+      />
       {isOther && (
         <input
           value={data[field.k] || ""}
