@@ -1,3 +1,20 @@
+# Rencana — Simpan Kode Sistem MDJ Scholarship ke GitHub
+
+## Tujuan
+Menyimpan versi aplikasi Sistem MDJ Scholarship yang saat ini berjalan ke repositori:
+`https://github.com/suyadesgraf-app/Sistem-MDJ-Scholarship.git`
+
+## Cakupan
+- Mengirim seluruh kode aplikasi saat ini, termasuk perubahan terbaru pada alur pendaftaran,
+  pengelolaan pencairan dana, Master Kampus, dan dashboard peran.
+- Menjaga file konfigurasi rahasia dan kredensial agar tidak ikut dipublikasikan.
+- Menyimpan perubahan sebagai pembaruan terstruktur pada repositori tujuan.
+
+## Asumsi
+- Repositori tersebut adalah milik Anda dan menjadi tujuan utama penyimpanan kode.
+- Versi aplikasi saat ini adalah versi yang ingin disimpan.
+- Pembaruan dilakukan pada cabang utama repositori tanpa menghapus riwayat versi yang sudah ada.
+
 # Rencana — Pengelolaan Pencairan per Tahap
 
 ## Perilaku halaman

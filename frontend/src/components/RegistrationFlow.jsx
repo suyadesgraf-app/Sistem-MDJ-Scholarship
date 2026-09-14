@@ -86,7 +86,6 @@ export default function RegistrationFlow({ steps = [] }) {
                     onFocus={() => setActiveIndex(index)}
                     onClick={() => setActiveIndex(index)}
                     data-testid={`registration-flow-step-${index + 1}`}
-                    aria-controls={`registration-flow-dropdown-${index + 1}`}
                     aria-expanded={isActive}
                     className={`group relative min-h-28 w-full overflow-hidden rounded-2xl border px-6 py-6 text-left shadow-lg transition-[background-color,border-color,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F2C94C] focus-visible:ring-offset-2 focus-visible:ring-offset-[#08743D] ${isActive ? "border-[#F2C94C]/80 bg-[#2E965D] -translate-y-1" : "border-white/25 bg-white/10 hover:bg-white/15 hover:-translate-y-1"}`}
                   >
@@ -96,6 +95,16 @@ export default function RegistrationFlow({ steps = [] }) {
                     <span className="relative block max-w-[80%] font-display text-lg font-bold leading-snug text-white">
                       {step.title}
                     </span>
+                    {isActive && (
+                      <span
+                        id={`registration-flow-dropdown-${index + 1}`}
+                        className="relative mt-4 block border-t border-white/30 pt-4 text-sm leading-relaxed text-white animate-fade-up"
+                        data-testid={`registration-flow-dropdown-${index + 1}`}
+                        aria-live="polite"
+                      >
+                        {step.desc || "Keterangan tahapan akan diperbarui melalui Kelola Website."}
+                      </span>
+                    )}
                   </button>
 
                   {!isLast && direction !== "down" && (
@@ -108,22 +117,6 @@ export default function RegistrationFlow({ steps = [] }) {
                     </span>
                   )}
                 </div>
-
-                {isActive && (
-                  <div
-                    id={`registration-flow-dropdown-${index + 1}`}
-                    className="mt-3 border-l-2 border-[#F2C94C] bg-[#065F32] px-5 py-4 text-left shadow-lg animate-fade-up"
-                    data-testid={`registration-flow-dropdown-${index + 1}`}
-                    aria-live="polite"
-                  >
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#F2C94C]">
-                      Keterangan Tahap {String(index + 1).padStart(2, "0")}
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed text-white/85">
-                      {step.desc || "Keterangan tahapan akan diperbarui melalui Kelola Website."}
-                    </p>
-                  </div>
-                )}
 
                 {!isLast && (
                   <span

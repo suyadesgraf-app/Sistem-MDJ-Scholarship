@@ -391,3 +391,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   Pembuatan akun sekarang hanya meminta nama lengkap, email, nomor telepon, dan kata sandi.
 - Data NIK pada profil mahasiswa tetap terpisah untuk proses dokumen/identitas setelah akun dibuat.
 - Diuji di browser: input NIK tidak lagi ada pada halaman Daftar dan layar mobile 390px tanpa overflow.
+
+## 2026-09 — Subteks menyatu pada kartu Alur Pendaftaran
+- Saat tahap Alur Pendaftaran aktif, subteks kini melebar di dalam kartu yang sama tepat di bawah judul
+  alur. Label “Keterangan Tahap 01” dan seterusnya dihapus agar tampil lebih ringkas.
+- Hover/fokus desktop dan ketukan ponsel tetap mengaktifkan subteks pada kartu terkait; kontras subteks
+  diperkuat menjadi putih penuh agar jelas terbaca pada latar hijau.
+- Diuji di browser: subteks berada di dalam batas kartu aktif, label lama tidak muncul, dan layar ponsel
+  tetap responsif tanpa horizontal overflow.
