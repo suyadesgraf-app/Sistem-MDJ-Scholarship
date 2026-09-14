@@ -61,7 +61,7 @@ Complete a full-stack scholarship registration portal for BAZNAS (BAZIS) Provins
   Saya; unggah, ganti, dan hapus dokumen tetap menggunakan alur API dokumen yang sama.
 
 ## Backlog / Remaining
-- **P1**: Forgot/reset password flow; brute-force lockout on login.
+- **P1**: Brute-force lockout on login.
 - **P1**: Restrict GET /api/files to owner + admins (defense-in-depth).
 - **P2**: Email notifications on status change (Resend).
 - **P2**: Export participants to Excel/CSV.
@@ -416,3 +416,22 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   tersedia, termasuk saat hasil pencarian kosong.
 - Diuji melalui browser desktop dan ponsel 390px: pencarian, pemilihan kampus, Kampus Lainnya, serta
   input nama kampus manual berfungsi tanpa horizontal overflow. Build frontend lulus.
+
+## 2026-09 — Broadcast Pengumuman Hasil Seleksi Berkas
+- Admin Provinsi dan Super Admin kini memiliki menu **Pengumuman Seleksi** untuk memilih Semua Kategori
+  atau satu kategori, melihat ringkasan mahasiswa lulus/tidak lulus, lalu mengonfirmasi publikasi massal.
+- Broadcast menyimpan kampanye `selection_announcements` dengan `status_publikasi: Published`, menandai
+  registrasi penerima dengan `is_announcement_published`, serta membuat notifikasi hasil unik per mahasiswa.
+  Admin Wilayah dan mahasiswa ditolak di server.
+- Setelah login, mahasiswa yang memiliki hasil baru menerima pop-up **Pengumuman Hasil Seleksi Berkas**.
+  CTA menampilkan hasil LULUS bertema hijau atau TIDAK LULUS bertema netral-merah beserta arahan. Setiap
+  penerima menyimpan `is_read` dan `is_popup_seen`, sehingga pop-up tidak muncul lagi setelah selesai.
+- Diuji testing agent: 11/11 backend dan alur Admin/Mahasiswa desktop-mobile lulus, termasuk broadcast per
+  kategori, RBAC, pemisahan antar pengguna, hasil lulus/tidak lulus, pembacaan, pencegahan broadcast ulang,
+  serta pembersihan data uji. Suite: `backend/tests/test_selection_announcement_broadcast.py`.
+
+## 2026-09 — Menu Bukti Transfer mahasiswa disembunyikan
+- Item sidebar **Bukti Transfer** disembunyikan dari tampilan desktop dan ponsel akun mahasiswa.
+- Modul, data, dan jalur internal Bukti Transfer tidak dihapus sehingga dapat dimunculkan kembali saat diminta.
+- Diuji di browser pada desktop serta layar 390px: menu tidak tampil, sementara Status Seleksi, Pengumuman,
+  dan Pengaturan tetap tersedia tanpa overflow. Build frontend lulus.

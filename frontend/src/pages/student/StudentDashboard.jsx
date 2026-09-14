@@ -7,6 +7,7 @@ import StudentProfile, { profileProgress } from "@/components/StudentProfile";
 import AccountSettings from "@/components/AccountSettings";
 import RegistrationSections from "@/components/RegistrationSections";
 import StudentDisbursementProofs from "@/components/StudentDisbursementProofs";
+import SelectionResultPopup from "@/components/SelectionResultPopup";
 import { docFileUrl } from "@/components/DocPreview";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
@@ -18,7 +19,6 @@ const MENU = [
   { id: "profil", label: "Profil Saya", icon: User },
   { id: "daftar", label: "Pendaftaran", icon: FileText },
   { id: "status", label: "Status Seleksi", icon: Activity },
-  { id: "bukti-transfer", label: "Bukti Transfer", icon: FileCheck },
   { id: "pengumuman", label: "Pengumuman", icon: Megaphone },
   { id: "pengaturan", label: "Pengaturan", icon: Settings },
 ];
@@ -40,6 +40,7 @@ export default function StudentDashboard() {
   const [content, setContent] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+  const [selectionAnnouncement, setSelectionAnnouncement] = useState(null);
   const [saving, setSaving] = useState(false);
 
   const loadNotifications = useCallback(async () => {
@@ -53,6 +54,15 @@ export default function StudentDashboard() {
     }
   }, []);
 
+  const loadSelectionAnnouncement = useCallback(async () => {
+    try {
+      const response = await api.get("/student/selection-announcements/pending");
+      setSelectionAnnouncement(response.data.announcement || null);
+    } catch {
+      setSelectionAnnouncement(null);
+    }
+  }, []);
+
   useEffect(() => {
     api.get("/profile").then((r) => setData(r.data.data || {}));
     api.get("/registration").then((r) => setReg(r.data || {}));
@@ -60,9 +70,10 @@ export default function StudentDashboard() {
     api.get("/campuses").then((r) => setCampuses(r.data || []));
     api.get("/site/content").then((r) => setContent(r.data));
     loadNotifications();
+    loadSelectionAnnouncement();
     const pollNotifications = window.setInterval(loadNotifications, 30000);
     return () => window.clearInterval(pollNotifications);
-  }, [loadNotifications]);
+  }, [loadNotifications, loadSelectionAnnouncement]);
 
   const progress = useMemo(() => profileProgress(data), [data]);
   const uploadedDocumentCount = useMemo(
@@ -135,6 +146,20 @@ export default function StudentDashboard() {
     await api.post("/notifications/read-all");
     setNotifications((previous) => previous.map((item) => ({ ...item, is_read: true })));
     setUnreadNotificationCount(0);
+  };
+
+  const markSelectionAnnouncementSeen = async (notificationId) => {
+    try {
+      await api.post(`/student/selection-announcements/${notificationId}/seen`);
+      await loadNotifications();
+    } catch {
+      toast.error("Pengumuman belum dapat ditandai sebagai sudah dibaca.");
+    }
+  };
+
+  const dismissSelectionAnnouncement = async (notificationId) => {
+    await markSelectionAnnouncementSeen(notificationId);
+    setSelectionAnnouncement(null);
   };
 
   const submitRegistration = async (action) => {
@@ -289,6 +314,11 @@ export default function StudentDashboard() {
       )}
 
       {active === "pengaturan" && <AccountSettings />}
+      <SelectionResultPopup
+        announcement={selectionAnnouncement}
+        onMarkSeen={markSelectionAnnouncementSeen}
+        onDismiss={dismissSelectionAnnouncement}
+      />
     </DashboardShell>
   );
 }

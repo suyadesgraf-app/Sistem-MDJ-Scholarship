@@ -1,0 +1,22 @@
+{
+  "summary": "Iter28 validated Admin Provinsi Pengumuman Seleksi broadcast + student popup lifecycle + Bukti Transfer menu hidden. Backend pytest 11/11 pass (role guards for student & admin_wilayah 403; summary/publish for admin+super_admin ok; publish under unique TEST category returns Published with correct passed/failed/recipient counts and creates 2 selection_result notifications tied to test users with announcement_id, is_popup_seen=False, is_read=False; registrations flagged is_announcement_published=True + selection_announcement_id; re-publish same exhausted category returns 400; summary after publish shows latest_publication + zeroed counts; /student/selection-announcements/pending returns own notif only, /seen sets is_read+is_popup_seen+popup_seen_at then subsequent pending is null; cross-user /seen returns 404). Frontend Playwright verified: Admin Pengumuman Seleksi tab renders SelectionAnnouncementManager with dropdown listing Semua Kategori + real categories (Mahasiswa Sarjana (S1), Reguler), passed/failed/pending metric cards, dialog opens with confirm-passed/failed/category testids. Student sidebar (desktop 1920 + mobile 390) no longer shows Bukti Transfer while Status Seleksi/Pengumuman/Pengaturan remain. E2E popup: seeded passed & failed test students via unique TEST category, published via admin API, logged in each student in browser -> SelectionResultPopup appeared, 'Lihat Hasil Seleksi' revealed selection-result-passed 'LULUS' and selection-result-failed 'TIDAK LULUS' with appreciative 'Terima kasih ... Tetap semangat...' message, after 'Selesai' + reload popup did NOT reappear (mark_seen effective). All TEST_ data (users/regs/notifs/announcements) cleaned up.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_selection_announcement_broadcast.py",
+    "/app/test_reports/pytest/iter28_selection.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/server.py grew large (>5100 lines) - selection announcement handlers, notifications, disbursements, admin listings all in one file; splitting into routers per feature would improve maintainability but is not blocking.",
+    "SelectionAnnouncementManager.jsx dialog uses native <select> for categories instead of shadcn Select; acceptable but inconsistent with rest of shadcn usage. Also the 'Broadcast terakhir sudah Published' label always shows only 'Published' text without the actual published_at datetime, could be enriched.",
+    "StudentDashboard.jsx setActive still routes 'disbursement_proof' notification click to 'bukti-transfer' tab (line 142) even though the menu entry is hidden; not a bug because the route path still renders <StudentDisbursementProofs/> (feature only hidden from sidebar per spec), but flag for main agent awareness."
+  ],
+  "updated_files": ["/app/backend/tests/test_selection_announcement_broadcast.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id/MdjSuper2026! (super_admin); admin.mdj@baznasbazisdki.id/AdminMDJ2026! (admin); mahasiswa.mdj@baznasbazisdki.id/MahasiswaMDJ2026! (student). Ephemeral test students created with password TestPass123! and category TEST_ITER28UI_KAT_* were fully cleaned up.",
+  "seed_data_creation": "None persisted. During test: 2 users + 2 registrations + 2 notifications + 1 selection_announcement + 1 admin_wilayah user under TEST_ITER28_* categories and test_tag='TEST_iter28_*' - all deleted after runs (verified 0 remaining in Mongo).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression suite for selection announcement broadcast + popup lifecycle: /app/backend/tests/test_selection_announcement_broadcast.py (11 tests). Tests are xdist_group'd to run on one worker (module-scoped fixture). For UI verification of popup lifecycle, seed a unique category with 1 lolos_administrasi + 1 ditolak registration, call POST /api/admin/selection-announcements/publish, then login as those students to see SelectionResultPopup. Cleanup by test_tag and category prefix TEST_ITER28*. Bukti Transfer intentionally only hidden from student sidebar MENU (StudentDashboard.jsx line 17-24); the route 'bukti-transfer' + <StudentDisbursementProofs/> component still exists and remains reachable via notification click on line 142."
+}

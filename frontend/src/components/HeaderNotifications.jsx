@@ -3,6 +3,7 @@ import { Bell, CheckCheck, Inbox, Megaphone, Route } from "lucide-react";
 
 const typeIcon = {
   announcement: Megaphone,
+  selection_result: Megaphone,
   selection_progress: Route,
 };
 

@@ -399,6 +399,10 @@ class StatusUpdateInput(BaseModel):
     note: Optional[str] = None
 
 
+class SelectionAnnouncementPublishInput(BaseModel):
+    category: str = "all"
+
+
 class CreateAdminInput(BaseModel):
     name: str
     email: EmailStr
@@ -455,6 +459,14 @@ class ActiveLetterDecisionInput(BaseModel):
 
 REG_STATUSES = ["draft", "submitted", "verifikasi", "lolos_administrasi", "wawancara",
                 "verifikasi_faktual", "lolos", "ditolak"]
+SELECTION_RESULT_PASSED_STATUSES = (
+    "lolos_administrasi",
+    "wawancara",
+    "verifikasi_faktual",
+    "lolos",
+)
+SELECTION_RESULT_FAILED_STATUS = "ditolak"
+SELECTION_RESULT_STATUSES = (*SELECTION_RESULT_PASSED_STATUSES, SELECTION_RESULT_FAILED_STATUS)
 REGIONAL_ADMIN_ROLE = "admin_wilayah"
 MANAGEMENT_ROLES = ("admin", "super_admin", REGIONAL_ADMIN_ROLE)
 DKI_REGIONS = [
@@ -980,6 +992,56 @@ async def create_notification(
     })
 
 
+async def selection_announcement_summary(category: str) -> dict:
+    selected_category = str(category or "all").strip()
+    categories = sorted(filter(None, await db.registrations.distinct("category")))
+    if selected_category != "all" and selected_category not in categories:
+        raise HTTPException(status_code=400, detail="Kategori pendaftaran tidak valid.")
+
+    category_query = {}
+    if selected_category != "all":
+        category_query["category"] = selected_category
+
+    unpublished_query = {
+        **category_query,
+        "status": {"$in": SELECTION_RESULT_STATUSES},
+        "$or": [
+            {"is_announcement_published": {"$exists": False}},
+            {"is_announcement_published": False},
+        ],
+    }
+    recipients = await db.registrations.find(
+        unpublished_query,
+        {"_id": 0, "user_id": 1, "status": 1},
+    ).to_list(5000)
+    passed_count = sum(
+        1 for registration in recipients
+        if registration.get("status") in SELECTION_RESULT_PASSED_STATUSES
+    )
+    failed_count = sum(
+        1 for registration in recipients
+        if registration.get("status") == SELECTION_RESULT_FAILED_STATUS
+    )
+    pending_count = await db.registrations.count_documents({
+        **category_query,
+        "status": {"$nin": SELECTION_RESULT_STATUSES},
+    })
+    latest_publication = await db.selection_announcements.find_one(
+        {"category": selected_category, "status_publikasi": "Published"},
+        {"_id": 0},
+        sort=[("published_at", -1)],
+    )
+    return {
+        "category": selected_category,
+        "categories": categories,
+        "passed_count": passed_count,
+        "failed_count": failed_count,
+        "pending_count": pending_count,
+        "recipient_count": len(recipients),
+        "latest_publication": latest_publication,
+    }
+
+
 def announcement_signature(announcement: dict) -> str:
     fields = ("date", "category", "title", "summary")
     return "|".join(str(announcement.get(field, "")).strip() for field in fields)
@@ -1107,6 +1169,50 @@ async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
         {"$set": {"is_read": True}},
     )
     return {"message": "Semua notifikasi ditandai sudah dibaca."}
+
+
+@api_router.get("/student/selection-announcements/pending")
+async def get_pending_selection_announcement(
+    user: dict = Depends(require_roles("student")),
+):
+    notification = await db.notifications.find_one(
+        {
+            "user_id": user["user_id"],
+            "type": "selection_result",
+            "$or": [
+                {"is_popup_seen": {"$exists": False}},
+                {"is_popup_seen": False},
+            ],
+        },
+        {"_id": 0},
+        sort=[("created_at", -1)],
+    )
+    return {"announcement": notification}
+
+
+@api_router.post("/student/selection-announcements/{notification_id}/seen")
+async def mark_selection_announcement_seen(
+    notification_id: str,
+    user: dict = Depends(require_roles("student")),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.notifications.update_one(
+        {
+            "id": notification_id,
+            "user_id": user["user_id"],
+            "type": "selection_result",
+        },
+        {
+            "$set": {
+                "is_read": True,
+                "is_popup_seen": True,
+                "popup_seen_at": now,
+            }
+        },
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Pengumuman seleksi tidak ditemukan.")
+    return {"message": "Pengumuman seleksi telah dibaca."}
 
 
 # ---------------------------------------------------------------------------
@@ -4791,6 +4897,105 @@ async def update_participant_status(user_id: str, payload: StatusUpdateInput,
     return updated
 
 
+@api_router.get("/admin/selection-announcements/summary")
+async def get_selection_announcement_summary(
+    category: str = "all",
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    return await selection_announcement_summary(category)
+
+
+@api_router.post("/admin/selection-announcements/publish")
+async def publish_selection_announcement(
+    payload: SelectionAnnouncementPublishInput,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    summary = await selection_announcement_summary(payload.category)
+    if not summary["recipient_count"]:
+        raise HTTPException(status_code=400, detail="Tidak ada hasil seleksi baru yang dapat diumumkan.")
+
+    selected_category = summary["category"]
+    category_query = {}
+    if selected_category != "all":
+        category_query["category"] = selected_category
+    recipient_query = {
+        **category_query,
+        "status": {"$in": SELECTION_RESULT_STATUSES},
+        "$or": [
+            {"is_announcement_published": {"$exists": False}},
+            {"is_announcement_published": False},
+        ],
+    }
+    registrations = await db.registrations.find(
+        recipient_query,
+        {"_id": 0, "user_id": 1, "status": 1, "category": 1},
+    ).to_list(5000)
+    if not registrations:
+        raise HTTPException(status_code=400, detail="Hasil seleksi sudah tidak tersedia untuk diumumkan.")
+
+    now = datetime.now(timezone.utc).isoformat()
+    announcement_id = str(uuid.uuid4())
+    announcement = {
+        "id": announcement_id,
+        "category": selected_category,
+        "status_publikasi": "Published",
+        "title": "Pengumuman Hasil Seleksi Berkas",
+        "message": (
+            "Pengumuman hasil seleksi tahap berkas telah diterbitkan oleh Admin Provinsi. "
+            "Silakan cek status Anda."
+        ),
+        "passed_count": summary["passed_count"],
+        "failed_count": summary["failed_count"],
+        "recipient_count": len(registrations),
+        "published_by": user["user_id"],
+        "published_by_name": user.get("name", "Admin Provinsi"),
+        "published_at": now,
+        "created_at": now,
+    }
+    await db.selection_announcements.insert_one(dict(announcement))
+
+    notifications = []
+    for registration in registrations:
+        result = (
+            "passed"
+            if registration.get("status") in SELECTION_RESULT_PASSED_STATUSES
+            else "failed"
+        )
+        notifications.append({
+            "id": str(uuid.uuid4()),
+            "user_id": registration["user_id"],
+            "type": "selection_result",
+            "source_id": announcement_id,
+            "announcement_id": announcement_id,
+            "category": registration.get("category", ""),
+            "result": result,
+            "title": announcement["title"],
+            "message": announcement["message"],
+            "is_read": False,
+            "is_popup_seen": False,
+            "created_at": now,
+        })
+    await db.notifications.insert_many(notifications)
+    await db.registrations.update_many(
+        {"user_id": {"$in": [item["user_id"] for item in registrations]}},
+        {
+            "$set": {
+                "is_announcement_published": True,
+                "selection_announcement_id": announcement_id,
+                "selection_announcement_published_at": now,
+            }
+        },
+    )
+    return {
+        "message": "Pengumuman hasil seleksi berhasil dikirim.",
+        "announcement_id": announcement_id,
+        "status_publikasi": "Published",
+        "passed_count": summary["passed_count"],
+        "failed_count": summary["failed_count"],
+        "recipient_count": len(registrations),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Super admin: user/admin management
 # ---------------------------------------------------------------------------
@@ -4895,6 +5100,12 @@ async def startup():
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.password_reset_rate_limits.create_index("key", unique=True)
     await db.password_reset_rate_limits.create_index("expires_at", expireAfterSeconds=0)
+    await db.selection_announcements.create_index([("status_publikasi", 1), ("published_at", -1)])
+    await db.selection_announcements.create_index([("category", 1), ("published_at", -1)])
+    await db.notifications.create_index([("user_id", 1), ("type", 1), ("is_popup_seen", 1)])
+    await db.registrations.create_index(
+        [("status", 1), ("category", 1), ("is_announcement_published", 1)]
+    )
     await db.registrations.create_index("user_id")
     await db.registrations.create_index("cpm_id", unique=True, sparse=True)
     await db.documents.create_index("user_id")
