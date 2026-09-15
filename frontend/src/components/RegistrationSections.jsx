@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
@@ -73,8 +73,9 @@ export default function RegistrationSections({
   onSubmitRegistration,
   submissionLoading,
   campuses,
+  initialTab,
 }) {
-  const [tab, setTab] = useState("pendidikan");
+  const [tab, setTab] = useState(initialTab || "pendidikan");
   const [preview, setPreview] = useState(null);
   const [requirementsOpen, setRequirementsOpen] = useState(false);
   const set = (key, value) => setData((previous) => ({ ...previous, [key]: value }));
@@ -88,8 +89,15 @@ export default function RegistrationSections({
     (docType) => !docs.some((document) => document.doc_type === docType),
   );
 
+  useEffect(() => {
+    if (initialTab) {
+      setTab(initialTab);
+    }
+  }, [initialTab]);
+
   const selectTab = (tabId) => {
-    if (tabId !== "pakta" || (reg.status && reg.status !== "draft")) {
+    const canResubmit = Boolean(reg.revision_requested);
+    if (tabId !== "pakta" || (reg.status && reg.status !== "draft" && !canResubmit)) {
       setTab(tabId);
       return;
     }

@@ -35,7 +35,8 @@ const CONSEQUENCES = [
 export default function IntegrityPactForm({ onSubmit, reg, submitting }) {
   const [agreed, setAgreed] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const submitted = reg.status && reg.status !== "draft";
+  const resubmission = Boolean(reg.revision_requested);
+  const submitted = reg.status && reg.status !== "draft" && !resubmission;
 
   const confirmSubmission = async () => {
     setConfirmOpen(false);
@@ -57,6 +58,16 @@ export default function IntegrityPactForm({ onSubmit, reg, submitting }) {
           panitia memberikan izin edit kembali.
         </p>
       </section>
+    );
+  }
+
+  if (resubmission) {
+    return (
+      <RevisionResubmission
+        note={reg.revision_note}
+        submitting={submitting}
+        onSubmit={onSubmit}
+      />
     );
   }
 
@@ -169,6 +180,83 @@ export default function IntegrityPactForm({ onSubmit, reg, submitting }) {
             >
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Ya, Kirim Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
+
+function RevisionResubmission({ note, onSubmit, submitting }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const confirmResubmission = async () => {
+    setConfirmOpen(false);
+    await onSubmit("submit", true);
+  };
+
+  return (
+    <div className="space-y-6" data-testid="pakta-resubmission-state">
+      <section className="border-l-4 border-[#B8860B] bg-[#FFFBEB] px-5 py-5">
+        <p className="text-xs font-bold uppercase tracking-wide text-[#7A5C00]">
+          Perbaikan Berkas
+        </p>
+        <h2 className="mt-1 font-display text-2xl font-extrabold text-[#1F2937]">
+          Perbaiki dan Kirim Ulang Berkas
+        </h2>
+        <p className="mt-2 text-sm leading-relaxed text-[#5E4A00]">
+          Lengkapi dokumen sesuai arahan panitia, kemudian kirim ulang untuk verifikasi kembali.
+        </p>
+      </section>
+      <section
+        data-testid="pakta-resubmission-note"
+        className="border border-[#FDE68A] bg-white p-5"
+      >
+        <p className="text-xs font-bold uppercase tracking-wide text-[#7A5C00]">
+          Catatan Panitia
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-[#374151]">
+          {note || "Periksa kembali data dan dokumen sebelum mengirim ulang."}
+        </p>
+      </section>
+      <button
+        type="button"
+        onClick={() => setConfirmOpen(true)}
+        disabled={submitting}
+        data-testid="open-pakta-resubmit-confirmation"
+        className={[
+          "inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[#B8860B] px-5 py-3",
+          "text-sm font-bold text-white transition-colors hover:bg-[#936C00]",
+          "disabled:cursor-not-allowed disabled:opacity-50",
+        ].join(" ")}
+      >
+        <Send className="h-4 w-4" />
+        {submitting ? "Mengirim Ulang..." : "Kirim Ulang Berkas"}
+      </button>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent
+          data-testid="pakta-resubmit-confirmation-dialog"
+          className="max-w-lg rounded-xl border-0 bg-white p-7"
+        >
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle className="font-display text-2xl font-extrabold text-[#1F2937]">
+              Kirim Ulang Berkas Perbaikan?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="leading-relaxed text-[#6B7280]">
+              Berkas perbaikan akan dikirim kepada panitia untuk verifikasi ulang dan dikunci kembali.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="cancel-pakta-resubmit-button">
+              Tidak, Kembali
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmResubmission}
+              data-testid="confirm-pakta-resubmit-button"
+              className="bg-[#B8860B] text-white hover:bg-[#936C00]"
+            >
+              Ya, Kirim Ulang
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

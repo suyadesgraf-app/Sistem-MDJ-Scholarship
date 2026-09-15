@@ -1,10 +1,20 @@
 import React, { useState } from "react";
-import { Bell, CheckCheck, Inbox, Megaphone, Route } from "lucide-react";
+import {
+  Bell,
+  CheckCheck,
+  FileCheck,
+  FileWarning,
+  Inbox,
+  Megaphone,
+  Route,
+} from "lucide-react";
 
 const typeIcon = {
   announcement: Megaphone,
   selection_result: Megaphone,
   selection_progress: Route,
+  document_revision_requested: FileWarning,
+  document_revision_resubmitted: FileCheck,
 };
 
 export default function HeaderNotifications({

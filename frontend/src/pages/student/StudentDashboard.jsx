@@ -12,6 +12,7 @@ import RegistrationSections from "@/components/RegistrationSections";
 import StudentDisbursementProofs from "@/components/StudentDisbursementProofs";
 import SelectionResultPopup from "@/components/SelectionResultPopup";
 import RegistrationClosedDialog from "@/components/RegistrationClosedDialog";
+import DocumentRevisionPopup from "@/components/DocumentRevisionPopup";
 import { docFileUrl } from "@/components/DocPreview";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
@@ -46,6 +47,8 @@ export default function StudentDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [selectionAnnouncement, setSelectionAnnouncement] = useState(null);
+  const [documentRevision, setDocumentRevision] = useState(null);
+  const [registrationRequestedTab, setRegistrationRequestedTab] = useState("pendidikan");
   const [registrationClosedDialogOpen, setRegistrationClosedDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [submittingRegistration, setSubmittingRegistration] = useState(false);
@@ -70,6 +73,15 @@ export default function StudentDashboard() {
     }
   }, []);
 
+  const loadDocumentRevision = useCallback(async () => {
+    try {
+      const response = await api.get("/student/document-revisions/pending");
+      setDocumentRevision(response.data.revision || null);
+    } catch {
+      setDocumentRevision(null);
+    }
+  }, []);
+
   useEffect(() => {
     api.get("/profile").then((r) => setData(r.data.data || {}));
     api.get("/registration").then((r) => setReg(r.data || {}));
@@ -78,9 +90,10 @@ export default function StudentDashboard() {
     api.get("/site/content").then((r) => setContent(r.data));
     loadNotifications();
     loadSelectionAnnouncement();
+    loadDocumentRevision();
     const pollNotifications = window.setInterval(loadNotifications, 30000);
     return () => window.clearInterval(pollNotifications);
-  }, [loadNotifications, loadSelectionAnnouncement]);
+  }, [loadDocumentRevision, loadNotifications, loadSelectionAnnouncement]);
 
   const progress = useMemo(() => profileProgress(data), [data]);
   const missingProfileFields = useMemo(() => getMissingProfileFields(data), [data]);
@@ -179,6 +192,21 @@ export default function StudentDashboard() {
     setSelectionAnnouncement(null);
   };
 
+  const dismissDocumentRevision = async (notificationId) => {
+    try {
+      await api.post(`/student/document-revisions/${notificationId}/seen`);
+      setDocumentRevision(null);
+      await loadNotifications();
+    } catch {
+      toast.error("Notifikasi perbaikan belum dapat ditandai sebagai sudah dibaca.");
+    }
+  };
+
+  const openDocumentRevisionWorkspace = () => {
+    setRegistrationRequestedTab("dokumen");
+    setActive("daftar");
+  };
+
   const selectDashboardMenu = async (menuId) => {
     if (menuId !== "daftar") {
       setActive(menuId);
@@ -188,7 +216,7 @@ export default function StudentDashboard() {
       const response = await api.get("/site/content");
       const nextContent = response.data || {};
       setContent(nextContent);
-      if (nextContent.settings?.registration_open !== true) {
+      if (nextContent.settings?.registration_open !== true && !reg.revision_requested) {
         setRegistrationClosedDialogOpen(true);
         return;
       }
@@ -324,6 +352,7 @@ export default function StudentDashboard() {
           onSubmitRegistration={submitRegistration}
           submissionLoading={submittingRegistration}
           campuses={campuses}
+          initialTab={registrationRequestedTab}
         />
       )}
 
@@ -382,6 +411,11 @@ export default function StudentDashboard() {
         announcement={selectionAnnouncement}
         onMarkSeen={markSelectionAnnouncementSeen}
         onDismiss={dismissSelectionAnnouncement}
+      />
+      <DocumentRevisionPopup
+        revision={documentRevision}
+        onDismiss={dismissDocumentRevision}
+        onRepair={openDocumentRevisionWorkspace}
       />
       <RegistrationClosedDialog
         open={registrationClosedDialogOpen}

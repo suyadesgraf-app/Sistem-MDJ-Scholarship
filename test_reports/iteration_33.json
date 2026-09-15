@@ -1,0 +1,41 @@
+{
+  "summary": "Verified 'Kembalikan untuk Dilengkapi' document revision workflow end-to-end. Backend pytest (7/7 pass) covers: (1) POST /admin/participants/{uid}/return-documents rejects empty/whitespace note with 400 'wajib'; (2) valid note flips registration to status=perlu_perbaikan, revision_requested=true, documents_editing_allowed=true, revision_note stored, history/audit pushed, and notification document_revision_requested created for the student with revision_note in payload; (3) GET /student/document-revisions/pending returns the notification (unseen) and POST /seen marks is_read+is_popup_seen so subsequent GET is null; (4) while revision active student can POST /documents and DELETE /documents/{id} successfully; (5) POST /registration action=submit resubmission bypasses is_registration_period_open() when revision_requested=true — resulting reg flips to status=submitted, documents_editing_allowed=false, revision_requested=false, revision_resubmitted_at set, and subsequent POST/DELETE documents return 403 DOCS_LOCKED_MSG; simultaneously fresh (non-revision) student with closed registration still gets 403 CLOSED; (6) requesting admin receives document_revision_resubmitted notification (source_id=user_id); (7) student & admin_wilayah receive 403 on return-documents endpoint; legacy PUT /admin/participants/{uid}/document-editing-permission with allowed=true is rejected (400) so catatan wajib cannot be bypassed. All Mongo responses free of _id. Frontend Playwright: logged in as admin.mdj, navigated Data Peserta, opened participant detail, verified 'Kembalikan untuk Dilengkapi' button (open-document-return-dialog) is disabled for statuses outside {submitted, verifikasi, perlu_perbaikan} and enabled otherwise, opened document-return-dialog, confirmed confirm-document-return-button is DISABLED when note empty and ENABLED once note is typed — wajib guard live-verified. Cancelled to avoid mutating live data. Cleanup: registration_open restored to False, temp users/notifications removed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/admin/participants/{uid}/document-editing-permission", "issue": "Endpoint still accepts payload but only rejects allowed=true. Consider removing entirely or returning 410 Gone for cleaner deprecation now that /return-documents replaces it."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin > Data Peserta > Detail Peserta", "issues": ["The 'Kembalikan Berkas untuk Dilengkapi' Dialog overlays but is not centered relative to the underlying participant-detail-modal — the two modals visually collide (text overlaps). Consider closing/hiding the detail modal while the return dialog is open, or increasing the return-dialog z-index and adding a stronger backdrop."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_document_revision_flow.py",
+    "/app/test_reports/pytest/iter33_revision.xml"
+  ],
+  "action_items": [
+    "(Optional/minor) Deprecate or hide legacy PUT document-editing-permission endpoint now that return-documents is authoritative.",
+    "(Design) In ParticipantsPanel, close the participant-detail-modal (or lower its z-index) when document-return-dialog is open to avoid visual overlap."
+  ],
+  "critical_code_review_comments": [
+    "server.py create_notification spreads metadata dict at TOP level of the notification document (line 1050-1051). Callers pass {'revision_note': note} and {'source_id': uid} — both end up as top-level fields, not nested under 'data'. That's fine for FE (DocumentRevisionPopup reads notification.revision_note), but the pattern is easy to misuse; consider a fixed 'data' subdocument for structured metadata to avoid collisions with reserved fields like id/user_id/type.",
+    "submit_registration re-runs completion gaps for is_resubmission=True as well. This is correct (ensures uploads still meet requirements) but not documented; add a comment so the intent is preserved.",
+    "server.py still exceeds 700-line guideline (5522 lines). Modularisation pending.",
+    "ensure_registration_documents_editable projects only status+documents_editing_allowed. Fine, but if reg not found it silently returns (draft path). Consider explicitly returning to make the semantics obvious.",
+    "return_documents_for_revision allows returning while status='perlu_perbaikan' (idempotent re-open). Behaviour is fine but each call appends a history entry and creates a new notification, potentially spamming the student. Consider skipping duplicate notification if revision_requested already true."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_document_revision_flow.py"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (wajib guard live-verified)"},
+  "test_credentials": "Used real demo accounts (admin.mdj, supri, mahasiswa.mdj). Temp students created via /auth/register with test.rev.* / test.submit.* / test.stranger.* / test.ui.rev.* emails and removed at fixture teardown. Temp admin_wilayah inserted directly to mongo and removed after test.",
+  "seed_data_creation": "Ephemeral only: one submitted student (profiles+documents+registration+notifications), one stranger student for closed-registration sanity, one admin_wilayah user. All rows removed on teardown. site_content.settings.registration_open was toggled True during tests and forced back to False on teardown (verified).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: `pytest backend/tests/test_document_revision_flow.py -o addopts='' -v`. Preserve these invariants: return-documents empty note -> 400 with 'wajib' message; success flips status=perlu_perbaikan + revision_requested/documents_editing_allowed=true; notification document_revision_requested carries revision_note at TOP level (not nested under data); resubmission via POST /registration bypasses registration_open only when revision_requested=true; resubmission relocks docs and clears revision_requested + sets revision_resubmitted_at; document_revision_resubmitted notification is written with source_id=user_id of the resubmitting student. Legacy document-editing-permission allowed=true must remain rejected. Always restore registration_open=false on teardown.",
+  "rca of the issue": "N/A — feature works as specified. Minor design nit on modal stacking noted; not blocking."
+}

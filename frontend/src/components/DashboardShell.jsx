@@ -8,6 +8,7 @@ import api, { API } from "@/lib/api";
 const STATUS_META = {
   draft: { label: "Draft", cls: "bg-gray-100 text-gray-600" },
   submitted: { label: "Terkirim", cls: "bg-blue-50 text-blue-700" },
+  perlu_perbaikan: { label: "Perlu Perbaikan Berkas", cls: "bg-[#FFFBEB] text-[#7A5C00]" },
   verifikasi: { label: "Verifikasi Administrasi", cls: "bg-[#FEF9E7] text-[#7a5c00]" },
   lolos_administrasi: { label: "Lolos Administrasi", cls: "bg-[#E8F6EE] text-[#0B6B3A]" },
   wawancara: { label: "Wawancara", cls: "bg-purple-50 text-purple-700" },

@@ -7,7 +7,10 @@ import { Search, Eye, X, FileText, Download, Loader2, Building2, Phone, Mail, Gr
 import { DocPreview } from "@/components/DocPreview";
 
 const STATUS_FILTERS = [
-  ["all", "Semua"], ["submitted", "Terkirim"], ["verifikasi", "Verifikasi"],
+  ["all", "Semua"],
+  ["submitted", "Terkirim"],
+  ["perlu_perbaikan", "Perlu Perbaikan"],
+  ["verifikasi", "Verifikasi"],
   ["lolos_administrasi", "Lolos Adm."], ["wawancara", "Wawancara"],
   ["verifikasi_faktual", "Verif. Faktual"], ["lolos", "Penerima"], ["ditolak", "Tidak Lolos"],
 ];
@@ -207,7 +210,7 @@ function DetailModal({ userId, onClose, onUpdated, canManageDocuments }) {
   const [newStatus, setNewStatus] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
-  const [updatingDocumentPermission, setUpdatingDocumentPermission] = useState(false);
+  const [returningDocuments, setReturningDocuments] = useState(false);
 
   useEffect(() => {
     api.get(`/admin/participants/${userId}`).then((r) => { setData(r.data); setNewStatus(r.data.registration?.status || "submitted"); });
@@ -228,20 +231,19 @@ function DetailModal({ userId, onClose, onUpdated, canManageDocuments }) {
     finally { setSaving(false); }
   };
 
-  const updateDocumentPermission = async (allowed) => {
-    setUpdatingDocumentPermission(true);
+  const returnDocuments = async () => {
+    setReturningDocuments(true);
     try {
-      const response = await api.put(
-        `/admin/participants/${userId}/document-editing-permission`,
-        { allowed },
+      const response = await api.post(
+        `/admin/participants/${userId}/return-documents`,
       );
       setData((previous) => ({ ...previous, registration: response.data }));
-      toast.success(allowed ? "Izin edit dokumen diberikan." : "Izin edit dokumen dikunci kembali.");
+      toast.success("Berkas dikembalikan kepada mahasiswa untuk dilengkapi.");
       onUpdated();
     } catch {
-      toast.error("Izin edit dokumen belum dapat diperbarui.");
+      toast.error("Berkas belum dapat dikembalikan.");
     } finally {
-      setUpdatingDocumentPermission(false);
+      setReturningDocuments(false);
     }
   };
 
@@ -290,34 +292,36 @@ function DetailModal({ userId, onClose, onUpdated, canManageDocuments }) {
 
             {canManageDocuments && (
               <div className="border-t border-gray-100 pt-5">
-                <p className="font-semibold text-sm text-[#1F2937] mb-3">Izin Edit Dokumen</p>
+                <p className="font-semibold text-sm text-[#1F2937] mb-3">Perbaikan Dokumen</p>
                 <div
                   className="flex flex-wrap items-center justify-between gap-3 border border-[#FDE68A] bg-[#FFFBEB] p-4"
                   data-testid="document-editing-permission-panel"
                 >
                   <p className="max-w-lg text-sm leading-relaxed text-[#5E4A00]">
-                    {data.registration?.documents_editing_allowed
-                      ? "Mahasiswa saat ini diizinkan memperbaiki dokumen pendaftarannya."
-                      : "Dokumen terkunci setelah pendaftaran dikirim. Berikan izin bila perlu diperbaiki."}
+                    {data.registration?.revision_requested
+                      ? "Berkas sedang berada pada mahasiswa untuk dilengkapi sesuai catatan panitia."
+                      : "Kembalikan berkas bila mahasiswa perlu memperbaiki data atau dokumen pendaftaran."}
                   </p>
                   <button
                     type="button"
-                    onClick={() => updateDocumentPermission(!data.registration?.documents_editing_allowed)}
-                    disabled={updatingDocumentPermission}
-                    data-testid="toggle-document-editing-permission"
+                    onClick={returnDocuments}
+                    disabled={
+                      returningDocuments ||
+                      data.registration?.revision_requested ||
+                      !["submitted", "verifikasi", "perlu_perbaikan"].includes(
+                        data.registration?.status,
+                      )
+                    }
+                    data-testid="open-document-return-dialog"
                     className={[
                       "rounded-lg px-4 py-2.5 text-sm font-bold text-white transition-colors",
-                      data.registration?.documents_editing_allowed
-                        ? "bg-[#B8860B] hover:bg-[#936C00]"
-                        : "bg-[#0B6B3A] hover:bg-[#07532D]",
+                      "bg-[#B8860B] hover:bg-[#936C00]",
                       "disabled:cursor-wait disabled:opacity-60",
                     ].join(" ")}
                   >
-                    {updatingDocumentPermission
-                      ? "Memperbarui..."
-                      : data.registration?.documents_editing_allowed
-                        ? "Kunci Kembali Dokumen"
-                        : "Izinkan Edit Dokumen"}
+                    {data.registration?.revision_requested
+                      ? "Menunggu Perbaikan Mahasiswa"
+                      : "Kembalikan untuk Dilengkapi"}
                   </button>
                 </div>
               </div>

@@ -500,3 +500,16 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   daftar chip yang mudah dibaca tepat di bawah batang persentase.
 - Diuji di browser desktop serta ponsel 390px: alasan kelengkapan tampil pada Ringkasan dan Profil tanpa
   overflow; build frontend lulus.
+
+## 2026-09 — Pengembalian dan pengiriman ulang berkas
+- Tombol Admin Provinsi/Super Admin **Kembalikan untuk Dilengkapi** kini langsung mengembalikan berkas tanpa
+  dialog atau input alasan manual. Sistem memakai catatan umum: “Mohon lengkapi dan perbaiki data serta dokumen
+  pendaftaran Anda dengan benar.” Status mahasiswa berubah menjadi `perlu_perbaikan` dan berkas dibuka kembali.
+- Mahasiswa menerima pop-up satu kali setelah login, termasuk saat periode pendaftaran umum tertutup. CTA
+  **Perbaiki Berkas** langsung membuka tab Dokumen. Setelah lengkap, tab Pakta menampilkan **Kirim Ulang Berkas**
+  tanpa meminta ceklis Pakta kedua kali; kirim ulang mengunci dokumen kembali dan memberi notifikasi verifikasi
+  ulang kepada panitia yang mengembalikan berkas.
+- Akses pengembalian berkas dibatasi untuk Admin Provinsi/Super Admin. Mahasiswa dan Admin Wilayah ditolak;
+  endpoint lama tidak dapat lagi membuka izin edit tanpa alur pengembalian. Diuji mandiri: UI Admin/popup
+  mahasiswa, alasan umum, status revisi, penguncian kembali, dan suite `test_document_revision_flow.py` 6/6
+  lulus. Status pendaftaran tetap diverifikasi tertutup.

@@ -462,8 +462,8 @@ class ActiveLetterDecisionInput(BaseModel):
     source_ids: List[str] = []
 
 
-REG_STATUSES = ["draft", "submitted", "verifikasi", "lolos_administrasi", "wawancara",
-                "verifikasi_faktual", "lolos", "ditolak"]
+REG_STATUSES = ["draft", "submitted", "perlu_perbaikan", "verifikasi", "lolos_administrasi",
+                "wawancara", "verifikasi_faktual", "lolos", "ditolak"]
 SELECTION_RESULT_PASSED_STATUSES = (
     "lolos_administrasi",
     "wawancara",
@@ -1014,9 +1014,13 @@ PAKTA_INTEGRITAS_REQUIRED_MESSAGE = (
 DOCUMENTS_LOCKED_MESSAGE = (
     "Dokumen pendaftaran sudah dikirim dan terkunci. Panitia perlu mengizinkan edit kembali."
 )
+DOCUMENT_REVISION_DEFAULT_NOTE = (
+    "Mohon lengkapi dan perbaiki data serta dokumen pendaftaran Anda dengan benar."
+)
 STATUS_LABELS = {
     "draft": "Draft",
     "submitted": "Terkirim",
+    "perlu_perbaikan": "Perlu Perbaikan Berkas",
     "verifikasi": "Verifikasi Administrasi",
     "lolos_administrasi": "Lolos Administrasi",
     "wawancara": "Wawancara Assessment",
@@ -1031,8 +1035,9 @@ async def create_notification(
     notification_type: str,
     title: str,
     message: str,
+    metadata: Optional[dict] = None,
 ) -> None:
-    await db.notifications.insert_one({
+    notification = {
         "id": str(uuid.uuid4()),
         "user_id": user_id,
         "type": notification_type,
@@ -1040,7 +1045,10 @@ async def create_notification(
         "message": message,
         "is_read": False,
         "created_at": datetime.now(timezone.utc).isoformat(),
-    })
+    }
+    if metadata:
+        notification.update(metadata)
+    await db.notifications.insert_one(notification)
 
 
 async def selection_announcement_summary(category: str) -> dict:
@@ -1207,10 +1215,12 @@ async def get_registration(user: dict = Depends(get_current_user)):
 
 @api_router.post("/registration")
 async def submit_registration(payload: RegistrationInput, user: dict = Depends(get_current_user)):
-    if not await is_registration_period_open():
+    existing = await db.registrations.find_one({"user_id": user["user_id"]})
+    is_resubmission = bool(existing and existing.get("revision_requested"))
+    if not await is_registration_period_open() and not is_resubmission:
         raise HTTPException(status_code=403, detail=REGISTRATION_CLOSED_MESSAGE)
     if payload.action == "submit":
-        if not payload.pakta_integritas_agreed:
+        if not is_resubmission and not payload.pakta_integritas_agreed:
             raise HTTPException(status_code=400, detail=PAKTA_INTEGRITAS_REQUIRED_MESSAGE)
         gaps = await registration_completion_gaps(user["user_id"])
         if gaps["missing_education"] or gaps["missing_documents"]:
@@ -1222,21 +1232,35 @@ async def submit_registration(payload: RegistrationInput, user: dict = Depends(g
                 },
             )
     status = "submitted" if payload.action == "submit" else "draft"
-    existing = await db.registrations.find_one({"user_id": user["user_id"]})
     now = datetime.now(timezone.utc).isoformat()
     if existing:
         await ensure_cpm_id(existing)
         update = {"category": payload.category, "updated_at": now}
-        if payload.action == "submit" and existing.get("status") == "draft":
-            update.update({
-                "status": "submitted",
-                "submitted_at": now,
-                "pakta_integritas_agreed": True,
-                "pakta_integritas_agreed_at": now,
-                "pakta_integritas_version": PAKTA_INTEGRITAS_VERSION,
-                "documents_editing_allowed": False,
-                "documents_locked_at": now,
-            })
+        if payload.action == "submit" and (existing.get("status") == "draft" or is_resubmission):
+            submission_note = (
+                "Berkas perbaikan dikirim ulang kepada panitia"
+                if is_resubmission
+                else "Pakta Integritas disetujui dan pendaftaran dikirim"
+            )
+            update.update(
+                {
+                    "status": "submitted",
+                    "submitted_at": now,
+                    "documents_editing_allowed": False,
+                    "documents_locked_at": now,
+                    "revision_requested": False,
+                    "revision_note": None,
+                    "revision_resubmitted_at": now if is_resubmission else None,
+                }
+            )
+            if not is_resubmission:
+                update.update(
+                    {
+                        "pakta_integritas_agreed": True,
+                        "pakta_integritas_agreed_at": now,
+                        "pakta_integritas_version": PAKTA_INTEGRITAS_VERSION,
+                    }
+                )
             await db.registrations.update_one(
                 {"user_id": user["user_id"]},
                 {
@@ -1244,12 +1268,20 @@ async def submit_registration(payload: RegistrationInput, user: dict = Depends(g
                     "$push": {
                         "history": {
                             "status": "submitted",
-                            "note": "Pakta Integritas disetujui dan pendaftaran dikirim",
+                            "note": submission_note,
                             "at": now,
                         }
                     },
                 },
             )
+            if is_resubmission and existing.get("revision_requested_by_user_id"):
+                await create_notification(
+                    existing["revision_requested_by_user_id"],
+                    "document_revision_resubmitted",
+                    "Berkas perbaikan telah dikirim ulang",
+                    "Mahasiswa telah mengirim ulang berkas perbaikan untuk verifikasi Anda.",
+                    {"source_id": existing["user_id"]},
+                )
         else:
             await db.registrations.update_one({"user_id": user["user_id"]}, {"$set": update})
         reg = await db.registrations.find_one({"user_id": user["user_id"]}, {"_id": 0})
@@ -1302,6 +1334,42 @@ async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
         {"$set": {"is_read": True}},
     )
     return {"message": "Semua notifikasi ditandai sudah dibaca."}
+
+
+@api_router.get("/student/document-revisions/pending")
+async def get_pending_document_revision(user: dict = Depends(require_roles("student"))):
+    notification = await db.notifications.find_one(
+        {
+            "user_id": user["user_id"],
+            "type": "document_revision_requested",
+            "$or": [
+                {"is_popup_seen": {"$exists": False}},
+                {"is_popup_seen": False},
+            ],
+        },
+        {"_id": 0},
+        sort=[("created_at", -1)],
+    )
+    return {"revision": notification}
+
+
+@api_router.post("/student/document-revisions/{notification_id}/seen")
+async def mark_document_revision_seen(
+    notification_id: str,
+    user: dict = Depends(require_roles("student")),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.notifications.update_one(
+        {
+            "id": notification_id,
+            "user_id": user["user_id"],
+            "type": "document_revision_requested",
+        },
+        {"$set": {"is_read": True, "is_popup_seen": True, "popup_seen_at": now}},
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Notifikasi perbaikan tidak ditemukan.")
+    return {"message": "Notifikasi perbaikan telah dibaca."}
 
 
 @api_router.get("/student/selection-announcements/pending")
@@ -5041,6 +5109,11 @@ async def update_document_editing_permission(
     payload: DocumentEditingPermissionInput,
     user: dict = Depends(require_roles("admin", "super_admin")),
 ):
+    if payload.allowed:
+        raise HTTPException(
+            status_code=400,
+            detail="Gunakan pengembalian berkas dengan catatan perbaikan.",
+        )
     registration = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
     if not registration:
         raise HTTPException(status_code=404, detail="Pendaftar tidak ditemukan")
@@ -5074,6 +5147,54 @@ async def update_document_editing_permission(
         "document_edit_permission",
         "Izin edit dokumen diperbarui",
         permission_note,
+    )
+    updated = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
+    return updated
+
+
+@api_router.post("/admin/participants/{user_id}/return-documents")
+async def return_documents_for_revision(
+    user_id: str,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    note = DOCUMENT_REVISION_DEFAULT_NOTE
+    registration = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
+    if not registration:
+        raise HTTPException(status_code=404, detail="Pendaftar tidak ditemukan")
+    if registration.get("status") not in {"submitted", "verifikasi", "perlu_perbaikan"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Berkas hanya dapat dikembalikan setelah pendaftaran dikirim.",
+        )
+    now = datetime.now(timezone.utc).isoformat()
+    history_entry = {
+        "status": "perlu_perbaikan",
+        "note": note,
+        "at": now,
+        "by": user.get("name", "Panitia"),
+    }
+    await db.registrations.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "status": "perlu_perbaikan",
+                "documents_editing_allowed": True,
+                "revision_requested": True,
+                "revision_note": note,
+                "revision_requested_at": now,
+                "revision_requested_by": user.get("name", "Panitia"),
+                "revision_requested_by_user_id": user["user_id"],
+                "updated_at": now,
+            },
+            "$push": {"history": history_entry},
+        },
+    )
+    await create_notification(
+        user_id,
+        "document_revision_requested",
+        "Berkas Perlu Dilengkapi",
+        f"Panitia mengembalikan berkas Anda untuk diperbaiki. Catatan: {note}",
+        {"revision_note": note},
     )
     updated = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
     return updated
