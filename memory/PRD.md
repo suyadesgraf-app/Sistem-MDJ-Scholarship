@@ -481,3 +481,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   sesi tujuh hari, callback session invalid HTTP 401 tanpa penulisan data, redirect dinamis, serta tidak ada
   overflow. Login Google manusia memerlukan interaksi akun Google pengguna. Suite:
   `backend/tests/test_google_register.py`.
+
+## 2026-09 — Sinkronisasi nama Calon Penerima Manfaat
+- Saat mahasiswa menyimpan Data Pribadi dengan **Nama Lengkap** yang terisi, server memperbarui `users.name`
+  dan respons profil mengirim pengguna bersih. Dashboard langsung menyinkronkan sesi aktif, sehingga nama serta
+  inisial header berubah tanpa keluar/masuk kembali.
+- Nama kosong atau hanya spasi tidak menimpa nama akun sebelumnya. Perubahan profil juga tidak menyentuh
+  `cpm_id`, sehingga ID Calon Penerima Manfaat tetap sama. Nama baru tetap muncul pada autentikasi berikutnya.
+- Diuji testing agent: backend 5/5 dan browser lulus, mencakup pembaruan nama, muat ulang, login berikutnya,
+  perlindungan nama kosong, respons tanpa `_id`, serta ID CPM tetap. Semua data uji dihapus. Suite:
+  `backend/tests/test_profile_name_sync.py`.

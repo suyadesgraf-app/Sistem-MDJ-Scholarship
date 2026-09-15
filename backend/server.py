@@ -955,14 +955,30 @@ async def get_profile(user: dict = Depends(get_current_user)):
 @api_router.put("/profile")
 async def update_profile(payload: ProfileInput, user: dict = Depends(get_current_user)):
     student_campus = None
+    updated_user = None
     if user.get("role") == "student":
         student_campus = await register_student_campus(payload.data.get("institusi"))
+        display_name = str(payload.data.get("namaLengkap", "")).strip()
+        if display_name:
+            await db.users.update_one(
+                {"user_id": user["user_id"]},
+                {"$set": {"name": display_name}},
+            )
+            updated_user = await db.users.find_one(
+                {"user_id": user["user_id"]},
+                {"_id": 0},
+            )
     await db.profiles.update_one(
         {"user_id": user["user_id"]},
         {"$set": {"data": payload.data, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True,
     )
-    return {"message": "Profil disimpan", "data": payload.data, "campus": student_campus}
+    return {
+        "message": "Profil disimpan",
+        "data": payload.data,
+        "campus": student_campus,
+        "user": clean_user(updated_user) if updated_user else None,
+    }
 
 
 # ---------------------------------------------------------------------------

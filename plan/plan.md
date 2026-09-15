@@ -210,3 +210,29 @@ tahap dana.
   akan menunggu pemetaan atau konfirmasi Admin Provinsi/Super Admin.
 - Status awal tiap tahap adalah **Belum Diproses**; Admin Provinsi atau Super Admin dapat memilih
   status berikutnya sesuai proses operasional pencairan.
+
+# Proposal — Sinkronisasi Nama Calon Penerima Manfaat
+
+## Tujuan
+Menyamakan nama yang tampil pada area **Calon Penerima Manfaat** dengan isian
+**Nama Lengkap** mahasiswa pada Data Pribadi.
+
+## Perilaku yang akan diterapkan
+
+1. Mahasiswa mengisi atau memperbarui kolom **Nama Lengkap** pada Data Pribadi,
+   lalu menekan tombol **Simpan**.
+2. Setelah penyimpanan berhasil, nama pada header akun mahasiswa langsung
+   berubah mengikuti Nama Lengkap terbaru tanpa perlu keluar atau masuk kembali.
+3. Nama yang sama akan digunakan kembali saat mahasiswa membuka akun pada sesi
+   berikutnya, sehingga tampilan akun tetap konsisten.
+4. Jika Nama Lengkap dikosongkan atau penyimpanan gagal, nama yang sudah tampil
+   sebelumnya tidak akan ditimpa dengan nilai kosong.
+5. ID Calon Penerima Manfaat tetap tidak berubah; perubahan hanya berlaku pada
+   nama tampilan.
+
+## Asumsi
+
+- Nama yang ditampilkan mengikuti penulisan yang dimasukkan mahasiswa pada
+  kolom **Nama Lengkap**, termasuk kapitalisasi yang dipilih mahasiswa.
+- Sinkronisasi hanya dijalankan setelah tombol **Simpan** berhasil, bukan saat
+  mahasiswa masih mengetik.

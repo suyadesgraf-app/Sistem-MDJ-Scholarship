@@ -33,7 +33,7 @@ const DOC_TYPES = [
 const DEFAULT_REGISTRATION_CATEGORY = "Mahasiswa Sarjana (S1)";
 
 export default function StudentDashboard() {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [active, setActive] = useState("ringkasan");
   const [data, setData] = useState({});
   const [reg, setReg] = useState({});
@@ -104,6 +104,9 @@ export default function StudentDashboard() {
     try {
       const response = await api.put("/profile", { data });
       const campus = response.data.campus;
+      if (response.data.user) {
+        setUser(response.data.user);
+      }
       if (campus) {
         setCampuses((previous) => [...previous, campus].sort((a, b) => a.name.localeCompare(b.name)));
         toast.success(`Kampus baru ditambahkan dengan kode ${campus.code}.`);

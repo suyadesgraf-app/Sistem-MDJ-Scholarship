@@ -1,0 +1,30 @@
+{
+  "summary": "Verified name-sync feature: PUT /api/profile with non-empty namaLengkap now updates users.name and returns clean user (no _id). Backend pytest: 5/5 pass covering (a) PUT profile → users.name updated + response.user clean, (b) GET /auth/me reflects new name, (c) fresh POST /auth/login reflects new name, (d) PUT profile with empty/whitespace namaLengkap does NOT overwrite users.name and response.user is null, (e) seeded registration cpm_id is preserved after profile update. Frontend Playwright: registered a fresh temp student, seeded token into localStorage, opened /dashboard, changed field-namaLengkap and clicked save-profile-btn → header (AccountIdentity <p>) updated instantly to new name WITHOUT reload, and remained after full page reload. Header initial + role label untouched. Temp user + profile removed from Mongo after test; demo student account not modified.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_profile_name_sync.py",
+    "/app/test_reports/pytest/iter32_profile_sync.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py PUT /profile only fetches updated_user when role=='student' AND display_name truthy. Behaviour is per spec, but consider explicit doc-comment: response.user null intentionally signals FE not to overwrite. Currently FE code correctly guards `if (response.data.user) setUser(...)`.",
+    "profiles.data is fully replaced on each PUT (not merged). If a partial payload is ever sent this could drop fields. Not in scope for this iteration but worth flagging.",
+    "server.py still 5397 lines (over 700-line guideline). Modularisation pending.",
+    "clean_user() only strips _id and password_hash. auth_version/is_active are exposed to FE which is fine but could be filtered for principle of least exposure."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_profile_name_sync.py"
+  ],
+  "success_rate": { "backend": "100% (5/5)", "frontend": "100% (single flow)" },
+  "test_credentials": "Used /api/auth/register to create ephemeral test_profile_sync_*@example.com and test_uisync_*@example.com; deleted from Mongo after test. Demo student mahasiswa.mdj@baznasbazisdki.id not touched.",
+  "seed_data_creation": "Ephemeral: one users doc, one profiles doc, one registrations doc (with SEED_CPM_ID for cpm_id invariance check) — all removed at fixture teardown / manual cleanup script.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run `pytest backend/tests/test_profile_name_sync.py -o addopts='' -v` (module ships with xdist in pytest.ini which the fixture-scoped teardown handles correctly on single worker). The default xdist config also works. Contract to preserve: response.user is null when namaLengkap blank; response.user is clean (no _id, no password_hash) when set; users.name mirrors profiles.data.namaLengkap for role=student only; cpm_id in registrations is never mutated by /profile.",
+  "rca of the issue": "N/A — feature works as specified. No bug found."
+}
