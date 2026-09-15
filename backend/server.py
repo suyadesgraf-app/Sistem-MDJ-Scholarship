@@ -1376,6 +1376,76 @@ async def mark_document_revision_seen(
 async def get_pending_selection_announcement(
     user: dict = Depends(require_roles("student")),
 ):
+    registration = await db.registrations.find_one(
+        {"user_id": user["user_id"]},
+        {"_id": 0, "user_id": 1, "status": 1, "category": 1, "is_announcement_published": 1},
+    )
+    if (
+        registration
+        and registration.get("status") in SELECTION_RESULT_STATUSES
+        and not registration.get("is_announcement_published")
+    ):
+        campaign = None
+        registration_category = registration.get("category", "")
+        if registration_category:
+            campaign = await db.selection_announcements.find_one(
+                {"status_publikasi": "Published", "category": registration_category},
+                {"_id": 0},
+                sort=[("published_at", -1)],
+            )
+        if not campaign:
+            campaign = await db.selection_announcements.find_one(
+                {"status_publikasi": "Published", "category": "all"},
+                {"_id": 0},
+                sort=[("published_at", -1)],
+            )
+        if campaign:
+            now = datetime.now(timezone.utc).isoformat()
+            claimed = await db.registrations.find_one_and_update(
+                {
+                    "user_id": user["user_id"],
+                    "status": {"$in": SELECTION_RESULT_STATUSES},
+                    "$or": [
+                        {"is_announcement_published": {"$exists": False}},
+                        {"is_announcement_published": False},
+                    ],
+                },
+                {
+                    "$set": {
+                        "is_announcement_published": True,
+                        "selection_announcement_id": campaign["id"],
+                        "selection_announcement_published_at": now,
+                    }
+                },
+                projection={"_id": 0, "user_id": 1, "status": 1, "category": 1},
+                return_document=ReturnDocument.AFTER,
+            )
+            if claimed:
+                result = (
+                    "passed"
+                    if claimed.get("status") in SELECTION_RESULT_PASSED_STATUSES
+                    else "failed"
+                )
+                await db.notifications.insert_one(
+                    {
+                        "id": str(uuid.uuid4()),
+                        "user_id": claimed["user_id"],
+                        "type": "selection_result",
+                        "source_id": campaign["id"],
+                        "announcement_id": campaign["id"],
+                        "category": claimed.get("category", ""),
+                        "result": result,
+                        "title": campaign["title"],
+                        "message": campaign["message"],
+                        "is_read": False,
+                        "is_popup_seen": False,
+                        "created_at": now,
+                    }
+                )
+                await db.selection_announcements.update_one(
+                    {"id": campaign["id"]},
+                    {"$inc": {"late_recipient_count": 1}},
+                )
     notification = await db.notifications.find_one(
         {
             "user_id": user["user_id"],

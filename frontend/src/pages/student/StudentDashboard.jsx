@@ -91,7 +91,10 @@ export default function StudentDashboard() {
     loadNotifications();
     loadSelectionAnnouncement();
     loadDocumentRevision();
-    const pollNotifications = window.setInterval(loadNotifications, 30000);
+    const pollNotifications = window.setInterval(() => {
+      loadNotifications();
+      loadSelectionAnnouncement();
+    }, 30000);
     return () => window.clearInterval(pollNotifications);
   }, [loadDocumentRevision, loadNotifications, loadSelectionAnnouncement]);
 

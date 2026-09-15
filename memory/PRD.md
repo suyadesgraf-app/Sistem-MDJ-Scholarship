@@ -513,3 +513,14 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   endpoint lama tidak dapat lagi membuka izin edit tanpa alur pengembalian. Diuji mandiri: UI Admin/popup
   mahasiswa, alasan umum, status revisi, penguncian kembali, dan suite `test_document_revision_flow.py` 6/6
   lulus. Status pendaftaran tetap diverifikasi tertutup.
+
+## 2026-09 — Perbaikan popup pengumuman seleksi terlambat
+- Ditemukan kondisi urutan waktu: kampanye pengumuman telah Published sebelum status mahasiswa berubah menjadi
+  Lolos Administrasi. Akun tersebut tidak termasuk snapshot penerima saat broadcast awal, sehingga belum memiliki
+  notifikasi `selection_result` maupun flag `is_announcement_published`.
+- `GET /api/student/selection-announcements/pending` kini melakukan backfill atomik untuk mahasiswa berstatus
+  hasil seleksi yang belum menerima pengumuman. Kampanye kategori spesifik diprioritaskan atas kampanye Semua
+  Kategori; notifikasi dibuat tepat satu kali dan polling dashboard mengeceknya setiap 30 detik.
+- Diuji testing agent pada skenario status setelah broadcast: backend 6/6 dan popup ponsel lulus, termasuk
+  idempotensi, kategori tepat, status lulus/tidak lulus, pembacaan popup, dan pencegahan duplikasi. Suite:
+  `backend/tests/test_selection_announcement_backfill.py`.

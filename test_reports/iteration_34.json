@@ -1,0 +1,40 @@
+{
+  "summary": "Verified GET /api/student/selection-announcements/pending BACKFILL fix for the CPM-MDJ/2026/000062 late-status race. Pytest 6 passed / 2 skipped (env-guarded). Frontend Playwright on 390px viewport: temp late-status student logs in -> Selection Result popup appears with title 'Pengumuman Hasil Seleksi Berkas' + CTA 'Lihat Hasil Seleksi'; passed detail shows 'Selamat! Anda dinyatakan LULUS...'; after Selesai + reload popup does NOT reappear. Real published campaign (1722585f-...) and real student CPM-MDJ/2026/000062 registration were NOT deleted or modified in identity; only real campaign's late_recipient_count metric was incremented by +1 as a natural side-effect of the UI-flow backfill (behaviour matches spec).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/student/selection-announcements/pending", "issue": "When multiple Published campaigns match (both category=all AND category-specific), the endpoint picks by max published_at only. If admin later publishes an 'all' campaign after a category-specific one, students in that specific category will be backfilled by the newer 'all' campaign instead of their category-specific one. Consider prioritising exact-category match over 'all' when both are Published."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_selection_announcement_backfill.py",
+    "/app/test_reports/pytest/iter34_backfill.xml"
+  ],
+  "action_items": [
+    "(Optional) Add tie-break to prefer exact-category Published campaign over category='all' when both match a student in the backfill selection.",
+    "(Optional) Consider guarding late_recipient_count increment when the backfill was triggered by an automated/synthetic student (test noise). Not required — matches production semantics."
+  ],
+  "critical_code_review_comments": [
+    "Backfill in GET pending uses `find_one_and_update` with the SELECTION_RESULT_STATUSES + is_announcement_published=false guard: this correctly makes the write idempotent under concurrent polls (30s interval on FE + reload). Verified via test_late_passed_gets_notif_and_flag_and_idempotent (2 sequential calls -> 1 notif).",
+    "Notification insert AFTER the atomic reg update is safe because the update itself claims the flag; a second concurrent call finds no matching reg and skips insert.",
+    "Campaign sort key is `published_at` DESC only. Category='all' vs exact-category ties break by time, not specificity — see minor issue.",
+    "Mongo `_id` is projected out everywhere in this endpoint response (registration, campaign, notification). Verified via API assertions.",
+    "Frontend StudentDashboard polls both notifications and selection-announcements pending every 30s, ensuring late-status flips within an active session pick up the backfill without re-login. Verified indirectly via UI reload test.",
+    "server.py still 5585 lines — modularisation still pending (carry-over from iter33)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_selection_announcement_backfill.py"
+  ],
+  "success_rate": {"backend": "100% (6/6 executed, 2 env-skipped)", "frontend": "100% (mobile popup lifecycle verified)"},
+  "test_credentials": "Real demo accounts unchanged. Temp students created via direct mongo insert with test_tag=TEST_iter34_backfill and TEST_iter34_ui; all removed on fixture teardown and manual cleanup after UI test.",
+  "seed_data_creation": "Ephemeral test-tagged users + registrations + campaigns (far-future published_at 2099-01-01 to win sort). Real campaign 1722585f-6260-4aa5-a959-da1d30fe0143 was not deleted; its late_recipient_count metric increased by 1 as a natural consequence of one UI-flow backfill (test student, then removed).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: `pytest backend/tests/test_selection_announcement_backfill.py -o addopts='' -v`. Env vars from /app/backend/.env and /app/frontend/.env must be exported. Invariants: (a) late-status student with unpublished flag + matching Published campaign -> exactly 1 selection_result notif per user, (b) idempotent under repeated GETs, (c) POST /seen -> pending null, (d) category-specific campaign never backfills a different-category student, (e) is_announcement_published=true short-circuits backfill, (f) non-final status short-circuits backfill. Note: real Published 'all' campaign 1722585f-... exists (2026-09-15) and will always be a fallback backfill source for any final-status student in this env; tests use far-future published_at (2099) to override sort when needed.",
+  "rca of the issue": "Original bug (CPM-MDJ/2026/000062): campaign Published at 04:24Z but student's status transitioned to lolos_administrasi at 04:28Z, so the initial broadcast recipient scan (which snapshots users at publish time) excluded them; is_announcement_published was never set and no notification was created. Fix (verified): GET /student/selection-announcements/pending performs an idempotent claim-and-notify against any Published campaign matching the student's category (or 'all'), backfilling a single selection_result notification the next time the student polls. FE polls every 30s + on reload/login, so the popup surfaces autonomously. Mitigation quality: solid + idempotent + category-scoped; residual edge case only around 'all' vs exact-category tie-break (see minor issue)."
+}
