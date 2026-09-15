@@ -462,3 +462,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   persetujuan, konfirmasi, audit persetujuan, penguncian sebelum akses storage/OCR, RBAC, dan pembersihan data
   uji. Status pendaftaran dikembalikan ke kondisi awal tertutup. Suite:
   `backend/tests/test_pakta_integritas.py`.
+
+## 2026-09 — Tab Formulir Pendaftaran dihapus dari mahasiswa
+- Tab **Formulir Pendaftaran** di dalam menu Pendaftaran akun mahasiswa dihapus dari navigasi. Tab yang
+  tersisa adalah Data Pendidikan, Dokumen, dan Pakta Integritas.
+- Kategori standar Mahasiswa Sarjana (S1) digunakan saat pendaftar baru mengirim Pakta tanpa memiliki draf
+  kategori sebelumnya, sehingga penghapusan tab tidak memutus alur pendaftaran.
+- Diuji pada browser desktop dan ponsel 390px: tab Formulir tidak muncul, tiga tab lain tetap dapat diakses,
+  dan tidak ada horizontal overflow. Status periode dikembalikan serta diverifikasi tertutup.

@@ -30,6 +30,7 @@ const DOC_TYPES = [
   "Surat Keterangan Mahasiswa Aktif", "SKTM / Surat Rekomendasi", "Surat Persetujuan Orang Tua",
   "Surat Keterangan Tidak Menerima Beasiswa Lain",
 ];
+const DEFAULT_REGISTRATION_CATEGORY = "Mahasiswa Sarjana (S1)";
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -188,12 +189,12 @@ export default function StudentDashboard() {
   };
 
   const submitRegistration = async (action, paktaIntegritasAgreed = false) => {
-    if (!reg.category) return toast.error("Pilih kategori program terlebih dahulu.");
     if (action === "submit" && progress < 100) return toast.error("Lengkapi seluruh data wajib pada Profil sebelum mengirim.");
+    const category = reg.category || DEFAULT_REGISTRATION_CATEGORY;
     setSubmittingRegistration(true);
     try {
       const { data: r } = await api.post("/registration", {
-        category: reg.category,
+        category,
         action,
         pakta_integritas_agreed: paktaIntegritasAgreed,
       });

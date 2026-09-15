@@ -5,7 +5,6 @@ import {
   Eye,
   Clock,
   FileCheck,
-  FileText,
   GraduationCap,
   LockKeyhole,
   Save,
@@ -40,7 +39,6 @@ const CATEGORY_OPTS = [
 const SUBMENU = [
   { id: "pendidikan", label: "Data Pendidikan", icon: GraduationCap },
   { id: "dokumen", label: "Dokumen", icon: FileCheck },
-  { id: "formulir", label: "Formulir Pendaftaran", icon: FileText },
   { id: "pakta", label: "Pakta Integritas", icon: FileCheck },
 ];
 
