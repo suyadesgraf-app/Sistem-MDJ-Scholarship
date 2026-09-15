@@ -1,0 +1,23 @@
+{
+  "summary": "Iter29 validated the Pendaftaran registration-period gate for both backend and frontend. Backend pytest 8/8 pass (/app/backend/tests/test_registration_gate.py): initial site content settings.registration_open=false is asserted; POST /api/registration by mahasiswa demo while closed returns 403 with exact detail 'Masa pendaftaran belum dibuka. Silakan pantau pengumuman MDJ Scholarship secara berkala.'; GET /api/registration remains 200 while closed; PUT /api/site/content is blocked (403) for admin & student roles and allowed only for super_admin; temporary student (registered via /api/auth/register, later cleaned from Mongo) can POST draft when super_admin flips registration_open=true; after super_admin flips back to false the draft persists via GET but new POST returns 403 with the same message. Fixture teardown restores full snapshot with registration_open=false; final API check confirms state = false. Frontend Playwright (mobile 390x844, closed period) verified: sidebar-toggle -> mobile-menu-daftar visible; clicking triggers registration-closed-dialog with the exact Indonesian message via registration-closed-dialog-message; registration-sections NOT rendered; close-registration-closed-dialog dismisses the modal; menu-daftar still visible after close; no horizontal overflow (documentElement scrollWidth 390 == clientWidth 390, body scrollWidth 390); dialog bbox {x:0,w:390} fits viewport. Desktop 1920 also verified: menu-daftar visible, dialog opens on click, no overflow. No test data left behind (temp users purged, registration_open restored to false).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_registration_gate.py",
+    "/app/test_reports/pytest/iter29_registration_gate.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Frontend testids from the review request (registration-submenu-formulir/pendidikan/dokumen) do NOT exist in code; RegistrationSections.jsx uses registration-tab-{formulir|pendidikan|dokumen}. Not a bug (tabs still fully accessible and only visible when period is open), but the E1 handoff note is inaccurate.",
+    "StudentDashboard.selectDashboardMenu falls back to opening the closed dialog when GET /api/site/content fails; this is fail-closed on the UI side, but if the network is flaky a legitimately-open period could temporarily render the dialog. Consider a lighter treatment (e.g., allow soft retry) or at least log the error to console. Not blocking.",
+    "is_registration_period_open() defaults to closed when site_content doc is missing or lacks the settings field (settings.get('registration_open') is True). Backend is correctly fail-closed on POST /api/registration. Good."
+  ],
+  "updated_files": ["/app/backend/tests/test_registration_gate.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id/MdjSuper2026! (super_admin); admin.mdj@baznasbazisdki.id/AdminMDJ2026! (admin); mahasiswa.mdj@baznasbazisdki.id/MahasiswaMDJ2026! (student). Temporary student created via /api/auth/register with random test.reggate.<hex>@example.com / TestPass123! and cleaned from Mongo.",
+  "seed_data_creation": "None persisted. During test: 1 temp user + optional draft registration under email test.reggate.<hex>@example.com created and then removed via pymongo cleanup in module fixture teardown; verified 0 remaining.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Regression suite for the registration-period gate is /app/backend/tests/test_registration_gate.py (8 tests, runs single-worker safe with -n 0). The module-scoped snapshot fixture ALWAYS restores site_content and sets registration_open=false at teardown, so it is safe to rerun. Frontend testids to remember: menu-daftar / mobile-menu-daftar (StudentDashboard), sidebar-toggle (mobile drawer), registration-closed-dialog + registration-closed-dialog-message + registration-closed-dialog-title + close-registration-closed-dialog (RegistrationClosedDialog.jsx). Registration submenu tabs are labeled registration-tab-{formulir|pendidikan|dokumen} (NOT registration-submenu-*). Backend endpoint POST /api/registration uses is_registration_period_open() from server.py:1112 and detail message REGISTRATION_CLOSED_MESSAGE at server.py:966. Only super_admin may PUT /api/site/content.",
+  "rca of the issue": "N/A - no regression found."
+}

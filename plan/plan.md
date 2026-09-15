@@ -1,3 +1,39 @@
+# Proposal — Akses Menu Pendaftaran Berdasarkan Periode
+
+## Tujuan
+Menghubungkan menu **Pendaftaran** pada akun mahasiswa dengan pengaturan **Periode & Status
+Pendaftaran** yang dikelola Super Admin.
+
+## Perilaku yang akan diterapkan
+
+1. Menu **Pendaftaran** tetap terlihat di sidebar mahasiswa agar calon pendaftar mengetahui
+   lokasi layanan tersebut.
+2. Saat status pendaftaran dibuka oleh Super Admin, mahasiswa dapat membuka menu Pendaftaran
+   dan menggunakan formulir, data pendidikan, serta dokumen seperti biasa.
+3. Saat status pendaftaran belum dibuka atau sudah ditutup, klik menu Pendaftaran akan
+   menampilkan pemberitahuan yang jelas:
+   **"Masa pendaftaran belum dibuka. Silakan pantau pengumuman MDJ Scholarship secara berkala."**
+4. Dalam status tertutup, isi formulir, unggahan dokumen, dan pengiriman pendaftaran tidak dapat
+   diakses melalui menu tersebut.
+5. Perubahan status oleh Super Admin berlaku langsung untuk mahasiswa yang masuk setelahnya dan
+   saat mahasiswa berpindah ke menu Pendaftaran.
+6. Data pendaftaran atau draf yang sudah ada tidak dihapus ketika periode ditutup; data hanya
+   tidak dapat dibuka dari menu Pendaftaran sampai periode dibuka kembali.
+
+## Keputusan yang dapat ditinjau
+
+- Pemberitahuan akan memakai dialog ringkas dengan tombol **Tutup**, bukan mengarahkan mahasiswa
+  ke halaman lain.
+- Pesan menggunakan frasa **belum dibuka** untuk semua kondisi nonaktif, termasuk setelah periode
+  ditutup, agar instruksi bagi mahasiswa tetap sederhana.
+- Menu lain seperti Ringkasan, Profil Saya, Status Seleksi, Pengumuman, dan Pengaturan tidak
+  terpengaruh.
+
+## Hasil yang diharapkan
+
+- Super Admin cukup mengubah status periode yang sudah tersedia untuk membuka atau menutup akses.
+- Mahasiswa tidak dapat melewati aturan dengan membuka menu Pendaftaran ketika periode nonaktif.
+- Saat periode aktif, seluruh alur Pendaftaran tetap berjalan tanpa perubahan pengalaman pengguna.
 # Rencana — Simpan Kode Sistem MDJ Scholarship ke GitHub
 
 ## Tujuan

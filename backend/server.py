@@ -963,6 +963,9 @@ async def update_profile(payload: ProfileInput, user: dict = Depends(get_current
 # ---------------------------------------------------------------------------
 # Registration (student)
 # ---------------------------------------------------------------------------
+REGISTRATION_CLOSED_MESSAGE = (
+    "Masa pendaftaran belum dibuka. Silakan pantau pengumuman MDJ Scholarship secara berkala."
+)
 STATUS_LABELS = {
     "draft": "Draft",
     "submitted": "Terkirim",
@@ -1106,6 +1109,12 @@ async def ensure_cpm_id(registration: Optional[dict]) -> Optional[dict]:
     )
 
 
+async def is_registration_period_open() -> bool:
+    content = await db.site_content.find_one({"key": "main"}, {"_id": 0, "settings": 1})
+    settings = (content or {}).get("settings") or {}
+    return settings.get("registration_open") is True
+
+
 @api_router.get("/registration")
 async def get_registration(user: dict = Depends(get_current_user)):
     reg = await db.registrations.find_one({"user_id": user["user_id"]}, {"_id": 0})
@@ -1114,6 +1123,8 @@ async def get_registration(user: dict = Depends(get_current_user)):
 
 @api_router.post("/registration")
 async def submit_registration(payload: RegistrationInput, user: dict = Depends(get_current_user)):
+    if not await is_registration_period_open():
+        raise HTTPException(status_code=403, detail=REGISTRATION_CLOSED_MESSAGE)
     status = "submitted" if payload.action == "submit" else "draft"
     existing = await db.registrations.find_one({"user_id": user["user_id"]})
     now = datetime.now(timezone.utc).isoformat()

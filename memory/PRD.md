@@ -435,3 +435,15 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Modul, data, dan jalur internal Bukti Transfer tidak dihapus sehingga dapat dimunculkan kembali saat diminta.
 - Diuji di browser pada desktop serta layar 390px: menu tidak tampil, sementara Status Seleksi, Pengumuman,
   dan Pengaturan tetap tersedia tanpa overflow. Build frontend lulus.
+
+## 2026-09 — Akses menu Pendaftaran berdasarkan periode
+- Menu **Pendaftaran** tetap terlihat. Saat Super Admin mematikan `settings.registration_open`, pilihan menu
+  mengambil status terbaru dan menampilkan dialog **Masa Pendaftaran Belum Dibuka** tanpa merender Formulir,
+  Data Pendidikan, maupun Dokumen. Pesan menggunakan frasa yang sama untuk seluruh kondisi nonaktif.
+- Server kini fail-closed pada `POST /api/registration`: draf dan pengiriman baru ditolak HTTP 403 saat periode
+  tidak aktif. Pembacaan draf melalui `GET /api/registration` tetap tersedia, sehingga data lama tidak dihapus.
+  Hanya Super Admin yang dapat mengubah pengaturan periode melalui CMS yang sudah ada.
+- Diuji testing agent: backend 8/8 dan Playwright desktop + ponsel 390px lulus, mencakup status tutup/buka,
+  penyimpanan draf sementara, persistensi draf setelah periode ditutup kembali, RBAC CMS, dialog tepat, dan
+  tidak ada horizontal overflow. Kondisi awal `registration_open: false` dipulihkan. Suite:
+  `backend/tests/test_registration_gate.py`.

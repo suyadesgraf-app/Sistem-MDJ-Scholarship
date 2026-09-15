@@ -8,6 +8,7 @@ import AccountSettings from "@/components/AccountSettings";
 import RegistrationSections from "@/components/RegistrationSections";
 import StudentDisbursementProofs from "@/components/StudentDisbursementProofs";
 import SelectionResultPopup from "@/components/SelectionResultPopup";
+import RegistrationClosedDialog from "@/components/RegistrationClosedDialog";
 import { docFileUrl } from "@/components/DocPreview";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
@@ -41,6 +42,7 @@ export default function StudentDashboard() {
   const [notifications, setNotifications] = useState([]);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [selectionAnnouncement, setSelectionAnnouncement] = useState(null);
+  const [registrationClosedDialogOpen, setRegistrationClosedDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const loadNotifications = useCallback(async () => {
@@ -162,6 +164,25 @@ export default function StudentDashboard() {
     setSelectionAnnouncement(null);
   };
 
+  const selectDashboardMenu = async (menuId) => {
+    if (menuId !== "daftar") {
+      setActive(menuId);
+      return;
+    }
+    try {
+      const response = await api.get("/site/content");
+      const nextContent = response.data || {};
+      setContent(nextContent);
+      if (nextContent.settings?.registration_open !== true) {
+        setRegistrationClosedDialogOpen(true);
+        return;
+      }
+      setActive("daftar");
+    } catch {
+      setRegistrationClosedDialogOpen(true);
+    }
+  };
+
   const submitRegistration = async (action) => {
     if (!reg.category) return toast.error("Pilih kategori program terlebih dahulu.");
     if (action === "submit" && progress < 100) return toast.error("Lengkapi seluruh data wajib pada Profil sebelum mengirim.");
@@ -177,7 +198,7 @@ export default function StudentDashboard() {
   const currentIdx = statusOrder.indexOf(reg.status);
 
   return (
-    <DashboardShell menu={MENU} active={active} onSelect={setActive} brandLabel="Portal Pendaftar"
+    <DashboardShell menu={MENU} active={active} onSelect={selectDashboardMenu} brandLabel="Portal Pendaftar"
       title={MENU.find((m) => m.id === active)?.label} subtitle="Program Masa Depan Jakarta 2026"
       avatarUrl={avatarUrl}
       candidateId={reg.cpm_id}
@@ -318,6 +339,10 @@ export default function StudentDashboard() {
         announcement={selectionAnnouncement}
         onMarkSeen={markSelectionAnnouncementSeen}
         onDismiss={dismissSelectionAnnouncement}
+      />
+      <RegistrationClosedDialog
+        open={registrationClosedDialogOpen}
+        onClose={() => setRegistrationClosedDialogOpen(false)}
       />
     </DashboardShell>
   );
