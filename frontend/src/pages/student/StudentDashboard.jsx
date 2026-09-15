@@ -28,7 +28,7 @@ const DOC_TYPES = [
   "KTP DKI Jakarta", "Kartu Keluarga (KK)", "Pas Foto 3x4", "Kartu Tanda Mahasiswa (KTM)",
   "KRS / KHS / Transkrip Nilai",
   "Surat Keterangan Mahasiswa Aktif", "SKTM / Surat Rekomendasi", "Surat Persetujuan Orang Tua",
-  "Surat Keterangan Tidak Menerima Beasiswa Lain", "Pakta Integritas",
+  "Surat Keterangan Tidak Menerima Beasiswa Lain",
 ];
 
 export default function StudentDashboard() {
@@ -44,6 +44,7 @@ export default function StudentDashboard() {
   const [selectionAnnouncement, setSelectionAnnouncement] = useState(null);
   const [registrationClosedDialogOpen, setRegistrationClosedDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [submittingRegistration, setSubmittingRegistration] = useState(false);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -91,6 +92,9 @@ export default function StudentDashboard() {
     [docs],
   );
   const avatarUrl = profilePhoto ? docFileUrl(profilePhoto) : null;
+  const registrationDocumentsLocked = Boolean(
+    reg.status && reg.status !== "draft" && !reg.documents_editing_allowed,
+  );
 
   const set = (k, v) => setData((p) => ({ ...p, [k]: v }));
 
@@ -183,14 +187,27 @@ export default function StudentDashboard() {
     }
   };
 
-  const submitRegistration = async (action) => {
+  const submitRegistration = async (action, paktaIntegritasAgreed = false) => {
     if (!reg.category) return toast.error("Pilih kategori program terlebih dahulu.");
     if (action === "submit" && progress < 100) return toast.error("Lengkapi seluruh data wajib pada Profil sebelum mengirim.");
+    setSubmittingRegistration(true);
     try {
-      const { data: r } = await api.post("/registration", { category: reg.category, action });
+      const { data: r } = await api.post("/registration", {
+        category: reg.category,
+        action,
+        pakta_integritas_agreed: paktaIntegritasAgreed,
+      });
       setReg(r);
       toast.success(action === "submit" ? "Pendaftaran berhasil dikirim!" : "Draft pendaftaran disimpan.");
-    } catch (e) { toast.error("Gagal memproses pendaftaran."); }
+    } catch (error) {
+      const detail = error.response?.data?.detail;
+      const message = typeof detail === "string"
+        ? detail
+        : detail?.message || "Gagal memproses pendaftaran.";
+      toast.error(message);
+    } finally {
+      setSubmittingRegistration(false);
+    }
   };
 
   const timeline = content.timeline || [];
@@ -260,7 +277,19 @@ export default function StudentDashboard() {
       )}
 
       {active === "profil" && (
-        <StudentProfile data={data} set={set} setData={setData} docs={docs} uploadDoc={uploadDoc} deleteDoc={deleteDoc} onDocSaved={(d) => setDocs((p) => [...p.filter((x) => x.doc_type !== d.doc_type), d])} />
+        <StudentProfile
+          data={data}
+          set={set}
+          setData={setData}
+          docs={docs}
+          documentsLocked={registrationDocumentsLocked}
+          uploadDoc={uploadDoc}
+          deleteDoc={deleteDoc}
+          onDocSaved={(document) => setDocs((previous) => [
+            ...previous.filter((item) => item.doc_type !== document.doc_type),
+            document,
+          ])}
+        />
       )}
 
       {active === "daftar" && (
@@ -280,6 +309,7 @@ export default function StudentDashboard() {
             document,
           ])}
           onSubmitRegistration={submitRegistration}
+          submissionLoading={submittingRegistration}
           campuses={campuses}
         />
       )}

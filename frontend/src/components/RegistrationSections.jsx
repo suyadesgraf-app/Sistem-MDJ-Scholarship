@@ -7,6 +7,7 @@ import {
   FileCheck,
   FileText,
   GraduationCap,
+  LockKeyhole,
   Save,
   Trash2,
   UploadCloud,
@@ -14,6 +15,8 @@ import {
 import { FieldGrid, PENDIDIKAN } from "@/components/StudentProfile";
 import { DocPreview } from "@/components/DocPreview";
 import EducationDocumentScan from "@/components/EducationDocumentScan";
+import IntegrityPactForm from "@/components/IntegrityPactForm";
+import PactRequirementsDialog from "@/components/PactRequirementsDialog";
 
 const DOC_TYPES = [
   "KTP DKI Jakarta",
@@ -25,7 +28,6 @@ const DOC_TYPES = [
   "SKTM / Surat Rekomendasi",
   "Surat Persetujuan Orang Tua",
   "Surat Keterangan Tidak Menerima Beasiswa Lain",
-  "Pakta Integritas",
 ];
 
 const CATEGORY_OPTS = [
@@ -38,7 +40,8 @@ const CATEGORY_OPTS = [
 const SUBMENU = [
   { id: "pendidikan", label: "Data Pendidikan", icon: GraduationCap },
   { id: "dokumen", label: "Dokumen", icon: FileCheck },
-  { id: "formulir", label: "Formulir Pakta Integritas", icon: FileText },
+  { id: "formulir", label: "Formulir Pendaftaran", icon: FileText },
+  { id: "pakta", label: "Pakta Integritas", icon: FileCheck },
 ];
 
 const inputCls =
@@ -70,11 +73,34 @@ export default function RegistrationSections({
   onDeleteDoc,
   onDocumentSaved,
   onSubmitRegistration,
+  submissionLoading,
   campuses,
 }) {
   const [tab, setTab] = useState("pendidikan");
   const [preview, setPreview] = useState(null);
+  const [requirementsOpen, setRequirementsOpen] = useState(false);
   const set = (key, value) => setData((previous) => ({ ...previous, [key]: value }));
+  const documentsLocked = Boolean(
+    reg.status && reg.status !== "draft" && !reg.documents_editing_allowed,
+  );
+  const missingEducation = PENDIDIKAN
+    .filter((field) => !String(data[field.k] || "").trim())
+    .map((field) => field.l);
+  const missingDocuments = DOC_TYPES.filter(
+    (docType) => !docs.some((document) => document.doc_type === docType),
+  );
+
+  const selectTab = (tabId) => {
+    if (tabId !== "pakta" || (reg.status && reg.status !== "draft")) {
+      setTab(tabId);
+      return;
+    }
+    if (missingEducation.length || missingDocuments.length) {
+      setRequirementsOpen(true);
+      return;
+    }
+    setTab("pakta");
+  };
 
   return (
     <div className="space-y-6" data-testid="registration-sections">
@@ -87,7 +113,7 @@ export default function RegistrationSections({
             <button
               key={item.id}
               type="button"
-              onClick={() => setTab(item.id)}
+              onClick={() => selectTab(item.id)}
               data-testid={`registration-tab-${item.id}`}
               aria-current={selected ? "page" : undefined}
               className={[
@@ -137,7 +163,8 @@ export default function RegistrationSections({
             <AlertCircle className="w-5 h-5 text-[#B8860B] shrink-0 mt-0.5" />
             <p className="text-sm text-[#6B7280]" data-testid="registration-progress-note">
               Kelengkapan profil saat ini <b className="text-[#1F2937]">{progress}%</b>.
-              Data wajib harus 100% dan dokumen lengkap sebelum pendaftaran dapat dikirim.
+              Data pendidikan dan dokumen lengkap diperlukan sebelum Pakta Integritas dapat
+              disetujui.
             </p>
           </div>
           {(!reg.status || reg.status === "draft") ? (
@@ -152,17 +179,6 @@ export default function RegistrationSections({
                 ].join(" ")}
               >
                 Simpan Draft
-              </button>
-              <button
-                type="button"
-                onClick={() => onSubmitRegistration("submit")}
-                data-testid="submit-registration-btn"
-                className={[
-                  "px-5 py-2.5 bg-[#27AE60] hover:bg-[#0B6B3A] text-white text-sm",
-                  "font-bold rounded-xl transition-colors",
-                ].join(" ")}
-              >
-                Kirim Pendaftaran
               </button>
             </div>
           ) : (
@@ -191,6 +207,7 @@ export default function RegistrationSections({
             docs={docs}
             setData={setData}
             onDocumentSaved={onDocumentSaved}
+            locked={documentsLocked}
           />
           <p className="mt-5 text-xs leading-relaxed text-[#6B7280]">
             Tinjau hasil AI, perbaiki bila perlu, lalu simpan data pendidikan.
@@ -223,6 +240,18 @@ export default function RegistrationSections({
           <p className="text-sm text-[#6B7280] mb-5">
             Format PDF/JPG/PNG. Ukuran maksimal 5MB per file.
           </p>
+          {documentsLocked && (
+            <p
+              className={
+                "mb-5 flex items-center gap-2 border-l-4 border-[#B8860B] bg-[#FFFBEB] " +
+                "p-3 text-sm text-[#7A5C00]"
+              }
+              data-testid="registration-documents-locked-notice"
+            >
+              <LockKeyhole className="h-4 w-4 shrink-0" />
+              Dokumen sudah dikirim dan terkunci. Panitia dapat memberi izin edit kembali.
+            </p>
+          )}
           <div className="space-y-3">
             {DOC_TYPES.map((docType, index) => {
               const document = docs.find((item) => item.doc_type === docType);
@@ -238,7 +267,7 @@ export default function RegistrationSections({
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     {document ? (
-                      <CheckCircle2 className="w-5 h-5 text-[#27AE60] shrink-0" />
+                      <CheckCircle2 className="w-5 h-5 shrink-0 text-[#27AE60]" />
                     ) : (
                       <Clock className="w-5 h-5 text-gray-400 shrink-0" />
                     )}
@@ -251,7 +280,10 @@ export default function RegistrationSections({
                           type="button"
                           onClick={() => setPreview(document)}
                           data-testid={`preview-document-${index}`}
-                          className="text-xs text-[#0B6B3A] hover:underline truncate max-w-[260px] flex items-center gap-1"
+                          className={
+                            "flex max-w-[260px] items-center gap-1 truncate text-xs text-[#0B6B3A] " +
+                            "hover:underline"
+                          }
                         >
                           <Eye className="w-3.5 h-3.5 shrink-0" /> {document.original_filename}
                         </button>
@@ -259,7 +291,7 @@ export default function RegistrationSections({
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    {document && (
+                    {document && !documentsLocked && (
                       <button
                         type="button"
                         onClick={() => onDeleteDoc(document.id)}
@@ -270,24 +302,26 @@ export default function RegistrationSections({
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
-                    <label
-                      data-testid={`document-upload-trigger-${index}`}
-                      className={[
-                        "px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50",
-                        "text-[#1F2937] text-xs font-bold rounded-lg cursor-pointer",
-                        "flex items-center gap-2",
-                      ].join(" ")}
-                    >
-                      <UploadCloud className="w-4 h-4" />
-                      {document ? "Ganti" : "Unggah"}
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.jpg,.jpeg,.png"
-                        data-testid={`upload-document-${index}`}
-                        onChange={(event) => onUploadDoc(docType, event.target.files[0])}
-                      />
-                    </label>
+                    {!documentsLocked && (
+                      <label
+                        data-testid={`document-upload-trigger-${index}`}
+                        className={[
+                          "px-3.5 py-2 bg-white border border-gray-300 hover:bg-gray-50",
+                          "text-[#1F2937] text-xs font-bold rounded-lg cursor-pointer",
+                          "flex items-center gap-2",
+                        ].join(" ")}
+                      >
+                        <UploadCloud className="w-4 h-4" />
+                        {document ? "Ganti" : "Unggah"}
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.jpg,.jpeg,.png"
+                          data-testid={`upload-document-${index}`}
+                          onChange={(event) => onUploadDoc(docType, event.target.files[0])}
+                        />
+                      </label>
+                    )}
                   </div>
                 </div>
               );
@@ -296,6 +330,19 @@ export default function RegistrationSections({
           <DocPreview doc={preview} onClose={() => setPreview(null)} />
         </Card>
       )}
+      {tab === "pakta" && (
+        <IntegrityPactForm
+          reg={reg}
+          submitting={submissionLoading}
+          onSubmit={onSubmitRegistration}
+        />
+      )}
+      <PactRequirementsDialog
+        missingDocuments={missingDocuments}
+        missingEducation={missingEducation}
+        open={requirementsOpen}
+        onClose={() => setRequirementsOpen(false)}
+      />
     </div>
   );
 }

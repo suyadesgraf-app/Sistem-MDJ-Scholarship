@@ -27,7 +27,7 @@ const SCAN_TYPES = [
   },
 ];
 
-export default function EducationDocumentScan({ docs, setData, onDocumentSaved }) {
+export default function EducationDocumentScan({ docs, locked, setData, onDocumentSaved }) {
   return (
     <div className="grid gap-4 lg:grid-cols-2" data-testid="education-document-scans">
       {SCAN_TYPES.map((config) => (
@@ -35,6 +35,7 @@ export default function EducationDocumentScan({ docs, setData, onDocumentSaved }
           key={config.id}
           config={config}
           docs={docs}
+          locked={locked}
           setData={setData}
           onDocumentSaved={onDocumentSaved}
         />
@@ -43,7 +44,7 @@ export default function EducationDocumentScan({ docs, setData, onDocumentSaved }
   );
 }
 
-function ScanCard({ config, docs, setData, onDocumentSaved }) {
+function ScanCard({ config, docs, locked, setData, onDocumentSaved }) {
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -122,16 +123,23 @@ function ScanCard({ config, docs, setData, onDocumentSaved }) {
       <button
         type="button"
         onClick={() => inputRef.current?.click()}
-        disabled={loading}
+        disabled={loading || locked}
         data-testid={`education-scan-${config.id}-upload-button`}
         className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#27AE60] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-[#0B6B3A] disabled:opacity-60"
       >
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
-        {loading ? "Membaca dokumen..." : existing ? "Ganti & Isi Otomatis" : "Unggah & Isi Otomatis"}
+        {loading
+          ? "Membaca dokumen..."
+          : locked
+            ? "Terkunci setelah dikirim"
+            : existing
+              ? "Ganti & Isi Otomatis"
+              : "Unggah & Isi Otomatis"}
       </button>
       <input
         ref={inputRef}
         type="file"
+        disabled={locked}
         accept=".jpg,.jpeg,.png,.webp,.pdf"
         className="hidden"
         data-testid={`education-scan-${config.id}-file-input`}

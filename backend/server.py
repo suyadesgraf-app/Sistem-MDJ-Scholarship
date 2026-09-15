@@ -392,11 +392,16 @@ class PhoneOtpVerifyInput(BaseModel):
 class RegistrationInput(BaseModel):
     category: str
     action: str = "draft"  # draft | submit
+    pakta_integritas_agreed: bool = False
 
 
 class StatusUpdateInput(BaseModel):
     status: str
     note: Optional[str] = None
+
+
+class DocumentEditingPermissionInput(BaseModel):
+    allowed: bool
 
 
 class SelectionAnnouncementPublishInput(BaseModel):
@@ -966,6 +971,33 @@ async def update_profile(payload: ProfileInput, user: dict = Depends(get_current
 REGISTRATION_CLOSED_MESSAGE = (
     "Masa pendaftaran belum dibuka. Silakan pantau pengumuman MDJ Scholarship secara berkala."
 )
+PAKTA_INTEGRITAS_VERSION = "2026-09"
+PAKTA_INTEGRITAS_DOCUMENTS = [
+    "KTP DKI Jakarta",
+    "Kartu Keluarga (KK)",
+    "Pas Foto 3x4",
+    "Kartu Tanda Mahasiswa (KTM)",
+    "KRS / KHS / Transkrip Nilai",
+    "Surat Keterangan Mahasiswa Aktif",
+    "SKTM / Surat Rekomendasi",
+    "Surat Persetujuan Orang Tua",
+    "Surat Keterangan Tidak Menerima Beasiswa Lain",
+]
+PAKTA_INTEGRITAS_EDUCATION_FIELDS = {
+    "jenjang": "Jenjang pendidikan",
+    "institusi": "Perguruan tinggi",
+    "jurusan": "Program studi",
+    "nim": "NIM",
+    "semester": "Semester",
+    "ipk": "IPK",
+    "biayaPendidikanSemester": "Nominal biaya pendidikan per semester",
+}
+PAKTA_INTEGRITAS_REQUIRED_MESSAGE = (
+    "Anda wajib menyetujui Pakta Integritas sebelum mengirim pendaftaran."
+)
+DOCUMENTS_LOCKED_MESSAGE = (
+    "Dokumen pendaftaran sudah dikirim dan terkunci. Panitia perlu mengizinkan edit kembali."
+)
 STATUS_LABELS = {
     "draft": "Draft",
     "submitted": "Terkirim",
@@ -1115,6 +1147,42 @@ async def is_registration_period_open() -> bool:
     return settings.get("registration_open") is True
 
 
+async def registration_completion_gaps(user_id: str) -> Dict[str, List[str]]:
+    profile = await db.profiles.find_one({"user_id": user_id}, {"_id": 0, "data": 1})
+    profile_data = (profile or {}).get("data") or {}
+    missing_education = [
+        label
+        for field, label in PAKTA_INTEGRITAS_EDUCATION_FIELDS.items()
+        if not str(profile_data.get(field, "")).strip()
+    ]
+    documents = await db.documents.find(
+        {"user_id": user_id, "is_deleted": False},
+        {"_id": 0, "doc_type": 1},
+    ).to_list(100)
+    document_types = {document.get("doc_type") for document in documents}
+    missing_documents = [
+        document
+        for document in PAKTA_INTEGRITAS_DOCUMENTS
+        if document not in document_types
+    ]
+    return {
+        "missing_education": missing_education,
+        "missing_documents": missing_documents,
+    }
+
+
+async def ensure_registration_documents_editable(user: dict) -> None:
+    registration = await db.registrations.find_one(
+        {"user_id": user["user_id"]},
+        {"_id": 0, "status": 1, "documents_editing_allowed": 1},
+    )
+    if not registration or registration.get("status") == "draft":
+        return
+    if registration.get("documents_editing_allowed") is True:
+        return
+    raise HTTPException(status_code=403, detail=DOCUMENTS_LOCKED_MESSAGE)
+
+
 @api_router.get("/registration")
 async def get_registration(user: dict = Depends(get_current_user)):
     reg = await db.registrations.find_one({"user_id": user["user_id"]}, {"_id": 0})
@@ -1125,6 +1193,18 @@ async def get_registration(user: dict = Depends(get_current_user)):
 async def submit_registration(payload: RegistrationInput, user: dict = Depends(get_current_user)):
     if not await is_registration_period_open():
         raise HTTPException(status_code=403, detail=REGISTRATION_CLOSED_MESSAGE)
+    if payload.action == "submit":
+        if not payload.pakta_integritas_agreed:
+            raise HTTPException(status_code=400, detail=PAKTA_INTEGRITAS_REQUIRED_MESSAGE)
+        gaps = await registration_completion_gaps(user["user_id"])
+        if gaps["missing_education"] or gaps["missing_documents"]:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "message": "Lengkapi data pendidikan dan dokumen sebelum mengirim pendaftaran.",
+                    **gaps,
+                },
+            )
     status = "submitted" if payload.action == "submit" else "draft"
     existing = await db.registrations.find_one({"user_id": user["user_id"]})
     now = datetime.now(timezone.utc).isoformat()
@@ -1132,9 +1212,30 @@ async def submit_registration(payload: RegistrationInput, user: dict = Depends(g
         await ensure_cpm_id(existing)
         update = {"category": payload.category, "updated_at": now}
         if payload.action == "submit" and existing.get("status") == "draft":
-            update["status"] = "submitted"
-            update["submitted_at"] = now
-        await db.registrations.update_one({"user_id": user["user_id"]}, {"$set": update})
+            update.update({
+                "status": "submitted",
+                "submitted_at": now,
+                "pakta_integritas_agreed": True,
+                "pakta_integritas_agreed_at": now,
+                "pakta_integritas_version": PAKTA_INTEGRITAS_VERSION,
+                "documents_editing_allowed": False,
+                "documents_locked_at": now,
+            })
+            await db.registrations.update_one(
+                {"user_id": user["user_id"]},
+                {
+                    "$set": update,
+                    "$push": {
+                        "history": {
+                            "status": "submitted",
+                            "note": "Pakta Integritas disetujui dan pendaftaran dikirim",
+                            "at": now,
+                        }
+                    },
+                },
+            )
+        else:
+            await db.registrations.update_one({"user_id": user["user_id"]}, {"$set": update})
         reg = await db.registrations.find_one({"user_id": user["user_id"]}, {"_id": 0})
         return reg
     reg = {
@@ -1142,6 +1243,11 @@ async def submit_registration(payload: RegistrationInput, user: dict = Depends(g
         "email": user.get("email"), "category": payload.category, "status": status,
         "cpm_id": await create_cpm_id(now),
         "history": [{"status": status, "note": "Pendaftaran dibuat", "at": now}],
+        "pakta_integritas_agreed": payload.action == "submit",
+        "pakta_integritas_agreed_at": now if payload.action == "submit" else None,
+        "pakta_integritas_version": PAKTA_INTEGRITAS_VERSION if payload.action == "submit" else None,
+        "documents_editing_allowed": payload.action != "submit",
+        "documents_locked_at": now if payload.action == "submit" else None,
         "created_at": now, "submitted_at": now if status == "submitted" else None, "updated_at": now,
     }
     await db.registrations.insert_one(reg)
@@ -1232,6 +1338,7 @@ async def mark_selection_announcement_seen(
 @api_router.post("/documents")
 async def upload_document(doc_type: str = Form(...), file: UploadFile = File(...),
                           user: dict = Depends(get_current_user)):
+    await ensure_registration_documents_editable(user)
     ext = file.filename.split(".")[-1].lower() if "." in file.filename else "bin"
     content_type = file.content_type or MIME_TYPES.get(ext, "application/octet-stream")
     data, ext, content_type = compress_image(
@@ -1268,6 +1375,7 @@ async def list_documents(user: dict = Depends(get_current_user)):
 
 @api_router.delete("/documents/{doc_id}")
 async def delete_document(doc_id: str, user: dict = Depends(get_current_user)):
+    await ensure_registration_documents_editable(user)
     await db.documents.update_one({"id": doc_id, "user_id": user["user_id"]}, {"$set": {"is_deleted": True}})
     return {"message": "Dokumen dihapus"}
 
@@ -1435,6 +1543,7 @@ async def _extract_document(file: UploadFile, user: dict, label: str, system_pro
 
 @api_router.post("/profile/extract-ktp")
 async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    await ensure_registration_documents_editable(user)
     allowed = {"namaLengkap", "nik", "tempatLahir", "tanggalLahir", "jenisKelamin",
                "agama", "statusPerkawinan", "alamatLengkap", "rt", "rw",
                "kelurahan", "kecamatan", "kota", "provinsi"}
@@ -1443,11 +1552,13 @@ async def extract_ktp(file: UploadFile = File(...), user: dict = Depends(get_cur
 
 @api_router.post("/profile/extract-kk")
 async def extract_kk(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    await ensure_registration_documents_editable(user)
     return await _extract_document(file, user, "Kartu Keluarga", KK_SYSTEM_PROMPT, {"noKK"}, "Kartu Keluarga (KK)")
 
 
 @api_router.post("/profile/extract-ktm")
 async def extract_ktm(file: UploadFile = File(...), user: dict = Depends(get_current_user)):
+    await ensure_registration_documents_editable(user)
     fields = {"institusi", "nim", "jurusan", "jenjang"}
     return await _extract_document(
         file,
@@ -1464,6 +1575,7 @@ async def extract_academic_record(
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user),
 ):
+    await ensure_registration_documents_editable(user)
     fields = {"institusi", "nim", "jurusan", "jenjang", "semester", "ipk"}
     return await _extract_document(
         file,
@@ -3852,7 +3964,6 @@ REQUIRED_VERIFICATION_DOCUMENTS = [
     "SKTM / Surat Rekomendasi",
     "Surat Persetujuan Orang Tua",
     "Surat Keterangan Tidak Menerima Beasiswa Lain",
-    "Pakta Integritas",
 ]
 
 REQUIRED_VERIFICATION_FIELDS = {
@@ -4904,6 +5015,50 @@ async def update_participant_status(user_id: str, payload: StatusUpdateInput,
             "Perkembangan seleksi diperbarui",
             f"Status seleksi Anda diperbarui menjadi {label}.",
         )
+    updated = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
+    return updated
+
+
+@api_router.put("/admin/participants/{user_id}/document-editing-permission")
+async def update_document_editing_permission(
+    user_id: str,
+    payload: DocumentEditingPermissionInput,
+    user: dict = Depends(require_roles("admin", "super_admin")),
+):
+    registration = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
+    if not registration:
+        raise HTTPException(status_code=404, detail="Pendaftar tidak ditemukan")
+    now = datetime.now(timezone.utc).isoformat()
+    permission_note = (
+        "Panitia mengizinkan perbaikan dokumen."
+        if payload.allowed
+        else "Panitia mengunci kembali perbaikan dokumen."
+    )
+    await db.registrations.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "documents_editing_allowed": payload.allowed,
+                "documents_editing_permission_updated_at": now,
+                "documents_editing_permission_updated_by": user.get("name", "Panitia"),
+                "updated_at": now,
+            },
+            "$push": {
+                "history": {
+                    "status": registration.get("status", "submitted"),
+                    "note": permission_note,
+                    "at": now,
+                    "by": user.get("name", "Panitia"),
+                }
+            },
+        },
+    )
+    await create_notification(
+        user_id,
+        "document_edit_permission",
+        "Izin edit dokumen diperbarui",
+        permission_note,
+    )
     updated = await db.registrations.find_one({"user_id": user_id}, {"_id": 0})
     return updated
 

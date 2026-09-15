@@ -71,7 +71,16 @@ const TABS = [
   { id: "foto", label: "Foto Profil", icon: ImageIcon },
 ];
 
-export default function StudentProfile({ data, set, setData, docs, uploadDoc, deleteDoc, onDocSaved }) {
+export default function StudentProfile({
+  data,
+  set,
+  setData,
+  docs,
+  documentsLocked,
+  uploadDoc,
+  deleteDoc,
+  onDocSaved,
+}) {
   const [tab, setTab] = useState("pribadi");
   const progress = profileProgress(data);
 
@@ -135,8 +144,20 @@ export default function StudentProfile({ data, set, setData, docs, uploadDoc, de
       {/* Panels */}
       {tab === "pribadi" && (
         <div className="space-y-6">
-          <DocScanUploader type="ktp" setData={setData} docs={docs} onDocSaved={onDocSaved} />
-          <DocScanUploader type="kk" setData={setData} docs={docs} onDocSaved={onDocSaved} />
+          <DocScanUploader
+            type="ktp"
+            docs={docs}
+            locked={documentsLocked}
+            setData={setData}
+            onDocSaved={onDocSaved}
+          />
+          <DocScanUploader
+            type="kk"
+            docs={docs}
+            locked={documentsLocked}
+            setData={setData}
+            onDocSaved={onDocSaved}
+          />
           <SectionCard title="Data Pribadi" desc="Isi data sesuai KTP, Kartu Keluarga, atau dokumen identitas resmi.">
             <FieldGrid fields={PRIBADI} data={data} set={set} />
           </SectionCard>
@@ -156,7 +177,14 @@ export default function StudentProfile({ data, set, setData, docs, uploadDoc, de
         </SectionCard>
       )}
 
-      {tab === "foto" && <PhotoTab docs={docs} uploadDoc={uploadDoc} deleteDoc={deleteDoc} />}
+      {tab === "foto" && (
+        <PhotoTab
+          docs={docs}
+          locked={documentsLocked}
+          uploadDoc={uploadDoc}
+          deleteDoc={deleteDoc}
+        />
+      )}
     </div>
   );
 }
@@ -167,7 +195,7 @@ const SCAN_DOCS = {
   kk: { label: "Kartu Keluarga", endpoint: "/profile/extract-kk", desc: "Unggah foto/PDF Kartu Keluarga, AI akan mengisi Nomor KK otomatis dan file langsung tersimpan sebagai dokumen pendaftaran.", testId: "kk", docType: "Kartu Keluarga (KK)" },
 };
 
-function DocScanUploader({ type, setData, docs, onDocSaved }) {
+function DocScanUploader({ type, setData, docs, locked, onDocSaved }) {
   const cfg = SCAN_DOCS[type];
   const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
@@ -217,13 +245,27 @@ function DocScanUploader({ type, setData, docs, onDocSaved }) {
         </div>
         <button
           onClick={() => inputRef.current?.click()}
-          disabled={loading}
+          disabled={loading || locked}
           data-testid={`${cfg.testId}-upload-btn`}
           className="flex shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-[#27AE60] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#0B6B3A] disabled:opacity-60 sm:self-auto"
         >
-          {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Membaca {cfg.label}...</> : <><UploadCloud className="w-4 h-4" /> Unggah {cfg.label}</>}
+          {loading ? (
+            <><Loader2 className="w-4 h-4 animate-spin" /> Membaca {cfg.label}...</>
+          ) : locked ? (
+            <><FileCheck className="w-4 h-4" /> Dokumen Terkunci</>
+          ) : (
+            <><UploadCloud className="w-4 h-4" /> Unggah {cfg.label}</>
+          )}
         </button>
-        <input ref={inputRef} type="file" className="hidden" accept=".jpg,.jpeg,.png,.webp,.pdf" data-testid={`${cfg.testId}-file-input`} onChange={(e) => handle(e.target.files[0])} />
+        <input
+          ref={inputRef}
+          type="file"
+          disabled={locked}
+          className="hidden"
+          accept=".jpg,.jpeg,.png,.webp,.pdf"
+          data-testid={`${cfg.testId}-file-input`}
+          onChange={(event) => handle(event.target.files[0])}
+        />
       </div>
     </div>
   );
@@ -231,7 +273,7 @@ function DocScanUploader({ type, setData, docs, onDocSaved }) {
 
 // ---- Foto Profil tab ----
 const PHOTO_DOC = "Pas Foto 3x4";
-function PhotoTab({ docs, uploadDoc, deleteDoc }) {
+function PhotoTab({ docs, locked, uploadDoc, deleteDoc }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
@@ -256,13 +298,30 @@ function PhotoTab({ docs, uploadDoc, deleteDoc }) {
         <div className="flex-1 text-center sm:text-left">
           <p className="text-sm text-[#6B7280] mb-3">{photo ? `File saat ini: ${photo.original_filename}` : "Belum ada foto yang diunggah."}</p>
           <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
-            <button onClick={() => inputRef.current?.click()} disabled={busy} data-testid="upload-photo-btn"
+            <button onClick={() => inputRef.current?.click()} disabled={busy || locked} data-testid="upload-photo-btn"
               className="px-4 py-2 bg-[#27AE60] hover:bg-[#0B6B3A] disabled:opacity-60 text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-colors">
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />} {photo ? "Ganti Foto" : "Unggah Foto"}
             </button>
-            {photo && <button onClick={() => deleteDoc(photo.id)} data-testid="delete-photo-btn" className="px-4 py-2 border border-gray-300 text-[#DC2626] text-sm font-bold rounded-xl flex items-center gap-2 hover:bg-[#FEE2E2]"><Trash2 className="w-4 h-4" /> Hapus</button>}
+            {photo && !locked && (
+              <button
+                type="button"
+                onClick={() => deleteDoc(photo.id)}
+                data-testid="delete-photo-btn"
+                className="px-4 py-2 border border-gray-300 text-[#DC2626] text-sm font-bold rounded-xl flex items-center gap-2 hover:bg-[#FEE2E2]"
+              >
+                <Trash2 className="w-4 h-4" /> Hapus
+              </button>
+            )}
           </div>
-          <input ref={inputRef} type="file" className="hidden" accept=".jpg,.jpeg,.png" data-testid="photo-file-input" onChange={(e) => onFile(e.target.files[0])} />
+          <input
+            ref={inputRef}
+            type="file"
+            disabled={locked}
+            className="hidden"
+            accept=".jpg,.jpeg,.png"
+            data-testid="photo-file-input"
+            onChange={(event) => onFile(event.target.files[0])}
+          />
         </div>
       </div>
     </SectionCard>

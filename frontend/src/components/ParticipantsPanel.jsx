@@ -190,16 +190,24 @@ export default function ParticipantsPanel() {
         </div>
       </div>
 
-      {detail && <DetailModal userId={detail} onClose={() => setDetail(null)} onUpdated={load} />}
+      {detail && (
+        <DetailModal
+          userId={detail}
+          onClose={() => setDetail(null)}
+          onUpdated={load}
+          canManageDocuments={user?.role !== "admin_wilayah"}
+        />
+      )}
     </div>
   );
 }
 
-function DetailModal({ userId, onClose, onUpdated }) {
+function DetailModal({ userId, onClose, onUpdated, canManageDocuments }) {
   const [data, setData] = useState(null);
   const [newStatus, setNewStatus] = useState("");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [updatingDocumentPermission, setUpdatingDocumentPermission] = useState(false);
 
   useEffect(() => {
     api.get(`/admin/participants/${userId}`).then((r) => { setData(r.data); setNewStatus(r.data.registration?.status || "submitted"); });
@@ -218,6 +226,23 @@ function DetailModal({ userId, onClose, onUpdated }) {
       onUpdated();
     } catch { toast.error("Gagal memperbarui status."); }
     finally { setSaving(false); }
+  };
+
+  const updateDocumentPermission = async (allowed) => {
+    setUpdatingDocumentPermission(true);
+    try {
+      const response = await api.put(
+        `/admin/participants/${userId}/document-editing-permission`,
+        { allowed },
+      );
+      setData((previous) => ({ ...previous, registration: response.data }));
+      toast.success(allowed ? "Izin edit dokumen diberikan." : "Izin edit dokumen dikunci kembali.");
+      onUpdated();
+    } catch {
+      toast.error("Izin edit dokumen belum dapat diperbarui.");
+    } finally {
+      setUpdatingDocumentPermission(false);
+    }
   };
 
   const p = data?.profile || {};
@@ -262,6 +287,41 @@ function DetailModal({ userId, onClose, onUpdated }) {
               )}
               <DocPreview doc={preview} onClose={() => setPreview(null)} />
             </div>
+
+            {canManageDocuments && (
+              <div className="border-t border-gray-100 pt-5">
+                <p className="font-semibold text-sm text-[#1F2937] mb-3">Izin Edit Dokumen</p>
+                <div
+                  className="flex flex-wrap items-center justify-between gap-3 border border-[#FDE68A] bg-[#FFFBEB] p-4"
+                  data-testid="document-editing-permission-panel"
+                >
+                  <p className="max-w-lg text-sm leading-relaxed text-[#5E4A00]">
+                    {data.registration?.documents_editing_allowed
+                      ? "Mahasiswa saat ini diizinkan memperbaiki dokumen pendaftarannya."
+                      : "Dokumen terkunci setelah pendaftaran dikirim. Berikan izin bila perlu diperbaiki."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => updateDocumentPermission(!data.registration?.documents_editing_allowed)}
+                    disabled={updatingDocumentPermission}
+                    data-testid="toggle-document-editing-permission"
+                    className={[
+                      "rounded-lg px-4 py-2.5 text-sm font-bold text-white transition-colors",
+                      data.registration?.documents_editing_allowed
+                        ? "bg-[#B8860B] hover:bg-[#936C00]"
+                        : "bg-[#0B6B3A] hover:bg-[#07532D]",
+                      "disabled:cursor-wait disabled:opacity-60",
+                    ].join(" ")}
+                  >
+                    {updatingDocumentPermission
+                      ? "Memperbarui..."
+                      : data.registration?.documents_editing_allowed
+                        ? "Kunci Kembali Dokumen"
+                        : "Izinkan Edit Dokumen"}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-gray-100 pt-5">
               <p className="font-semibold text-sm text-[#1F2937] mb-3">Perbarui Status Seleksi</p>

@@ -447,3 +447,18 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   penyimpanan draf sementara, persistensi draf setelah periode ditutup kembali, RBAC CMS, dialog tepat, dan
   tidak ada horizontal overflow. Kondisi awal `registration_open: false` dipulihkan. Suite:
   `backend/tests/test_registration_gate.py`.
+
+## 2026-09 — Pakta Integritas Pendaftar digital
+- PDF **PAKTA INTEGRITAS PENDAFTAR** yang diunggah pengguna telah diperiksa visual dan didigitalisasi menjadi
+  tab **Pakta Integritas** di Pendaftaran. Form mempertahankan lima pernyataan, konsekuensi ketidaksesuaian,
+  pernyataan tanpa paksaan, ceklis persetujuan, dan konfirmasi Ya/Tidak sebelum kirim data.
+- Tab hanya terbuka setelah tujuh data pendidikan dan sembilan berkas persyaratan lengkap. Jika belum lengkap,
+  mahasiswa menerima dialog dengan daftar Data Pendidikan dan Dokumen yang perlu dilengkapi. Pakta kini adalah
+  persetujuan digital, bukan lagi berkas unggahan wajib.
+- Pengiriman menyimpan persetujuan, waktu, versi pakta, serta mengunci dokumen di server. Semua unggah, hapus,
+  dan pemindaian AI dokumen ditolak setelah terkunci. Admin Provinsi/Super Admin dapat memberi atau mencabut
+  izin edit melalui detail peserta; Admin Wilayah dan mahasiswa tidak dapat melakukannya.
+- Diuji testing agent: backend 13/13 serta alur antarmuka mahasiswa/admin lulus, termasuk kondisi belum lengkap,
+  persetujuan, konfirmasi, audit persetujuan, penguncian sebelum akses storage/OCR, RBAC, dan pembersihan data
+  uji. Status pendaftaran dikembalikan ke kondisi awal tertutup. Suite:
+  `backend/tests/test_pakta_integritas.py`.
