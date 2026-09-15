@@ -53,10 +53,23 @@ export const PENDIDIKAN = [
 // KTP fields that get auto-locked once filled from the ID
 const KTP_LOCKED = ["namaLengkap", "nik", "tempatLahir", "tanggalLahir", "jenisKelamin"];
 
-export const PROFILE_REQUIRED = [...PRIBADI, ...KONTAK, ...ALAMAT, ...PENDIDIKAN].filter((f) => f.req).map((f) => f.k);
+export const PROFILE_REQUIRED_FIELDS = [
+  ...PRIBADI,
+  ...KONTAK,
+  ...ALAMAT,
+  ...PENDIDIKAN,
+].filter((field) => field.req);
+export const PROFILE_REQUIRED = PROFILE_REQUIRED_FIELDS.map((field) => field.k);
+
+export function getMissingProfileFields(data = {}) {
+  return PROFILE_REQUIRED_FIELDS.filter((field) => (
+    !data[field.k] || String(data[field.k]).trim() === ""
+  ));
+}
+
 export function profileProgress(data = {}) {
-  const filled = PROFILE_REQUIRED.filter((k) => data[k] && String(data[k]).trim() !== "");
-  return Math.round((filled.length / PROFILE_REQUIRED.length) * 100);
+  const filled = PROFILE_REQUIRED.length - getMissingProfileFields(data).length;
+  return Math.round((filled / PROFILE_REQUIRED.length) * 100);
 }
 
 const STEPS = [
@@ -83,6 +96,7 @@ export default function StudentProfile({
 }) {
   const [tab, setTab] = useState("pribadi");
   const progress = profileProgress(data);
+  const missingProfileFields = getMissingProfileFields(data);
 
   const stepDone = (keys) => {
     const req = [...PRIBADI, ...KONTAK, ...ALAMAT, ...PENDIDIKAN].filter((f) => f.req && keys.includes(f.k)).map((f) => f.k);
@@ -108,6 +122,28 @@ export default function StudentProfile({
             <div className="mt-1 h-1.5 w-28 rounded-full bg-gray-100 overflow-hidden"><div className="h-full bg-[#27AE60] transition-all" style={{ width: `${progress}%` }} /></div>
           </div>
         </div>
+        {missingProfileFields.length > 0 && (
+          <div
+            data-testid="profile-completion-missing-list"
+            className="mt-5 border-l-4 border-[#F2C94C] bg-[#FFFBEB] px-4 py-3"
+          >
+            <p className="flex items-center gap-2 text-sm font-bold text-[#7A5C00]">
+              <Info className="h-4 w-4 shrink-0" />
+              Kelengkapan belum 100% karena data berikut masih belum diisi:
+            </p>
+            <ul className="mt-2 flex flex-wrap gap-2" data-testid="profile-completion-missing-items">
+              {missingProfileFields.map((field) => (
+                <li
+                  key={field.k}
+                  data-testid={`profile-completion-missing-${field.k}`}
+                  className="border border-[#FDE68A] bg-white px-2.5 py-1 text-xs font-semibold text-[#5E4A00]"
+                >
+                  {field.l}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* Step indicator */}
         <div className="mt-6 flex items-center">

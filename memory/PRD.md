@@ -491,3 +491,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Diuji testing agent: backend 5/5 dan browser lulus, mencakup pembaruan nama, muat ulang, login berikutnya,
   perlindungan nama kosong, respons tanpa `_id`, serta ID CPM tetap. Semua data uji dihapus. Suite:
   `backend/tests/test_profile_name_sync.py`.
+
+## 2026-09 — Penjelasan kelengkapan profil
+- Indikator **Kelengkapan Profil** kini menghitung daftar data wajib yang sama dengan persentasenya dan
+  menampilkan alasan ketika belum 100%. Contoh pada 81% langsung menunjukkan Jenjang, Perguruan Tinggi,
+  dan NIM sebagai data yang belum diisi.
+- Ringkasan dashboard menampilkan daftar data wajib yang masih kurang, sementara halaman Profil menampilkan
+  daftar chip yang mudah dibaca tepat di bawah batang persentase.
+- Diuji di browser desktop serta ponsel 390px: alasan kelengkapan tampil pada Ringkasan dan Profil tanpa
+  overflow; build frontend lulus.

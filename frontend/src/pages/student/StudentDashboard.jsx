@@ -3,7 +3,10 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import DashboardShell, { StatusBadge, STATUS_META } from "@/components/DashboardShell";
-import StudentProfile, { profileProgress } from "@/components/StudentProfile";
+import StudentProfile, {
+  getMissingProfileFields,
+  profileProgress,
+} from "@/components/StudentProfile";
 import AccountSettings from "@/components/AccountSettings";
 import RegistrationSections from "@/components/RegistrationSections";
 import StudentDisbursementProofs from "@/components/StudentDisbursementProofs";
@@ -80,6 +83,10 @@ export default function StudentDashboard() {
   }, [loadNotifications, loadSelectionAnnouncement]);
 
   const progress = useMemo(() => profileProgress(data), [data]);
+  const missingProfileFields = useMemo(() => getMissingProfileFields(data), [data]);
+  const profileCompletionDetail = missingProfileFields.length
+    ? `Belum diisi: ${missingProfileFields.map((field) => field.l).join(", ")}`
+    : "Seluruh data wajib telah lengkap.";
   const uploadedDocumentCount = useMemo(
     () => DOC_TYPES.filter((type) => docs.some((document) => document.doc_type === type)).length,
     [docs],
@@ -241,6 +248,7 @@ export default function StudentDashboard() {
               icon={User}
               label="Kelengkapan Profil"
               value={`${progress}%`}
+              detail={profileCompletionDetail}
               testId="profile-completion"
             />
             <StatTile
@@ -265,6 +273,7 @@ export default function StudentDashboard() {
             <CompletionBar
               label="Kelengkapan Profil"
               value={progress}
+              detail={profileCompletionDetail}
               testId="profile-completion-progress"
             />
             <CompletionBar
