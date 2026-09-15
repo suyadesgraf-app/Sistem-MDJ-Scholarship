@@ -470,3 +470,14 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   kategori sebelumnya, sehingga penghapusan tab tidak memutus alur pendaftaran.
 - Diuji pada browser desktop dan ponsel 390px: tab Formulir tidak muncul, tiga tab lain tetap dapat diakses,
   dan tidak ada horizontal overflow. Status periode dikembalikan serta diverifikasi tertutup.
+
+## 2026-09 — Pendaftaran mahasiswa dengan akun Google
+- Halaman **Buat Akun Pendaftar** kini menyediakan tombol OAuth Emergent-managed. Akun Google baru otomatis
+  menerima role `student`; email yang telah ada tidak dibuat ganda. Redirect OAuth selalu memakai origin aktif
+  menuju `/dashboard`, dan callback diproses dari `location.hash` sebelum rute terlindungi.
+- Tombol diposisikan setelah formulir email dan tombol Buat Akun, mengikuti susunan halaman Masuk. Labelnya
+  adalah **Daftar dengan akun Google** dengan pemisah ATAU dan teks pendukung singkat.
+- Diuji testing agent: backend 5/5 dan UI desktop/mobile lulus, mencakup akun baru, pencegahan duplikasi email,
+  sesi tujuh hari, callback session invalid HTTP 401 tanpa penulisan data, redirect dinamis, serta tidak ada
+  overflow. Login Google manusia memerlukan interaksi akun Google pengguna. Suite:
+  `backend/tests/test_google_register.py`.

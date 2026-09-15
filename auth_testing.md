@@ -34,6 +34,17 @@ curl -s "$API/api/auth/me" -H "Authorization: Bearer <TOKEN>"
 - POST /api/registration {category, action:"submit"}
 - POST /api/documents (multipart: doc_type, file)
 
+## Pendaftaran dengan Google (Emergent-managed)
+- Tombol `register-google-button` di `/register` memakai redirect dinamis
+  `window.location.origin + "/dashboard"`; URL tidak boleh di-hardcode atau diberi fallback.
+- Provider mengembalikan `#session_id=` ke dashboard. `AppRoutes` harus mendeteksinya sebelum rute terlindungi,
+  lalu `AuthCallback` mengirim `POST /api/auth/google/session` untuk membentuk sesi.
+- Backend mengambil data sesi hanya dari server, memperbarui akun yang sudah ada berdasarkan email, atau membuat
+  akun baru dengan role `student` dan `auth_provider: "google"`. Session lama tidak boleh ditimpa oleh callback.
+- Uji manual: tekan Daftar dengan Google → selesaikan akun Google → kembali ke `/dashboard` → `GET /api/auth/me`
+  mengembalikan role student. Uji akun email yang sudah ada dengan email Google sama untuk memastikan tidak ada
+  duplikasi user. OAuth memerlukan interaksi akun Google manusia; tidak ada kredensial Google yang disimpan di app.
+
 ## Admin flow (admin/super_admin/admin_wilayah)
 - GET /api/admin/participants
 - GET /api/admin/participants/{user_id}

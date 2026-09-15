@@ -28,7 +28,7 @@ export const AuthCallback = () => {
   useEffect(() => {
     if (processed.current) return;
     processed.current = true;
-    const hash = location.hash || window.location.hash;
+    const hash = location.hash;
     const match = hash.match(/session_id=([^&]+)/);
     if (!match) { navigate("/login", { replace: true }); return; }
     const sessionId = match[1];

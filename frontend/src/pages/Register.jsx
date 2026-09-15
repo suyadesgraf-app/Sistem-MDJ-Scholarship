@@ -3,7 +3,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { formatApiError } from "@/lib/api";
-import { AuthSide } from "@/pages/Login";
+import { AuthSide, GoogleIcon } from "@/pages/Login";
 import { Eye, EyeOff, Mail, Lock, User, Phone, Loader2, ArrowLeft } from "lucide-react";
 
 export default function Register() {
@@ -13,6 +13,12 @@ export default function Register() {
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
   const set = (k) => (e) => setForm((p) => ({ ...p, [k]: e.target.value }));
+
+  const googleRegister = () => {
+    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    const redirectUrl = window.location.origin + "/dashboard";
+    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  };
 
   const submit = async (e) => {
     e.preventDefault();
@@ -72,6 +78,26 @@ export default function Register() {
               {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Memproses...</> : "Buat Akun"}
             </button>
           </form>
+          <div className="my-6 flex items-center gap-3" data-testid="register-google-divider">
+            <span className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs font-medium text-gray-400">ATAU</span>
+            <span className="h-px flex-1 bg-gray-200" />
+          </div>
+          <button
+            type="button"
+            onClick={googleRegister}
+            data-testid="register-google-button"
+            className={[
+              "flex w-full items-center justify-center gap-3 rounded-lg border border-gray-300 py-3",
+              "text-sm font-semibold text-[#1F2937] transition-colors duration-200 hover:bg-gray-50",
+            ].join(" ")}
+          >
+            <GoogleIcon />
+            Daftar dengan akun Google
+          </button>
+          <p className="mt-3 text-center text-[11px] leading-relaxed text-[#9CA3AF]">
+            Gunakan akun Google untuk membuat akun pendaftar secara praktis dan aman.
+          </p>
           <p className="text-sm text-center text-[#6B7280] mt-6">Sudah punya akun? <Link to="/login" className="font-bold text-[#27AE60] hover:text-[#0B6B3A]" data-testid="to-login-link">Masuk di sini</Link></p>
         </div>
       </div>

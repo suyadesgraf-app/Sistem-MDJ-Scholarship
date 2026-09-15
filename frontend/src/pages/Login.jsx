@@ -22,7 +22,7 @@ import {
   Sparkles,
 } from "lucide-react";
 
-const GoogleIcon = () => (
+export const GoogleIcon = () => (
   <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
     <path
       fill="#4285F4"
