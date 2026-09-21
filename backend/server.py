@@ -5555,11 +5555,11 @@ async def get_applicant_archive_summary(
 
 @api_router.post("/super-admin/applicant-archive")
 async def archive_all_applicants(user: dict = Depends(require_roles("super_admin"))):
-    students = await db.users.find(
+    student_cursor = db.users.find(
         {"role": "student", "is_archived": {"$ne": True}},
         {"_id": 0, "user_id": 1},
-    ).to_list(10000)
-    user_ids = [student["user_id"] for student in students]
+    )
+    user_ids = [student["user_id"] async for student in student_cursor]
     if not user_ids:
         raise HTTPException(status_code=400, detail="Tidak ada data pendaftar aktif untuk diarsipkan.")
 

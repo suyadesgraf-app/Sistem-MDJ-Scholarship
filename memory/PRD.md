@@ -524,3 +524,15 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Diuji testing agent pada skenario status setelah broadcast: backend 6/6 dan popup ponsel lulus, termasuk
   idempotensi, kategori tepat, status lulus/tidak lulus, pembacaan popup, dan pencegahan duplikasi. Suite:
   `backend/tests/test_selection_announcement_backfill.py`.
+
+## 2026-09 — Arsip lunak data pendaftar
+- Super Admin memiliki menu **Arsip Pendaftar** untuk mengarsipkan seluruh akun mahasiswa aktif beserta profil,
+  pendaftaran, dokumen, dan notifikasinya dalam satu batch yang dapat dipulihkan.
+- Arsip menaikkan `auth_version`, menghapus sesi aktif, dan menolak login untuk akun terarsip. Data terarsip tidak
+  tampil di daftar peserta aktif. Pemulihan batch mengaktifkan kembali data tanpa memulihkan sesi, sehingga
+  mahasiswa perlu masuk kembali dengan kredensialnya.
+- Pengambilan pendaftar untuk arsip massal kini memakai cursor tanpa batas 10.000 data. Dialog konfirmasi Arsip
+  dan Pulihkan memiliki latar putih solid dengan overlay gelap agar selalu terbaca jelas.
+- Diuji ulang: suite arsip 13/13 lulus, build frontend lulus, API ringkasan mengembalikan 5 aktif/0 terarsip,
+  dan dialog desktop serta layar ponsel 390px terverifikasi tanpa overflow. Arsip massal tidak dieksekusi pada
+  data aktif saat pengujian.

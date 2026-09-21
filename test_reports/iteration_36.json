@@ -1,0 +1,46 @@
+{
+  "summary": "Iter36 verified Arsip Pendaftar (soft-archive) feature end-to-end WITHOUT triggering mass-archive on real data. Backend pytest 13/13 passed covering: (1) RBAC — GET /api/super-admin/applicant-archive/summary, POST /api/super-admin/applicant-archive, POST /api/super-admin/applicant-archive/{id}/restore all return 403 for admin (admin.mdj) and student (mahasiswa.mdj), 401 for unauth; (2) summary schema — active_applicant_count/archived_applicant_count are ints, restorable_batch has no Mongo _id; (3) fixture-based archived student (inserted via pymongo with isolated archive_batch_id) cannot login (403 with 'diarsipkan' detail) and /auth/me returns 401/403 when using a session_token pointing to the archived user (path via get_current_user → resolve_user_from_token → is_archived guard at server.py:324); (4) POST /super-admin/applicant-archive/{batch_id}/restore by super_admin flips is_archived=False and $unsets archive_batch_id on users+registrations+profiles+documents+notifications, marks batch status=restored, and email/password login succeeds again; (5) invalid batch_id restore → 404; (6) GET /api/admin/participants excludes any is_archived=true record (query['is_archived']={'$ne':True} confirmed at server.py:4969). Frontend Playwright at 1920x1080 and 390x844 using real preview URL: Super Admin login → sidebar 'Arsip Pendaftar' visible → summary loads (5 active / 0 archived) → open-archive-all-applicants-dialog opens archive-all-applicants-dialog with cancel-archive-all-applicants-button and confirm-archive-all-applicants-button both visible → cancel dismissed dialog and counts remained (5,0) i.e. active data NOT mutated. No horizontal overflow at 1920 or 390. Confirm button was intentionally NOT clicked (safety). Restorable-archive-batch section only renders when a batch exists; not present in current state (all fixture batches restored + cleaned up).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/super-admin/applicant-archive", "issue": "students.find(...).to_list(10000) has a hard cap of 10 000. If pendaftar > 10 000 the archive-all will silently miss users. Suggest cursor-iterate or count-first + batch."},
+      {"endpoint": "restore endpoint", "issue": "Restore does NOT restore user_sessions (they were deleted during archive). Acceptable (users must re-login) but worth documenting for UX."},
+      {"endpoint": "archive-all", "issue": "No exclusion guard against archiving admin/super_admin (query is role:'student' — so admin roles are safe by design). Confirmed safe: admins cannot be archived by batch."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Arsip Pendaftar → archive-all confirmation dialog", "issues": ["AlertDialogContent renders without a solid opaque white background (see .screenshots/archive_dialog_desktop.png and archive_dialog_mobile.png). Dialog text ('Arsipkan Semua Data Pendaftar?', description, buttons) is visually overlapping with underlying page content because the overlay/content lacks bg-white or bg-background classes. Radix AlertDialogContent needs bg-white and the AlertDialogOverlay needs a proper backdrop (e.g., bg-black/50). This affects readability and looks broken. RestoreConfirmation dialog likely has the same issue."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_applicant_archive.py",
+    "/app/test_reports/pytest/iter36_archive.xml"
+  ],
+  "action_items": [
+    "Fix AlertDialog styling — the Content component in /app/frontend/src/components/ui/alert-dialog.jsx (or wherever the shadcn primitives live) must apply `bg-white` (or dark-mode equivalent) and a visible AlertDialogOverlay with `bg-black/50 backdrop-blur-sm`. Reproduce: login as Super Admin → Arsip Pendaftar → click 'Arsipkan Semua Pendaftar' → dialog appears semi-transparent overlapping page.",
+    "(Optional) Raise the archive-all applicant fetch limit above 10 000 or paginate to avoid silently missing users at scale."
+  ],
+  "critical_code_review_comments": [
+    "server.py get_current_user (line 324) and /auth/login (line 645) both explicitly reject is_archived users → correct dual-gate.",
+    "Google login path (line 669) rejects archived existing users; safe.",
+    "archive-all update_many only mutates docs where user_id IS IN the students list (scope), so admin-owned collections are untouched. Confirmed by test.",
+    "Restore uses archive_batch_id + is_archived=True as scope, so it correctly only reverts docs from the specific batch — no cross-batch bleed. Verified with fixture batch containing 1 user; other students untouched.",
+    "Startup creates proper compound indexes on (is_archived, archive_batch_id) for the four affected collections — good.",
+    "Summary endpoint projects out _id via {'_id':0}. No leakage found in responses.",
+    "shadcn AlertDialog usage in ApplicantArchiveManager.jsx is correct API-wise (AlertDialogCancel/AlertDialogAction), but the underlying AlertDialogContent primitive appears mis-styled (missing bg-white). Recommend inspecting /app/frontend/src/components/ui/alert-dialog.jsx.",
+    "server.py is now 5777 lines — the modularise recommendation from prior iterations remains."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_applicant_archive.py"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% functional; 1 design defect (dialog opacity)"},
+  "test_credentials": "Super Admin supri@baznasbazisdki.id/MdjSuper2026! (used). Admin admin.mdj@baznasbazisdki.id/AdminMDJ2026! (403 checks). Student mahasiswa.mdj@baznasbazisdki.id/MahasiswaMDJ2026! (403 checks). Ephemeral fixture student test_arch_*@example.invalid — created & torn down via pymongo per test.",
+  "seed_data_creation": "Ephemeral: per-test fixture inserts 1 archived student + linked registration/profile/document/notification + applicant_archive_batches row scoped by a unique test-iter36-* batch_id. All rows removed on fixture teardown. Restore test flips them back to active before teardown deletes them. Final DB state confirmed clean: 5 active students / 0 archived (matches UI check).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: `pytest backend/tests/test_applicant_archive.py -o addopts='' -v --junitxml=test_reports/pytest/iter36_archive.xml`. SAFETY: do NOT click confirm-archive-all-applicants-button in Playwright against real data — it would archive ALL active students and invalidate their sessions. Only cancel path is safe. Test uses pymongo (sync) to inject an archived batch (batch_id starts with 'test-iter36-') and only the restore endpoint is exercised against it. If teardown ever fails, purge with: db.applicant_archive_batches.delete_many({id:/^test-iter36-/}), db.users.delete_many({user_id:/^user_test_arch_/}). data-testids present: applicant-archive-manager, active-applicant-count, archived-applicant-count, open-archive-all-applicants-dialog, archive-all-applicants-dialog, cancel/confirm-archive-all-applicants-button, restorable-archive-batch (conditional), open/cancel/confirm-restore-applicants-dialog.",
+  "rca of the issue": "Design defect: AlertDialogContent from shadcn primitive lacks a solid background. Inspect /app/frontend/src/components/ui/alert-dialog.jsx — the AlertDialogContent className must include `bg-white text-foreground` and AlertDialogOverlay must include `fixed inset-0 z-50 bg-black/50 backdrop-blur-sm`. Reproduction: Super Admin → Arsip Pendaftar → Arsipkan Semua Pendaftar → observe transparent overlapping dialog in .screenshots/archive_dialog_desktop.png and archive_dialog_mobile.png. Mitigation: patch the primitive; no backend change needed."
+}
