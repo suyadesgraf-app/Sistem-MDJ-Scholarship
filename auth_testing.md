@@ -94,3 +94,14 @@ curl -s "$API/api/auth/me" -H "Authorization: Bearer <TOKEN>"
 - PUT /api/admin/users/{user_id} {is_active}
 - PUT /api/site/content {content:{...}}
 - POST /api/site/banner (multipart file)
+
+## Arsip lunak pendaftar
+- Endpoint arsip hanya untuk Super Admin. Pengarsipan menandai user berperan `student` dan seluruh profil,
+  pendaftaran, dokumen, serta notifikasinya dengan batch arsip; data tidak dihapus secara permanen.
+- `get_current_user`, login email, dan callback Google wajib menolak student `is_archived: true`. Pengarsipan
+  menaikkan `auth_version` serta menghapus sesi Google agar sesi lama tidak dapat dipakai kembali.
+- Pemulihan batch harus menonaktifkan flag arsip pada seluruh data yang memiliki `archive_batch_id` sama. Akun
+  mahasiswa kemudian dapat masuk kembali menggunakan kredensial atau Google yang sama.
+- Uji: Super Admin mengarsipkan fixture student → `/auth/me`, login email, dan Google existing-user flow ditolak;
+  restore batch → login email kembali berhasil. Admin Provinsi, Admin Wilayah, dan mahasiswa selalu 403 untuk
+  endpoint arsip/pemulihan.

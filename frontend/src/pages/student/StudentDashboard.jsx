@@ -13,6 +13,7 @@ import StudentDisbursementProofs from "@/components/StudentDisbursementProofs";
 import SelectionResultPopup from "@/components/SelectionResultPopup";
 import RegistrationClosedDialog from "@/components/RegistrationClosedDialog";
 import DocumentRevisionPopup from "@/components/DocumentRevisionPopup";
+import SiteAnnouncementPopup from "@/components/SiteAnnouncementPopup";
 import { docFileUrl } from "@/components/DocPreview";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
@@ -48,6 +49,7 @@ export default function StudentDashboard() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [selectionAnnouncement, setSelectionAnnouncement] = useState(null);
   const [documentRevision, setDocumentRevision] = useState(null);
+  const [siteAnnouncement, setSiteAnnouncement] = useState(null);
   const [registrationRequestedTab, setRegistrationRequestedTab] = useState("pendidikan");
   const [registrationClosedDialogOpen, setRegistrationClosedDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -82,6 +84,15 @@ export default function StudentDashboard() {
     }
   }, []);
 
+  const loadSiteAnnouncement = useCallback(async () => {
+    try {
+      const response = await api.get("/student/site-announcements/pending");
+      setSiteAnnouncement(response.data.announcement || null);
+    } catch {
+      setSiteAnnouncement(null);
+    }
+  }, []);
+
   useEffect(() => {
     api.get("/profile").then((r) => setData(r.data.data || {}));
     api.get("/registration").then((r) => setReg(r.data || {}));
@@ -91,12 +102,19 @@ export default function StudentDashboard() {
     loadNotifications();
     loadSelectionAnnouncement();
     loadDocumentRevision();
+    loadSiteAnnouncement();
     const pollNotifications = window.setInterval(() => {
       loadNotifications();
       loadSelectionAnnouncement();
+      loadSiteAnnouncement();
     }, 30000);
     return () => window.clearInterval(pollNotifications);
-  }, [loadDocumentRevision, loadNotifications, loadSelectionAnnouncement]);
+  }, [
+    loadDocumentRevision,
+    loadNotifications,
+    loadSelectionAnnouncement,
+    loadSiteAnnouncement,
+  ]);
 
   const progress = useMemo(() => profileProgress(data), [data]);
   const missingProfileFields = useMemo(() => getMissingProfileFields(data), [data]);
@@ -208,6 +226,16 @@ export default function StudentDashboard() {
   const openDocumentRevisionWorkspace = () => {
     setRegistrationRequestedTab("dokumen");
     setActive("daftar");
+  };
+
+  const dismissSiteAnnouncement = async (notificationId) => {
+    try {
+      await api.post(`/student/site-announcements/${notificationId}/seen`);
+      setSiteAnnouncement(null);
+      await loadNotifications();
+    } catch {
+      toast.error("Pengumuman belum dapat ditandai sebagai sudah dibaca.");
+    }
   };
 
   const selectDashboardMenu = async (menuId) => {
@@ -410,16 +438,25 @@ export default function StudentDashboard() {
       )}
 
       {active === "pengaturan" && <AccountSettings />}
-      <SelectionResultPopup
-        announcement={selectionAnnouncement}
-        onMarkSeen={markSelectionAnnouncementSeen}
-        onDismiss={dismissSelectionAnnouncement}
-      />
       <DocumentRevisionPopup
         revision={documentRevision}
         onDismiss={dismissDocumentRevision}
         onRepair={openDocumentRevisionWorkspace}
       />
+      {!documentRevision && (
+        <SelectionResultPopup
+          announcement={selectionAnnouncement}
+          onMarkSeen={markSelectionAnnouncementSeen}
+          onDismiss={dismissSelectionAnnouncement}
+        />
+      )}
+      {!documentRevision && !selectionAnnouncement && (
+        <SiteAnnouncementPopup
+          announcement={siteAnnouncement}
+          onDismiss={dismissSiteAnnouncement}
+          onView={() => setActive("pengumuman")}
+        />
+      )}
       <RegistrationClosedDialog
         open={registrationClosedDialogOpen}
         onClose={() => setRegistrationClosedDialogOpen(false)}

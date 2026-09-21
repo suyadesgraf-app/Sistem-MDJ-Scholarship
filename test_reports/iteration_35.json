@@ -1,0 +1,41 @@
+{
+  "summary": "Iter35 verified site-announcement popup end-to-end. Backend pytest 5/5 passed: (1) PUT /api/site/content blocked for non-super_admin (403), (2) adding a new announcement via CMS creates exactly one notification per registered user with type=announcement, is_popup_seen=false, title/message from CMS, and re-saving the same announcement does NOT duplicate (signature dedup works), (3) GET /api/student/site-announcements/pending returns only the owning student's pending notif without Mongo _id, (4) POST /api/student/site-announcements/{id}/seen marks is_read/is_popup_seen true and subsequent pending=null, non-existent id returns 404, (5) two independent students each receive their own pending. Frontend Playwright at 390px on the real preview URL: seeded student logged in -> site-announcement-popup rendered with correct title/message ('TEST_ONLY UI Pengumuman MDJ'), both 'Tutup' and 'Lihat Pengumuman' CTAs visible, clicking 'Lihat Pengumuman' dismissed the popup and navigated to Pengumuman tab (listing shown), popup did NOT reappear after full reload. Popup priority order (revision > selection > site announcement) verified via source inspection in StudentDashboard.jsx (lines 441-459) — no overlap possible with existing conditional rendering guards. Real content preserved: fixture restores site_content in teardown; also proactively purged any leftover TEST_ONLY from prior iteration crash and forced registration_open=false at end.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/site/content -> notify_new_announcements", "issue": "Recipient set uses db.registrations.find({}, ...) at PUT time; students who register AFTER a CMS save will not receive that announcement's notification (no backfill on the pending endpoint like selection-announcements has). This is a design/product decision but worth noting for late registrants."},
+      {"endpoint": "notify_new_announcements (server.py:1109)", "issue": "For each announcement × each recipient it builds one notification. For large recipient sets, consider batching notifications to a single collection.insert_many chunk with an index on (user_id, type, is_popup_seen) to keep the pending GET fast (currently OK)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_site_announcement_popup.py",
+    "/app/test_reports/pytest/iter35_site_ann.xml"
+  ],
+  "action_items": [
+    "(Optional) Consider adding backfill on GET /api/student/site-announcements/pending analogous to selection-announcements: for any Published announcement newer than a student's created_at that has no notification yet, insert one on demand. Would fix the late-registrant edge case.",
+    "(No action needed) Iter34 already restored the app to a clean state after test; this iteration additionally cleaned a leaked TEST_ONLY announcement from a prior failed teardown and set registration_open=false."
+  ],
+  "critical_code_review_comments": [
+    "notify_new_announcements dedup uses announcement_signature = date|category|title|summary. Editing any of those four fields will create a NEW notification for all recipients — reasonable, but 'summary' typo fixes will spam users. Consider hashing only (date,title) or adding an explicit announcement_id.",
+    "PUT /api/site/content passes the raw client-supplied content through with only registration_flow normalisation; no server-side validation of the announcements list shape (each item is trusted to have date/category/title/summary). Add a Pydantic sub-model for AnnouncementInput to prevent malformed items reaching the notify path.",
+    "GET/POST site-announcements endpoints correctly project _id out and scope by user_id. The 404 on wrong id is user-scoped (uses id + user_id + type=announcement in the match filter) — safe.",
+    "Frontend StudentDashboard.jsx (lines 441-459) enforces popup priority via conditional rendering guards: DocumentRevisionPopup unconditional, SelectionResultPopup only when !documentRevision, SiteAnnouncementPopup only when !documentRevision && !selectionAnnouncement. Correct — no overlap.",
+    "SiteAnnouncementPopup uses Radix Dialog with a proper backdrop; dismissing via ESC/backdrop calls dismiss(false) -> marks seen so it does not repeat. Good.",
+    "server.py still 5625 lines — carry-over recommendation to modularise."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_site_announcement_popup.py"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (mobile popup lifecycle + navigation + reload persistence verified)"},
+  "test_credentials": "Real demo accounts unchanged. Ephemeral test students: test_popup_*@example.com and test_ui_popup_*@example.com — all deleted at end. Super Admin used: supri@baznasbazisdki.id/MdjSuper2026!.",
+  "seed_data_creation": "Ephemeral: 2 test students + minimal registration docs (test_tag=TEST_ONLY_iter35_popup) inserted directly via pymongo to bypass registration_open gate. Two TEST_ONLY announcements pushed via PUT then removed by fixture restore + safety purge. Final DB state: registration_open=false, no TEST_ONLY notifications, no test users left behind.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: `pytest backend/tests/test_site_announcement_popup.py -o addopts='' -v`. Uses pymongo (sync) to seed registrations without opening registration. The fixture original_site_content refreshes super token at teardown to survive long test runs. If a prior run's teardown fails (401 or crash), TEST_ONLY announcements may leak into site_content; a super-admin PUT that strips titles matching ^TEST_ONLY cleans it. Verify at end: (a) GET /api/site/content settings.registration_open === false, (b) no announcements[].title starting with 'TEST_ONLY'. UI: login as seeded student on 390px -> popup with data-testid=site-announcement-popup -> click view-site-announcement-button -> reload -> popup absent. Priority guards in StudentDashboard.jsx lines 441-459.",
+  "rca of the issue": "N/A — feature verification, not bug testing. All acceptance criteria from the review request are satisfied. One residual behavioural note: notify_new_announcements snapshots the recipient list at PUT time, so any student who registers after the CMS save will not receive that specific announcement — flagged as minor and optionally addressable with a backfill on GET pending."
+}

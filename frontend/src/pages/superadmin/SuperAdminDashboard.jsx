@@ -9,6 +9,7 @@ import DisbursementManager from "@/components/DisbursementManager";
 import ActiveLetterApprovalManager from "@/components/ActiveLetterApprovalManager";
 import SelectionImportManager from "@/components/SelectionImportManager";
 import AiAdministrativeVerification from "@/components/AiAdministrativeVerification";
+import ApplicantArchiveManager from "@/components/ApplicantArchiveManager";
 import {
   Building2,
   FileSpreadsheet,
@@ -19,6 +20,7 @@ import {
   ShieldCheck,
   LayoutDashboard,
   Sparkles,
+  Archive,
 } from "lucide-react";
 
 const MENU = [
@@ -30,6 +32,7 @@ const MENU = [
   { id: "import-seleksi", label: "Import Seleksi", icon: FileSpreadsheet },
   { id: "kampus", label: "Kampus", icon: Building2 },
   { id: "surat-aktif", label: "Surat Aktif AI", icon: FileCheck2 },
+  { id: "arsip-pendaftar", label: "Arsip Pendaftar", icon: Archive },
   { id: "website", label: "Kelola Website", icon: LayoutDashboard },
 ];
 
@@ -46,6 +49,7 @@ export default function SuperAdminDashboard() {
       {active === "import-seleksi" && <SelectionImportManager />}
       {active === "kampus" && <CampusManager />}
       {active === "surat-aktif" && <ActiveLetterApprovalManager />}
+      {active === "arsip-pendaftar" && <ApplicantArchiveManager />}
       {active === "website" && <SiteManager />}
     </DashboardShell>
   );

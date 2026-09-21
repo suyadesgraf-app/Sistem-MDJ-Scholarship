@@ -321,6 +321,8 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Account is deactivated")
+    if user.get("is_archived"):
+        raise HTTPException(status_code=403, detail="Akun pendaftar telah diarsipkan")
     user.pop("password_hash", None)
     return user
 
@@ -640,6 +642,8 @@ async def login(payload: LoginInput, response: Response):
         raise HTTPException(status_code=401, detail="Email atau kata sandi salah")
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Akun dinonaktifkan")
+    if user.get("is_archived"):
+        raise HTTPException(status_code=403, detail="Akun pendaftar telah diarsipkan")
     token = create_access_token(user["user_id"], user["email"], int(user.get("auth_version", 0)))
     set_auth_cookie(response, token)
     return {"user": clean_user(user), "token": token}
@@ -662,6 +666,8 @@ async def google_session(payload: GoogleSessionInput, response: Response):
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.users.insert_one(user)
+    elif user.get("is_archived"):
+        raise HTTPException(status_code=403, detail="Akun pendaftar telah diarsipkan")
     session_token = data["session_token"]
     await db.user_sessions.insert_one({
         "user_id": user["user_id"], "session_token": session_token,
@@ -1109,10 +1115,14 @@ def announcement_signature(announcement: dict) -> str:
 async def notify_new_announcements(announcements: List[dict]) -> None:
     if not announcements:
         return
-    registrations = await db.registrations.find({}, {"_id": 0, "user_id": 1}).to_list(5000)
+    registrations = await db.registrations.find(
+        {"is_archived": {"$ne": True}},
+        {"_id": 0, "user_id": 1},
+    ).to_list(5000)
     recipients = {registration.get("user_id") for registration in registrations}
     notifications = []
     for announcement in announcements:
+        signature = announcement_signature(announcement)
         for user_id in recipients:
             if not user_id:
                 continue
@@ -1120,9 +1130,11 @@ async def notify_new_announcements(announcements: List[dict]) -> None:
                 "id": str(uuid.uuid4()),
                 "user_id": user_id,
                 "type": "announcement",
+                "source_id": signature,
                 "title": announcement.get("title") or "Pengumuman MDJ Scholarship",
                 "message": announcement.get("summary") or "Ada pengumuman baru dari Admin MDJ.",
                 "is_read": False,
+                "is_popup_seen": False,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
     if notifications:
@@ -1334,6 +1346,76 @@ async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
         {"$set": {"is_read": True}},
     )
     return {"message": "Semua notifikasi ditandai sudah dibaca."}
+
+
+@api_router.get("/student/site-announcements/pending")
+async def get_pending_site_announcement(user: dict = Depends(require_roles("student"))):
+    content = await db.site_content.find_one({"key": "main"}, {"_id": 0, "announcements": 1})
+    announcements = (content or {}).get("announcements") or []
+    for announcement in announcements:
+        if not isinstance(announcement, dict):
+            continue
+        signature = announcement_signature(announcement)
+        title = announcement.get("title") or "Pengumuman MDJ Scholarship"
+        message = announcement.get("summary") or "Ada pengumuman baru dari Admin MDJ."
+        existing = await db.notifications.find_one(
+            {
+                "user_id": user["user_id"],
+                "type": "announcement",
+                "$or": [
+                    {"source_id": signature},
+                    {"title": title, "message": message},
+                ],
+            },
+            {"_id": 0, "id": 1},
+        )
+        if existing:
+            continue
+        await db.notifications.insert_one(
+            {
+                "id": str(uuid.uuid4()),
+                "user_id": user["user_id"],
+                "type": "announcement",
+                "source_id": signature,
+                "title": title,
+                "message": message,
+                "is_read": False,
+                "is_popup_seen": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+    notification = await db.notifications.find_one(
+        {
+            "user_id": user["user_id"],
+            "type": "announcement",
+            "$or": [
+                {"is_popup_seen": {"$exists": False}},
+                {"is_popup_seen": False},
+            ],
+        },
+        {"_id": 0},
+        sort=[("created_at", -1)],
+    )
+    return {"announcement": notification}
+
+
+@api_router.post("/student/site-announcements/{notification_id}/seen")
+async def mark_site_announcement_seen(
+    notification_id: str,
+    user: dict = Depends(require_roles("student")),
+):
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.notifications.update_one(
+        {
+            "id": notification_id,
+            "user_id": user["user_id"],
+            "type": "announcement",
+        },
+        {"$set": {"is_read": True, "is_popup_seen": True, "popup_seen_at": now}},
+    )
+    if not result.matched_count:
+        raise HTTPException(status_code=404, detail="Pengumuman tidak ditemukan.")
+    return {"message": "Pengumuman telah dibaca."}
 
 
 @api_router.get("/student/document-revisions/pending")
@@ -4884,6 +4966,7 @@ async def list_participants(
 ):
     scope_region = regional_admin_region(user)
     query = await participant_scope_query(user)
+    query["is_archived"] = {"$ne": True}
     if status and status != "all":
         query["status"] = status
     regs = await db.registrations.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
@@ -5448,6 +5531,106 @@ async def delete_user(
     return {"message": "User dihapus"}
 
 
+@api_router.get("/super-admin/applicant-archive/summary")
+async def get_applicant_archive_summary(
+    user: dict = Depends(require_roles("super_admin")),
+):
+    active_count = await db.users.count_documents(
+        {"role": "student", "is_archived": {"$ne": True}}
+    )
+    archived_count = await db.users.count_documents(
+        {"role": "student", "is_archived": True}
+    )
+    restorable_batch = await db.applicant_archive_batches.find_one(
+        {"status": "archived"},
+        {"_id": 0},
+        sort=[("archived_at", -1)],
+    )
+    return {
+        "active_applicant_count": active_count,
+        "archived_applicant_count": archived_count,
+        "restorable_batch": restorable_batch,
+    }
+
+
+@api_router.post("/super-admin/applicant-archive")
+async def archive_all_applicants(user: dict = Depends(require_roles("super_admin"))):
+    students = await db.users.find(
+        {"role": "student", "is_archived": {"$ne": True}},
+        {"_id": 0, "user_id": 1},
+    ).to_list(10000)
+    user_ids = [student["user_id"] for student in students]
+    if not user_ids:
+        raise HTTPException(status_code=400, detail="Tidak ada data pendaftar aktif untuk diarsipkan.")
+
+    batch_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    scope = {"user_id": {"$in": user_ids}}
+    counts = {
+        "applicant_count": len(user_ids),
+        "registration_count": await db.registrations.count_documents(scope),
+        "profile_count": await db.profiles.count_documents(scope),
+        "document_count": await db.documents.count_documents(scope),
+        "notification_count": await db.notifications.count_documents(scope),
+    }
+    archive_fields = {
+        "is_archived": True,
+        "archive_batch_id": batch_id,
+        "archived_at": now,
+        "archived_by": user.get("user_id"),
+    }
+    await db.users.update_many(
+        {**scope, "role": "student"},
+        {"$set": archive_fields, "$inc": {"auth_version": 1}},
+    )
+    for collection in [db.registrations, db.profiles, db.documents, db.notifications]:
+        await collection.update_many(scope, {"$set": archive_fields})
+    await db.user_sessions.delete_many(scope)
+    batch = {
+        "id": batch_id,
+        "status": "archived",
+        **counts,
+        "archived_at": now,
+        "archived_by": user.get("user_id"),
+        "archived_by_name": user.get("name", "Super Admin"),
+    }
+    await db.applicant_archive_batches.insert_one(dict(batch))
+    return {"message": "Seluruh data pendaftar telah diarsipkan.", "batch": batch}
+
+
+@api_router.post("/super-admin/applicant-archive/{batch_id}/restore")
+async def restore_applicant_archive(
+    batch_id: str,
+    user: dict = Depends(require_roles("super_admin")),
+):
+    batch = await db.applicant_archive_batches.find_one(
+        {"id": batch_id, "status": "archived"},
+        {"_id": 0},
+    )
+    if not batch:
+        raise HTTPException(status_code=404, detail="Batch arsip aktif tidak ditemukan.")
+    now = datetime.now(timezone.utc).isoformat()
+    restore_fields = {"is_archived": False, "restored_at": now, "restored_by": user.get("user_id")}
+    archive_scope = {"archive_batch_id": batch_id, "is_archived": True}
+    for collection in [db.users, db.registrations, db.profiles, db.documents, db.notifications]:
+        await collection.update_many(
+            archive_scope,
+            {"$set": restore_fields, "$unset": {"archive_batch_id": ""}},
+        )
+    await db.applicant_archive_batches.update_one(
+        {"id": batch_id},
+        {
+            "$set": {
+                "status": "restored",
+                "restored_at": now,
+                "restored_by": user.get("user_id"),
+                "restored_by_name": user.get("name", "Super Admin"),
+            }
+        },
+    )
+    return {"message": "Data pendaftar berhasil dipulihkan.", "batch_id": batch_id}
+
+
 @api_router.get("/")
 async def root():
     return {"message": "MDJ Scholarship API"}
@@ -5468,6 +5651,7 @@ app.add_middleware(
 async def startup():
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id")
+    await db.users.create_index([("role", 1), ("is_archived", 1)])
     await db.user_sessions.create_index("session_token")
     await db.password_reset_tokens.create_index("token_hash", unique=True)
     await db.password_reset_tokens.create_index("expires_at", expireAfterSeconds=0)
@@ -5480,6 +5664,11 @@ async def startup():
         [("status", 1), ("category", 1), ("is_announcement_published", 1)]
     )
     await db.registrations.create_index("user_id")
+    await db.registrations.create_index([("is_archived", 1), ("archive_batch_id", 1)])
+    await db.profiles.create_index([("is_archived", 1), ("archive_batch_id", 1)])
+    await db.documents.create_index([("is_archived", 1), ("archive_batch_id", 1)])
+    await db.notifications.create_index([("is_archived", 1), ("archive_batch_id", 1)])
+    await db.applicant_archive_batches.create_index([("status", 1), ("archived_at", -1)])
     await db.registrations.create_index("cpm_id", unique=True, sparse=True)
     await db.documents.create_index("user_id")
     await db.campuses.create_index("id", unique=True)
