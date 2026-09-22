@@ -16,7 +16,8 @@ export default function Register() {
 
   const googleRegister = () => {
     // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
-    window.location.href = `${process.env.REACT_APP_BACKEND_URL}/api/auth/google/login?redirect_origin=${encodeURIComponent(window.location.origin)}`;
+    const redirectUrl = window.location.origin + "/dashboard";
+    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
   const submit = async (e) => {

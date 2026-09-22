@@ -601,6 +601,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   ke Google Authorization Endpoint. Callback produksi yang perlu didaftarkan adalah `/api/auth/google/callback`
   pada domain aplikasi yang digunakan.
 
+## 2026-09 — Pemulihan OAuth Google terkelola
+- Atas permintaan pemilik aplikasi, alur OAuth organisasi dihapus secara terarah dan tombol Google pada Masuk
+  serta Daftar kembali memakai OAuth terkelola Emergent dengan redirect dinamis menuju dashboard.
+- `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` dihapus dari environment; dependensi OAuth organisasi juga
+  dihapus. Login email/password terverifikasi tetap berhasil (HTTP 200).
+
 ## 2026-09 — Halaman Privacy Policy
 - Menambahkan halaman publik `/privacy-policy` untuk Sistem Registrasi BAZNAS dan MDJ Scholarship.
 - Halaman mencakup Pengumpulan Data Pengguna, Penggunaan Data, serta Keamanan Data, dilengkapi tautan kembali
