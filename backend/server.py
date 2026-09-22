@@ -2388,8 +2388,14 @@ async def export_campus_disbursements(
     recap = workbook.active
     recap.title = f"Rekap Tahap {stage}"
     headers = ["No", "Kampus", "Wilayah", "Mahasiswa", "Status", "Nominal", "Tanggal", "Bukti TF"]
+    recap.merge_cells("A1:H1")
+    recap["A1"] = "REKAPITULASI PENCAIRAN MASA DEPAN JAKARTA SCHOLARSHIP BAZNAS (BAZIS) PROVINSI DKI JAKARTA"
+    recap["A1"].font = Font(bold=True, color="0B6B3A", size=12)
+    recap.merge_cells("A2:H2")
+    recap["A2"] = f"TAHAP {stage} WILAYAH {region or 'SELURUH DKI JAKARTA'}"
+    recap["A2"].font = Font(bold=True, color="0B6B3A")
     recap.append(headers)
-    for cell in recap[1]:
+    for cell in recap[3]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = PatternFill("solid", fgColor="0B6B3A")
     proof_sheet = workbook.create_sheet("Bukti Transfer")

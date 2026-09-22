@@ -279,10 +279,7 @@ export default function DisbursementManager() {
       <section className="space-y-4" data-testid="campus-disbursement-table-section">
         <div className="border-b-2 border-[#0B6B3A] pb-4 text-center">
           <p className="text-xs font-bold uppercase tracking-wide text-[#1F2937]">
-            Rekapitulasi Pengajuan Beasiswa Masa Depan Jakarta
-          </p>
-          <p className="mt-1 text-xs font-semibold uppercase text-[#1F2937]">
-            BAZNAS (BAZIS) Provinsi DKI Jakarta
+            Rekapitulasi Pencairan Masa Depan Jakarta Scholarship BAZNAS (BAZIS) Provinsi DKI Jakarta
           </p>
           <p className="mt-1 text-xs font-bold uppercase text-[#0B6B3A]" data-testid="disbursement-recap-title">
             {stageLabel(activeStage)} Wilayah {region === "all" ? "Seluruh DKI Jakarta" : region}

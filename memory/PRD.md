@@ -620,3 +620,6 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   pratinjau gambar pada workbook; bukti PDF tetap dicatat sebagai lampiran sumber pada lembar bukti.
 - Verifikasi: endpoint ekspor HTTP 200 menghasilkan workbook valid dengan lembar `Rekap Tahap 1` dan
   `Bukti Transfer`; build frontend dan tampilan tombol admin lulus.
+- Judul rekap pada halaman dan baris teratas workbook kini menggunakan teks **REKAPITULASI PENCAIRAN MASA
+  DEPAN JAKARTA SCHOLARSHIP BAZNAS (BAZIS) PROVINSI DKI JAKARTA**. Baris berikutnya mempertahankan Tahap
+  aktif dan wilayah aktif sebagai penanda ekspor.
