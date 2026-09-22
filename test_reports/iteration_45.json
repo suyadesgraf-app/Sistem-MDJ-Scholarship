@@ -1,0 +1,63 @@
+{
+  "summary": "Verified iter45 bug fix (Indonesian -nya normalization + synonym expansion in backend/rag_service.py::reference_tokens) for Student AI chat RAG retrieval. Ran 10 backend pytests + UI check with demo student widget. Retrieval half of the fix is CORRECT (sources now include SYARAT DAN KETENTUAN.pdf for 'syaratnya apa ajah?' and refs for 'program apa sih ini?'), but the Gemini 3.8 Flash LLM still frequently returns the exact OUT_OF_SCOPE fallback string even when relevant chunks are retrieved. UI reproduction confirms the user-reported bug for 'syaratnya apa ajah?' still occurs (~2/3 of runs). 'program apa sih ini?' works intermittently. Weather/rendang unrelated question correctly returns exact fallback.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/student/ai-chat/stream",
+        "issue": "For 'syaratnya apa ajah?' the retrieval correctly returns sources=['KEBIJAKAN PRIVASI.pdf','SYARAT DAN KETENTUAN (TERMS & CONDITIONS).pdf'] but Gemini LLM still emits the exact OUT_OF_SCOPE fallback string in the answer stream (reproduced ~66% of runs, also reproduced in UI). The synonym+suffix retrieval fix is working, but the system prompt 'Jika tidak cukup, jawab persis: {OUT_OF_SCOPE}' causes the LLM to over-trigger the fallback. Root cause: retrieved chunks from PAKTA/PRIVASI dilute the SYARAT context and/or system prompt bias.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "POST /api/student/ai-chat/stream",
+        "issue": "For 'program apa sih ini?' retrieval sometimes returns only ['KEBIJAKAN PRIVASI.pdf'] (missing SYARAT DAN KETENTUAN), causing LLM fallback. Token 'program' synonyms {beasiswa, scholarship, mdj, masa, depan, jakarta} match many chunks; ranking is by raw intersection size so smaller relevant chunks lose to bigger unrelated ones. Consider TF-IDF or per-chunk length normalization.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "backend/rag_service.py::reference_tokens",
+        "issue": "Suffix stripping only handles -nya (len>5). Common Indonesian suffixes -nya/-lah/-kah/-ku/-mu not covered; and 'ajah' is not a real word ('aja' is). Consider adding 'aja','ajah','dong','sih' to stop_words and handling -kah/-lah."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Student AI Chat widget /dashboard",
+        "issue": "Widget correctly streams responses, but shows exact out-of-scope fallback for 'syaratnya apa ajah?' — matching the original user bug report. 'program apa sih ini?' worked once with a grounded MDJ Scholarship description in second UI run.",
+        "affected_selectors": ["[data-testid='student-ai-chat-messages']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_student_ai_chat_syarat_program.py",
+    "/app/test_reports/pytest/iter45_syarat_program.xml"
+  ],
+  "action_items": [
+    "Improve retrieval ranking so SYARAT chunks outrank PAKTA/PRIVASI for syarat/program queries (per-chunk token density, top-k per document, or TF-IDF).",
+    "Loosen system prompt: change 'jawab persis: {OUT_OF_SCOPE}' to instruct LLM to attempt answer FIRST from provided chunks and only fallback if truly no overlap. Currently the prompt biases toward fallback.",
+    "Optionally: after LLM returns exact OUT_OF_SCOPE but chunks WERE retrieved, retry once with a stronger instruction (e.g. 'You have relevant context, extract the answer').",
+    "Add more Indonesian stop words: 'aja','ajah','dong','deh','yah','ya','loh' and suffix strip for -kah/-lah/-ku/-mu."
+  ],
+  "critical_code_review_comments": [
+    "server.py:6490 concatenates all retrieved chunks with document tag; if multiple refs matched by generic tokens (yang/pada already filtered) larger doc chunks dominate — consider score-weighted context truncation.",
+    "server.py:6499 broad `except Exception:` swallows LLM errors and returns fallback silently — should log the exception (backend logs are the primary debug channel).",
+    "rag_service.py:44 suffix strip `token[:-3] if token.endswith('nya')` also strips 'nya' from unrelated words (e.g. 'punya'->'pu' would be <3 chars so filtered, but 'karya'->'kar', 'budaya'->'buda'). Consider whitelist of known -nya words instead.",
+    "server.py:6367-6370 loads up to 5000 chunks then re-tokenises text of each per request — cache tokenised chunks in memory or precompute at ingest time for scale."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_student_ai_chat_syarat_program.py (new)"
+  ],
+  "success_rate": {
+    "backend": "80% (8/10 tests pass; 2 assert LLM answer is non-fallback which is flaky due to LLM behaviour, retrieval sources always correct)",
+    "frontend": "33% (1/3 questions produced expected grounded answer; syarat-query still returns exact fallback in UI, matching user bug)"
+  },
+  "test_credentials": "Used /app/memory/test_credentials.md — mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!, supri@baznasbazisdki.id / MdjSuper2026!, admin.mdj@baznasbazisdki.id / AdminMDJ2026!",
+  "seed_data_creation": "None. Cleaned up: mongosh deleted 28 student_ai_chat_messages for session student-rag-user_485a33c3b073 (demo student). Preserved: 3 ai_references + 14 ai_reference_chunks (SYARAT/PRIVASI/PAKTA) untouched.",
+  "retest_needed": true,
+  "main_agent_can_self_test": false,
+  "context_for_next_testing_agent": "Test file /app/backend/tests/test_student_ai_chat_syarat_program.py exercises the fix. Retrieval fix (sources returned) always passes; LLM-answer assertions (test_syarat_query_grounded, test_program_query_grounded) are flaky and reproduce the user-visible bug ~50-70% of the time. Main fix required is in server.py:6482-6489 system prompt and/or ranking in retrieve_ai_reference_chunks (server.py:6363). Run pytest with `-p no:xdist -o addopts=''` because backend/pytest.ini enforces xdist loadscope which is incompatible with `-p no:xdist`. Existing 3 references (KEBIJAKAN PRIVASI.pdf, SYARAT DAN KETENTUAN (TERMS & CONDITIONS).pdf, PAKTA INTEGRITAS PENDAFTAR.pdf) must remain in DB.",
+  "rca of the issue": "Reproduction: Login as mahasiswa.mdj, open AI widget, ask 'syaratnya apa ajah?'. Backend retrieves correct chunks (SYARAT DAN KETENTUAN + KEBIJAKAN PRIVASI) via reference_tokens synonym expansion (VERIFIED via API sources field in SSE done event). However Gemini streams `Maaf, pertanyaan tersebut berada di luar cakupan referensi dokumen yang tersedia.` The synonym-expansion patch fixed retrieval but the LLM system prompt at server.py:6485-6488 tells the model 'Jika tidak cukup, jawab persis: {OUT_OF_SCOPE_MESSAGE}' — the model interprets the mixed PRIVASI+SYARAT context (or PAKTA-heavy context) as insufficient and emits the exact fallback. Mitigation: (a) rank chunks per-document with cap 3 per doc so best doc wins; (b) rewrite system prompt to prefer extraction over fallback; (c) if answer.strip()==OUT_OF_SCOPE_MESSAGE but len(sources)>0, retry with stronger prompt or return top chunk verbatim citation."
+}

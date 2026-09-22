@@ -6370,11 +6370,24 @@ async def retrieve_ai_reference_chunks(question: str) -> list[dict]:
     ).to_list(5000)
     ranked = []
     for chunk in chunks:
-        score = len(terms.intersection(reference_tokens(chunk["text"])))
+        text_terms = reference_tokens(chunk["text"])
+        title_terms = reference_tokens(chunk["reference_name"])
+        score = len(terms.intersection(text_terms))
+        score += len(terms.intersection(title_terms)) * 8
         if score:
-            ranked.append((score, chunk))
+            ranked.append((score / max(1, len(text_terms) ** 0.35), chunk))
     ranked.sort(key=lambda item: item[0], reverse=True)
-    return [item[1] for item in ranked[:5]]
+    selected = []
+    per_reference = {}
+    for _, chunk in ranked:
+        reference_name = chunk["reference_name"]
+        if per_reference.get(reference_name, 0) >= 2:
+            continue
+        selected.append(chunk)
+        per_reference[reference_name] = per_reference.get(reference_name, 0) + 1
+        if len(selected) == 5:
+            break
+    return selected
 
 
 @api_router.get("/super-admin/ai-references")
@@ -6467,10 +6480,11 @@ async def stream_student_ai_chat(
     question = payload.question.strip()
     session_id = f"student-rag-{user['user_id']}"
     chunks = await retrieve_ai_reference_chunks(question)
-    sources = list({chunk["reference_name"] for chunk in chunks})
+    sources = list(dict.fromkeys(chunk["reference_name"] for chunk in chunks))
 
     async def event_stream():
         answer = ""
+        pending_output = ""
         try:
             if not chunks:
                 answer = OUT_OF_SCOPE_MESSAGE
@@ -6483,20 +6497,30 @@ async def stream_student_ai_chat(
                     api_key=GEMINI_API_KEY,
                     session_id=session_id,
                     system_message=(
-                        "Jawab hanya berdasarkan referensi. Gunakan Bahasa Indonesia. "
-                        f"Jika tidak cukup, jawab persis: {OUT_OF_SCOPE_MESSAGE}"
+                        "Jawab berdasarkan referensi yang diberikan dalam Bahasa Indonesia. "
+                        "Utamakan mengekstrak jawaban faktual dari referensi. "
+                        f"Gunakan kalimat ini hanya jika tidak ada informasi yang relevan sama sekali: {OUT_OF_SCOPE_MESSAGE}"
                     ),
                 ).with_model("gemini", GEMINI_MODEL)
                 async for event in chat.stream_message(UserMessage(text=f"REFERENSI:\n{context}\n\nPERTANYAAN: {question}")):
                     if isinstance(event, TextDelta):
                         answer += event.content
-                        yield f"event: delta\ndata: {json.dumps({'text': event.content})}\n\n"
+                        pending_output += event.content
+                        if len(pending_output) >= 120:
+                            yield f"event: delta\ndata: {json.dumps({'text': pending_output})}\n\n"
+                            pending_output = ""
                     elif isinstance(event, StreamDone):
                         break
                 if not answer.strip():
                     answer = OUT_OF_SCOPE_MESSAGE
                     yield f"event: delta\ndata: {json.dumps({'text': answer})}\n\n"
+                elif answer.strip() == OUT_OF_SCOPE_MESSAGE and chunks:
+                    answer = f"Berdasarkan referensi {sources[0]}: {chunks[0]['text'][:850].strip()}"
+                    yield f"event: delta\ndata: {json.dumps({'text': answer})}\n\n"
+                elif pending_output:
+                    yield f"event: delta\ndata: {json.dumps({'text': pending_output})}\n\n"
         except Exception:
+            logger.exception("Student AI chat generation failed")
             answer = OUT_OF_SCOPE_MESSAGE
             yield f"event: delta\ndata: {json.dumps({'text': answer})}\n\n"
         finally:

@@ -31,7 +31,7 @@ def split_reference_text(text: str, size: int = 900) -> list[str]:
 
 
 def reference_tokens(text: str) -> set[str]:
-    stop_words = {"yang", "dan", "atau", "untuk", "dengan", "dari", "pada", "ini", "itu", "apa", "sih"}
+    stop_words = {"yang", "dan", "atau", "untuk", "dengan", "dari", "pada", "ini", "itu", "apa", "sih", "aja", "ajah", "dong", "deh", "yah", "ya", "loh"}
     synonyms = {
         "syarat": {"syarat", "persyaratan", "ketentuan", "kriteria"},
         "persyaratan": {"syarat", "persyaratan", "ketentuan", "kriteria"},
@@ -41,7 +41,11 @@ def reference_tokens(text: str) -> set[str]:
     }
     tokens = set()
     for token in re.findall(r"[a-zA-Z0-9]{3,}", text.lower()):
-        normalized = token[:-3] if token.endswith("nya") and len(token) > 5 else token
+        normalized = token
+        for suffix in ("nya", "lah", "kah", "ku", "mu"):
+            if normalized.endswith(suffix) and len(normalized) - len(suffix) >= 3:
+                normalized = normalized[:-len(suffix)]
+                break
         if normalized in stop_words:
             continue
         tokens.add(normalized)
