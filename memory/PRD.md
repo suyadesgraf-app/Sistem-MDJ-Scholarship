@@ -676,6 +676,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Testing agent lulus 7/7 backend dan seluruh verifikasi tampilan banner, dokumen klik, serta tautan. Metadata
   lampiran uji ditandai terhapus setelah pengujian; konten pengumuman asli dipulihkan utuh.
 
+## 2026-09 — Halaman Informasi Legal CMS
+- Tautan footer Kebijakan Privasi, Syarat dan Ketentuan, serta Pedoman Program kini menuju halaman publik
+  khusus di `/privacy-policy`, `/syarat-ketentuan`, dan `/pedoman-program`.
+- Super Admin dapat mengubah judul serta isi ketiga halaman dalam tab **Informasi Legal** pada Kelola Website.
+- Testing agent lulus 5/5 backend dan seluruh verifikasi rute footer, halaman publik, edit CMS, pembatasan akses,
+  serta responsivitas ponsel. Konten CMS uji dipulihkan setelah pengujian.
+
 ## 2026-09 — Penyederhanaan sidebar Admin Wilayah
 - Menu **Import Seleksi** dan **Verifikasi AI** disembunyikan sementara hanya untuk Admin Wilayah.
 - Dashboard, Ringkasan, Data Peserta, Pencairan Dana, dan Live Chat tetap tersedia. Menu Admin Provinsi serta
