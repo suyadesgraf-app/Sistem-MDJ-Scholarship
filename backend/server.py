@@ -4286,6 +4286,32 @@ async def get_site_announcement_file(file_id: str):
     return StarletteResponse(content=data, media_type=record.get("content_type", content_type))
 
 
+@api_router.post("/super-admin/legal-information/import")
+async def import_legal_information_file(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_roles("super_admin")),
+):
+    filename = file.filename or "informasi-legal"
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    mime_types = {
+        "pdf": "application/pdf",
+        "doc": "application/msword",
+        "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+    if extension not in mime_types:
+        raise HTTPException(status_code=400, detail="Gunakan berkas PDF, DOC, atau DOCX.")
+    data = await file.read()
+    if not data or len(data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran berkas harus antara 1 byte dan 15MB.")
+    try:
+        content = await extract_reference_text(data, filename, extension, mime_types[extension], GEMINI_API_KEY)
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=f"Isi berkas tidak dapat diimpor: {str(error)[:160]}")
+    if not content.strip():
+        raise HTTPException(status_code=422, detail="Tidak ada teks yang dapat diimpor dari berkas.")
+    return {"content": content.strip()}
+
+
 @api_router.put("/site/content")
 async def update_site_content(payload: SiteContentInput, user: dict = Depends(require_roles("super_admin"))):
     current = await db.site_content.find_one({"key": "main"}, {"_id": 0}) or {}

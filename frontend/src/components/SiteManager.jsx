@@ -237,8 +237,18 @@ function LegalEditor({ content, onSave, saving }) {
     guide: content.guide || { title: "Pedoman Program", content: "" },
   });
   const update = (key, field, value) => setLegal((previous) => ({ ...previous, [key]: { ...previous[key], [field]: value } }));
+  const importFile = async (key, file) => {
+    if (!file) return;
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await api.post("/super-admin/legal-information/import", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      update(key, "content", response.data.content);
+      toast.success("Isi berkas berhasil dimasukkan ke editor.");
+    } catch (error) { toast.error(error.response?.data?.detail || "Berkas legal gagal diimpor."); }
+  };
   return <div className="space-y-5">
-    {[['privacy', 'Kebijakan Privasi'], ['terms', 'Syarat dan Ketentuan'], ['guide', 'Pedoman Program']].map(([key, label]) => <div key={key} className="rounded-xl border border-gray-100 bg-white p-5"><p className="font-display font-extrabold text-[#1F2937]">{label}</p><input value={legal[key].title} onChange={(e) => update(key, 'title', e.target.value)} className={ic + " mt-3"} /><textarea value={legal[key].content} onChange={(e) => update(key, 'content', e.target.value)} rows={7} className={ic + " mt-3"} placeholder="Isi halaman..." /></div>)}
+    {[['privacy', 'Kebijakan Privasi'], ['terms', 'Syarat dan Ketentuan'], ['guide', 'Pedoman Program']].map(([key, label]) => <div key={key} className="rounded-xl border border-gray-100 bg-white p-5"><p className="font-display font-extrabold text-[#1F2937]">{label}</p><input value={legal[key].title} onChange={(e) => update(key, 'title', e.target.value)} className={ic + " mt-3"} /><label className="mt-3 inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-[#0B6B3A]">Import PDF/DOC<input type="file" accept=".pdf,.doc,.docx" className="sr-only" data-testid={`legal-import-${key}`} onChange={(event) => importFile(key, event.target.files?.[0])} /></label><textarea value={legal[key].content} onChange={(e) => update(key, 'content', e.target.value)} rows={7} className={ic + " mt-3"} placeholder="Isi halaman..." /></div>)}
     <button onClick={() => onSave(legal)} disabled={saving} data-testid="save-legal-information" className="rounded-lg bg-[#0B6B3A] px-5 py-3 text-sm font-bold text-white">{saving ? "Menyimpan..." : "Simpan Informasi Legal"}</button>
   </div>;
 }
