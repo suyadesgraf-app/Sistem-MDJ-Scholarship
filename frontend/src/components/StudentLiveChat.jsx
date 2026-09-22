@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { FileText, Image, Loader2, Paperclip, Send } from "lucide-react";
+import { FileText, Image, Loader2, Mic, Paperclip, Send, Square } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 
@@ -26,6 +26,10 @@ function ChatAttachment({ attachment }) {
 
   const url = attachmentUrl(attachment);
   const isImage = attachment.content_type?.startsWith("image/");
+  const isAudio = attachment.content_type?.startsWith("audio/");
+  if (isAudio) {
+    return <audio controls className="mt-3 w-full" data-testid={`student-chat-audio-${attachment.id}`}><source src={url} type={attachment.content_type} /></audio>;
+  }
   return (
     <a
       href={url}
@@ -92,7 +96,46 @@ function ChatComposer({ disabled, onSend, studentId }) {
   const [message, setMessage] = useState("");
   const [attachment, setAttachment] = useState(null);
   const [sending, setSending] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordingLocked, setRecordingLocked] = useState(false);
   const fileInputRef = useRef(null);
+  const recorderRef = useRef(null);
+  const audioPartsRef = useRef([]);
+  const recordStartYRef = useRef(0);
+
+  const sendVoiceNote = async (file) => {
+    const formData = new FormData();
+    formData.append("message", "");
+    if (studentId) formData.append("student_id", studentId);
+    formData.append("attachment", file);
+    setSending(true);
+    try {
+      const response = await api.post("/student-live-chat/messages", formData, { headers: { "Content-Type": "multipart/form-data" } });
+      onSend(response.data.message);
+    } catch (error) { toast.error(error.response?.data?.detail || "Voice note belum berhasil dikirim."); }
+    finally { setSending(false); }
+  };
+
+  const startVoiceRecording = async (event) => {
+    if (sending || recording) return;
+    try {
+      recordStartYRef.current = event.clientY;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioPartsRef.current = [];
+      recorder.ondataavailable = (item) => audioPartsRef.current.push(item.data);
+      recorder.onstop = () => {
+        const blob = new Blob(audioPartsRef.current, { type: recorder.mimeType || "audio/webm" });
+        stream.getTracks().forEach((track) => track.stop());
+        setRecording(false); setRecordingLocked(false);
+        if (blob.size) sendVoiceNote(new File([blob], `voice-note-${Date.now()}.webm`, { type: blob.type }));
+      };
+      recorder.start(); recorderRef.current = recorder; setRecording(true);
+    } catch { toast.error("Izin mikrofon diperlukan untuk merekam voice note."); }
+  };
+  const moveVoiceRecording = (event) => { if (recording && !recordingLocked && recordStartYRef.current - event.clientY > 48) setRecordingLocked(true); };
+  const releaseVoiceRecording = () => { if (recording && !recordingLocked) recorderRef.current?.stop(); };
+  const stopLockedVoiceRecording = () => { if (recording && recordingLocked) recorderRef.current?.stop(); };
 
   const submit = async (event) => {
     event.preventDefault();
@@ -159,11 +202,13 @@ function ChatComposer({ disabled, onSend, studentId }) {
               ref={fileInputRef}
               id="student-chat-attachment-input"
               type="file"
-              accept={ACCEPTED_FILES}
+              accept={`${ACCEPTED_FILES},.mp3,.wav,.ogg,.webm,.m4a`}
               onChange={(event) => setAttachment(event.target.files?.[0] || null)}
               data-testid="student-chat-attachment-input"
               className="sr-only"
             />
+            <button type="button" onPointerDown={startVoiceRecording} onPointerMove={moveVoiceRecording} onPointerUp={releaseVoiceRecording} onPointerCancel={releaseVoiceRecording} onClick={stopLockedVoiceRecording} data-testid="student-chat-record-button" className={`inline-flex h-11 w-11 items-center justify-center rounded-full text-white ${recording ? "bg-[#DC2626]" : "bg-[#0B6B3A]"}`} aria-label={recordingLocked ? "Kirim voice note" : "Tahan untuk rekam voice note"}>{recordingLocked ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}</button>
+            {recording && <span className="text-xs font-bold text-[#DC2626]" data-testid="student-chat-recording-status">{recordingLocked ? "Rekaman dikunci — tekan tombol untuk kirim" : "Merekam — lepas untuk kirim atau geser ke atas untuk kunci"}</span>}
             {attachment && (
               <span className="max-w-full truncate text-xs text-[#4B5563]" data-testid="student-chat-selected-file">
                 {attachment.name}

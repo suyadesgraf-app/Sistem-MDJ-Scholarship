@@ -488,8 +488,9 @@ class StudentAiChatInput(BaseModel):
     question: str = Field(min_length=1, max_length=1200)
 
 
-STUDENT_CHAT_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "pdf"}
+STUDENT_CHAT_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "pdf", "mp3", "wav", "ogg", "webm", "m4a"}
 STUDENT_CHAT_MAX_FILE_SIZE = 10 * 1024 * 1024
+STUDENT_CHAT_AUDIO_MIME_TYPES = {"mp3": "audio/mpeg", "wav": "audio/wav", "ogg": "audio/ogg", "webm": "audio/webm", "m4a": "audio/mp4"}
 ADMIN_CHAT_MIME_TYPES = {
     "pdf": "application/pdf", "doc": "application/msword",
     "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -6243,7 +6244,7 @@ async def create_student_chat_attachment(file: UploadFile, student_id: str) -> d
     if not student_chat_attachment_matches(data, extension):
         raise HTTPException(status_code=400, detail="Isi lampiran tidak sesuai dengan format berkas.")
 
-    content_type = MIME_TYPES[extension]
+    content_type = STUDENT_CHAT_AUDIO_MIME_TYPES.get(extension, MIME_TYPES[extension])
     data, extension, content_type = compress_image(data, extension, content_type)
     attachment_id = str(uuid.uuid4())
     path = f"{APP_NAME}/student-live-chat/{student_id}/{attachment_id}.{extension}"
