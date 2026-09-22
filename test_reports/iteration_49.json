@@ -1,0 +1,25 @@
+{
+  "summary": "Iter49 verified public Papan Pengumuman attachments feature end-to-end. Backend: pytest 7/7 pass for POST /api/super-admin/site-announcements/upload (auth required, super_admin only, mime whitelist rejects .txt/text), GET /api/site/announcement-files/{id} (public, returns correct bytes & content-type for image/png and application/pdf, 404 on missing), and PUT /api/site/content lifecycle (add temp banner/attachment/link announcements, restore exact original). Frontend: seeded a temp announcement set via API as super_admin then loaded Landing at #pengumuman — data-testid announcement-banner-<i> renders inline PNG (naturalWidth=64), announcement-attachment-<i+1> shows 'Lihat TEST_ITER49_UI_lampiran.pdf' with correct /api/site/announcement-files/<id> href that returns application/pdf, announcement-link-<i+2> shows 'Buka Tautan' with href https://example.com/iter49. Original site_content.announcements restored exactly; 0 TEST_ITER49 leftovers. Test files (site_announcement_files metadata) remain in storage per instruction (no physical delete performed).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_site_announcement_attachments.py",
+    "/app/test_reports/pytest/iter49_attachments.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py L4261-4286: upload endpoint accepts up to 15MB but does not verify uploaded bytes match the extension via magic-number sniffing — a malicious super_admin could upload arbitrary payload with a whitelisted extension. Low risk (super_admin only) but worth adding python-magic/imghdr check.",
+    "server.py L4276: site_announcement_files insert does not record uploader user id or created_at timestamp — makes future cleanup/audit harder.",
+    "GET /api/site/announcement-files/{file_id} sends no Cache-Control header while other public file routes (e.g. logo/banner at L4250, L4251) set 'public, max-age=3600'. Public announcement files would benefit from the same caching header.",
+    "Landing.jsx L323: attachment 'Lihat <filename>' link relies on target=_blank + rel=noreferrer but has no download attribute or explicit type indicator; for PDFs the browser will inline-preview which matches the spec ('open only when clicked'), but for xlsx/docx the browser will download — behavior is acceptable but consider adding a small file-type icon for consistency.",
+    "SiteManager.jsx L196: entire upload handler crammed into a JSX onChange arrow function (>200 chars single line) — hurts readability and prevents unit-testable extraction. Also, whether the upload is treated as 'banner' or 'attachment' is decided solely by content_type.startsWith('image/'), which silently reclassifies an image file the admin might have intended as an attachment. Consider two separate upload controls or a small select."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (banner+attachment+link testids all render and integrate)"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026! ; mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!",
+  "seed_data_creation": "Two site_announcement_files metadata rows (TEST_ITER49_UI_banner.png, TEST_ITER49_UI_lampiran.pdf, plus two additional from pytest run) remain in db.site_announcement_files with is_deleted=false; blobs remain in object storage per instruction 'Object storage has no physical delete; mark/delete test metadata'. site_content.announcements list was fully restored to pre-test state (verified: 0 rows with category=TEST_ITER49 or TEST_ITER49* title).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "test_site_announcement_attachments.py is the regression file for public announcement attachments. It reads REACT_APP_BACKEND_URL from env or falls back to /app/frontend/.env. Original announcements are snapshotted before mutation and restored in a finally block. To physically clean up the four TEST_ITER49 site_announcement_files metadata rows, run: db.site_announcement_files.update_many({original_filename: /TEST_ITER49/}, {$set: {is_deleted: true}}).",
+  "rca of the issue": "No bug found this iteration. All acceptance criteria in the review request satisfied."
+}

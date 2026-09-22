@@ -668,6 +668,14 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Widget dapat dipindahkan melalui pegangan judul dan tetap berada dalam viewport pada desktop maupun ponsel.
 - Testing agent lulus 4/4 skenario: posisi kanan bawah, tanpa overlap sidebar, drag, buka/tutup, dan mobile tanpa overflow.
 
+## 2026-09 — Lampiran Papan Pengumuman
+- Super Admin dapat menambahkan banner JPG/PNG yang ditampilkan langsung pada kartu Papan Pengumuman,
+  dokumen JPG/PNG/PDF/Word/Excel yang dibuka hanya saat diklik, serta tautan eksternal yang dapat dipilih.
+- Unggahan dibatasi untuk Super Admin; berkas pengumuman dapat dibuka publik melalui rute file khusus agar
+  mahasiswa dan pengunjung dapat melihat informasi yang dipublikasikan.
+- Testing agent lulus 7/7 backend dan seluruh verifikasi tampilan banner, dokumen klik, serta tautan. Metadata
+  lampiran uji ditandai terhapus setelah pengujian; konten pengumuman asli dipulihkan utuh.
+
 ## 2026-09 — Penyederhanaan sidebar Admin Wilayah
 - Menu **Import Seleksi** dan **Verifikasi AI** disembunyikan sementara hanya untuk Admin Wilayah.
 - Dashboard, Ringkasan, Data Peserta, Pencairan Dana, dan Live Chat tetap tersedia. Menu Admin Provinsi serta
