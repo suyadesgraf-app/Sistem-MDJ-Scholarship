@@ -667,3 +667,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Tombol AI chat dipindahkan dari kiri bawah ke kanan bawah agar tidak menutupi menu Keluar pada sidebar.
 - Widget dapat dipindahkan melalui pegangan judul dan tetap berada dalam viewport pada desktop maupun ponsel.
 - Testing agent lulus 4/4 skenario: posisi kanan bawah, tanpa overlap sidebar, drag, buka/tutup, dan mobile tanpa overflow.
+
+## 2026-09 — Penyederhanaan sidebar Admin Wilayah
+- Menu **Import Seleksi** dan **Verifikasi AI** disembunyikan sementara hanya untuk Admin Wilayah.
+- Dashboard, Ringkasan, Data Peserta, Pencairan Dana, dan Live Chat tetap tersedia. Menu Admin Provinsi serta
+  Super Admin tidak berubah. Build frontend lulus.

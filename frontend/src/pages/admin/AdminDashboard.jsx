@@ -39,7 +39,7 @@ export default function AdminDashboard() {
   const menu = useMemo(() => {
     if (isRegionalAdmin) {
       return [
-        ...BASE_MENU,
+        ...BASE_MENU.filter((item) => !["import-seleksi", "verifikasi-ai"].includes(item.id)),
         { id: "pencairan-dana", label: "Pencairan Dana", icon: HandCoins },
         { id: "live-chat", label: "Live Chat", icon: MessageCircleMore },
       ];
