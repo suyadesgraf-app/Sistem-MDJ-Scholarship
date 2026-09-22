@@ -14,6 +14,15 @@ export default function StudentAiChatWidget() {
     api.get("/student/ai-chat/messages").then((response) => setMessages(response.data.messages || [])).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const clampPosition = () => setPosition((current) => ({
+      ...current,
+      left: Math.max(8, Math.min(current.left, window.innerWidth - 368)),
+    }));
+    window.addEventListener("resize", clampPosition);
+    return () => window.removeEventListener("resize", clampPosition);
+  }, []);
+
   const startDrag = (event) => {
     const startX = event.clientX;
     const startY = event.clientY;

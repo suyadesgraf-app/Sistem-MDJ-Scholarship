@@ -488,6 +488,15 @@ class StudentAiChatInput(BaseModel):
 
 STUDENT_CHAT_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "pdf"}
 STUDENT_CHAT_MAX_FILE_SIZE = 10 * 1024 * 1024
+ADMIN_CHAT_MIME_TYPES = {
+    "pdf": "application/pdf", "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xls": "application/vnd.ms-excel",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+    "webp": "image/webp", "mp3": "audio/mpeg", "wav": "audio/wav",
+    "ogg": "audio/ogg", "webm": "audio/webm", "m4a": "audio/mp4",
+}
 
 
 REG_STATUSES = ["draft", "submitted", "perlu_perbaikan", "verifikasi", "lolos_administrasi",
@@ -5862,7 +5871,7 @@ async def list_admin_live_chat_messages(
         {"_id": 0},
     ).sort("created_at", -1).to_list(100)
     messages.reverse()
-    return {"session_id": session_id, "messages": messages}
+    return {"session_id": session_id, "messages": [serialize_admin_chat_message(item) for item in messages]}
 
 
 @api_router.post("/admin/live-chat/messages")
@@ -5886,6 +5895,85 @@ async def create_admin_live_chat_message(
     }
     await db.admin_live_chat_messages.insert_one(dict(record))
     return {"message": record}
+
+
+def serialize_admin_chat_message(record: dict) -> dict:
+    item = dict(record)
+    item.pop("_id", None)
+    if item.get("attachment"):
+        attachment = item["attachment"]
+        item["attachment"] = {
+            "id": attachment["id"],
+            "original_filename": attachment["original_filename"],
+            "content_type": attachment["content_type"],
+            "size": attachment["size"],
+        }
+    return item
+
+
+@api_router.post("/admin/live-chat/messages/attachment")
+async def create_admin_live_chat_attachment(
+    message: str = Form(""),
+    attachment: UploadFile = File(...),
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    filename = attachment.filename or "lampiran"
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension not in ADMIN_CHAT_MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Format lampiran belum didukung.")
+    data = await attachment.read()
+    if not data or len(data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran lampiran harus antara 1 byte dan 15MB.")
+    content_type = ADMIN_CHAT_MIME_TYPES[extension]
+    data, extension, content_type = compress_image(data, extension, content_type)
+    attachment_id = str(uuid.uuid4())
+    stored = put_object(
+        f"{APP_NAME}/admin-live-chat/{attachment_id}.{extension}",
+        data,
+        content_type,
+    )
+    record = {
+        "id": str(uuid.uuid4()),
+        "session_id": "admin-team",
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Admin"),
+        "sender_role": user.get("role"),
+        "message": message.strip(),
+        "attachment": {
+            "id": attachment_id,
+            "storage_path": stored["path"],
+            "original_filename": filename,
+            "content_type": content_type,
+            "size": stored["size"],
+        },
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.admin_live_chat_messages.insert_one(dict(record))
+    return {"message": serialize_admin_chat_message(record)}
+
+
+@api_router.get("/admin/live-chat/attachments/{attachment_id}")
+async def download_admin_live_chat_attachment(
+    attachment_id: str,
+    request: Request,
+    auth: str = Query(None),
+):
+    token = request.cookies.get("access_token") or request.cookies.get("session_token") or auth
+    if not token:
+        authorization = request.headers.get("Authorization", "")
+        token = authorization[7:] if authorization.startswith("Bearer ") else None
+    user = await resolve_user_from_token(token) if token else None
+    if not user or user.get("role") not in MANAGEMENT_ROLES:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    record = await db.admin_live_chat_messages.find_one(
+        {"attachment.id": attachment_id},
+        {"_id": 0},
+    )
+    if not record or not record.get("attachment"):
+        raise HTTPException(status_code=404, detail="Lampiran Live Chat tidak ditemukan.")
+    attachment = record["attachment"]
+    data, fallback_type = get_object(attachment["storage_path"])
+    return StarletteResponse(content=data, media_type=attachment.get("content_type", fallback_type))
 
 
 async def resolve_student_chat_target(user: dict, student_id: Optional[str]) -> dict:
@@ -6155,7 +6243,6 @@ async def upload_ai_reference(
         raise HTTPException(status_code=400, detail="Ukuran referensi harus antara 1 byte dan 20MB.")
     reference_id = str(uuid.uuid4())
     mime_type = AI_REFERENCE_MIME_TYPES[extension]
-    stored = put_object(f"{APP_NAME}/ai-references/{reference_id}.{extension}", data, mime_type)
     try:
         extracted = await extract_reference_text(
             data,
@@ -6169,6 +6256,7 @@ async def upload_ai_reference(
     chunks = split_reference_text(extracted)
     if not chunks:
         raise HTTPException(status_code=422, detail="Tidak ada informasi yang dapat diindeks.")
+    stored = put_object(f"{APP_NAME}/ai-references/{reference_id}.{extension}", data, mime_type)
     reference = {
         "id": reference_id,
         "name": filename,

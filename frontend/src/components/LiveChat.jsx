@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2, MessageCircleMore, RefreshCw, Send } from "lucide-react";
+import { FileText, Loader2, MessageCircleMore, Mic, Paperclip, RefreshCw, Send, Square } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { AdminStudentLiveChat } from "@/components/StudentLiveChat";
@@ -23,7 +23,12 @@ export default function LiveChat() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [attachment, setAttachment] = useState(null);
+  const [recording, setRecording] = useState(false);
   const messageListRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const recorderRef = useRef(null);
+  const audioPartsRef = useRef([]);
 
   const loadMessages = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
@@ -61,23 +66,49 @@ export default function LiveChat() {
   const sendMessage = async (event) => {
     event.preventDefault();
     const trimmedMessage = message.trim();
-    if (!trimmedMessage || sending) {
+    if ((!trimmedMessage && !attachment) || sending) {
       return;
     }
 
     setSending(true);
     try {
-      const response = await api.post("/admin/live-chat/messages", {
-        session_id: ADMIN_TEAM_SESSION_ID,
-        message: trimmedMessage,
-      });
+      const response = attachment
+        ? await api.post("/admin/live-chat/messages/attachment", (() => {
+          const formData = new FormData();
+          formData.append("message", trimmedMessage);
+          formData.append("attachment", attachment);
+          return formData;
+        })(), { headers: { "Content-Type": "multipart/form-data" } })
+        : await api.post("/admin/live-chat/messages", { session_id: ADMIN_TEAM_SESSION_ID, message: trimmedMessage });
       setMessages((previous) => [...previous, response.data.message]);
       setMessage("");
+      setAttachment(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (error) {
       toast.error(error.response?.data?.detail || "Pesan belum berhasil dikirim.");
     } finally {
       setSending(false);
     }
+  };
+
+  const toggleRecording = async () => {
+    if (recording) {
+      recorderRef.current?.stop();
+      return;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    audioPartsRef.current = [];
+    recorder.ondataavailable = (event) => audioPartsRef.current.push(event.data);
+    recorder.onstop = () => {
+      const blob = new Blob(audioPartsRef.current, { type: recorder.mimeType || "audio/webm" });
+      setAttachment(new File([blob], `voice-note-${Date.now()}.webm`, { type: blob.type }));
+      stream.getTracks().forEach((track) => track.stop());
+      setRecording(false);
+    };
+    recorder.start();
+    recorderRef.current = recorder;
+    setRecording(true);
   };
 
   return (
@@ -170,6 +201,15 @@ export default function LiveChat() {
                 >
                   {item.message}
                 </p>
+                {item.attachment && (
+                  item.attachment.content_type?.startsWith("audio/") ? (
+                    <audio controls className="mt-3 w-full" data-testid={`live-chat-audio-${item.attachment.id}`}>
+                      <source src={`${process.env.REACT_APP_BACKEND_URL}/api/admin/live-chat/attachments/${item.attachment.id}?auth=${encodeURIComponent(localStorage.getItem("mdj_token") || "")}`} type={item.attachment.content_type} />
+                    </audio>
+                  ) : (
+                    <a href={`${process.env.REACT_APP_BACKEND_URL}/api/admin/live-chat/attachments/${item.attachment.id}?auth=${encodeURIComponent(localStorage.getItem("mdj_token") || "")}`} target="_blank" rel="noreferrer" data-testid={`live-chat-attachment-${item.attachment.id}`} className="mt-3 inline-flex items-center gap-2 text-sm font-bold text-[#0B6B3A]"><FileText className="h-4 w-4" />{item.attachment.original_filename}</a>
+                  )
+                )}
               </article>
             ))
           )}
@@ -194,9 +234,14 @@ export default function LiveChat() {
               data-testid="live-chat-message-input"
               className="min-h-[84px] flex-1 resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-[#1F2937] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#27AE60] focus:ring-2 focus:ring-[#E8F6EE]"
             />
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <label className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#0B6B3A]" data-testid="live-chat-attachment-label"><Paperclip className="h-4 w-4" />Lampirkan dokumen<input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.webm,.m4a" className="sr-only" data-testid="live-chat-attachment-input" onChange={(event) => setAttachment(event.target.files?.[0] || null)} /></label>
+              <button type="button" onClick={toggleRecording} data-testid="live-chat-record-button" className="inline-flex items-center gap-1 text-xs font-bold text-[#0B6B3A]">{recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}{recording ? "Selesai rekam" : "Rekam suara"}</button>
+              {attachment && <span className="max-w-full truncate text-xs text-[#4B5563]" data-testid="live-chat-selected-file">{attachment.name}</span>}
+            </div>
             <button
               type="submit"
-              disabled={!message.trim() || sending}
+              disabled={(!message.trim() && !attachment) || sending}
               data-testid="live-chat-send-button"
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#0B6B3A] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#07532D] disabled:cursor-not-allowed disabled:opacity-60"
             >
