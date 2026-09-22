@@ -1,0 +1,37 @@
+{
+  "summary": "Iter38 tested new Student Live Chat Admin feature (backend + frontend) end-to-end against preview URL. Backend pytest 20/20 passed for /api/student-live-chat/conversations|messages|attachments/{id} covering: (a) unauth GET/POST/download -> 401/403; (b) demo student sends text + lists own messages, cannot query another student (404), empty payload rejected (400), students blocked from conversations endpoint (403); (c) Admin Provinsi + Super Admin see ephemeral student conversations and can reply, student then sees admin reply; (d) Ephemeral admin_wilayah scope: matching-region admin (Jakarta Pusat) lists+opens+replies to matching student; NON-matching admin (Jakarta Timur) does NOT see student A in conversations list, gets 404 on messages list, 404 on reply POST, 404 on attachment download; (e) student ownership: student B cannot download student A's attachment (404); (f) attachments: valid PNG + PDF accepted, response never leaks storage_path (only id/original_filename/content_type/size returned), owner + admin_provinsi can download HTTP 200; invalid extension (.exe) rejected 400; magic-byte mismatch (.png with non-PNG bytes) rejected 400; oversize (>10MB) rejected 400/413. Frontend Playwright: at 1920x1080 demo student opens sidebar 'Live Chat Admin' (data-testid menu-live-chat-admin) -> student-live-chat-manager visible; send button disabled when empty; message sent + rendered in student-chat-message-list; attachment input present. At 390x844 student view has 0px horizontal overflow. Admin Provinsi at 1920 opens Live Chat, switches to Pesan Mahasiswa tab (live-chat-students-tab) -> admin-student-chat-inbox shows demo student's conversation, opens it, sees the student's TEST_UI message, and successfully sends a reply that renders in admin-student-chat-message-list. 0px overflow at admin desktop; 8px overflow at 390px in Admin Student Chat view (minor, reported below). Full cleanup verified via mongosh: 0 ephemeral TEST_slc_ users, 0 profiles, 0 TEST_ messages remain in student_live_chat_messages; only 1 pre-existing demo-student message (not created by tests, not TEST_-prefixed) preserved.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Live Chat > Pesan Mahasiswa at 390px", "issues": ["scrollWidth - clientWidth = 8px (minor horizontal overflow) in AdminStudentLiveChat inbox layout. Likely from lg:grid-cols-[280px_minmax(0,1fr)] side list rendering with a wider min column at mobile; consider stacking (single column) below md breakpoint or reducing padding. Student side view had 0 overflow."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_student_live_chat.py",
+    "/app/test_reports/pytest/iter38_student_live_chat.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Fix 8px horizontal overflow in admin-student-chat-inbox at 390px by collapsing the lg:grid-cols-[280px_minmax(0,1fr)] to a stacked layout below md/sm breakpoint (or ensure the 280px aside becomes 100% width on mobile).",
+    "Consider returning 201 Created on POST /api/student-live-chat/messages (currently 200) for REST consistency (cosmetic)."
+  ],
+  "critical_code_review_comments": [
+    "resolve_student_chat_target: admin_wilayah with malformed region raises 403 via regional_admin_region, but the message string 'Wilayah Admin Wilayah tidak valid.' is generic - acceptable.",
+    "GET /api/student-live-chat/attachments/{id} accepts token via ?auth= query param -- ensure this URL is not logged (access logs / referrer). Consider signed short-lived URLs for image src.",
+    "Attachment content-type is trusted from server-side MIME_TYPES lookup after extension whitelist + magic-byte check -> good.",
+    "student_chat_attachment_matches: WEBP check uses data[8:12]==b'WEBP' without validating the leading RIFF size bytes - functionally fine; minor.",
+    "resolve_student_chat_target uses profile_region which returns kota OR provinsi; if a student has different kota vs provinsi values, scoping could be inconsistent - matches existing app convention.",
+    "server.py now 6236 lines; modularization still recommended (carry-over from iter37).",
+    "GET /api/student-live-chat/conversations returns [] for management with no visible students; consider capping to_list(5000) with pagination for future scale.",
+    "No websocket/SSE; UI likely polls -- acceptable for MVP but note for scale."
+  ],
+  "updated_files": ["/app/backend/tests/test_student_live_chat.py"],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100% functional; 1 minor 8px overflow on admin mobile view"},
+  "test_credentials": "Demo accounts from /app/memory/test_credentials.md used as-is. Ephemeral admin_wilayah / student accounts created directly in Mongo (bcrypt $2b$ hashes, lowercase emails) and torn down.",
+  "seed_data_creation": "Per-test-run ephemeral: 2 students (Jakarta Pusat, Jakarta Timur), 2 admin_wilayah (matching + non-matching), plus ~7 chat messages including PNG + PDF attachments. All removed in test_zzz_cleanup_ephemeral. UI Playwright generated 2 TEST_UI_iter38* messages via demo student + admin reply; both deleted via mongosh after run. Verified counts: TEST_slc_ users=0, TEST_ messages=0.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Rerun: MONGO_URL=mongodb://localhost:27017 DB_NAME=test_database pytest backend/tests/test_student_live_chat.py -o addopts='' -v --junitxml=test_reports/pytest/iter38_student_live_chat.xml. Ephemeral email must be lowercased before insert since /api/auth/login lowers identifier at line 651 in server.py. Playwright tips: after student login page redirects to /dashboard, after admin login to /admin -- use wait_for_url(lambda u: '/login' not in u). Dismiss site-announcement popup by clicking button:has-text('Tutup') before interacting with sidebar. AdminStudentLiveChat inbox layout has slight 8px overflow at 390px worth investigating.",
+  "rca of the issue": "No functional bug. Only minor UX: AdminStudentLiveChat.jsx uses `lg:grid-cols-[280px_minmax(0,1fr)]` which is only applied at >=lg so mobile should stack; verify parent container width/padding at 390px. Repro: login as admin.mdj, open Live Chat -> Pesan Mahasiswa, resize to 390x844, check document.documentElement.scrollWidth - clientWidth (~8px). Mitigation: wrap grid in a container with min-w-0 or explicitly set aside w-full when sm."
+}

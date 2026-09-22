@@ -15,6 +15,7 @@ import RegistrationClosedDialog from "@/components/RegistrationClosedDialog";
 import DocumentRevisionPopup from "@/components/DocumentRevisionPopup";
 import SiteAnnouncementPopup from "@/components/SiteAnnouncementPopup";
 import StudentLiveChat from "@/components/StudentLiveChat";
+import StudentAiChatWidget from "@/components/StudentAiChatWidget";
 import { docFileUrl } from "@/components/DocPreview";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
@@ -441,6 +442,7 @@ export default function StudentDashboard() {
 
       {active === "live-chat-admin" && <StudentLiveChat />}
       {active === "pengaturan" && <AccountSettings />}
+      <StudentAiChatWidget />
       <DocumentRevisionPopup
         revision={documentRevision}
         onDismiss={dismissDocumentRevision}

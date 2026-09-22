@@ -280,8 +280,8 @@ export function AdminStudentLiveChat() {
 
   const selectedConversation = conversations.find((item) => item.student_id === selectedStudentId);
   return (
-    <div className="grid gap-4 lg:grid-cols-[280px_minmax(0,1fr)]" data-testid="admin-student-chat-inbox">
-      <aside className="border border-gray-200 bg-white" data-testid="admin-student-chat-conversation-list">
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[280px_minmax(0,1fr)]" data-testid="admin-student-chat-inbox">
+      <aside className="min-w-0 border border-gray-200 bg-white" data-testid="admin-student-chat-conversation-list">
         <div className="border-b border-gray-200 px-4 py-3">
           <p className="text-sm font-extrabold text-[#1F2937]">Pesan Mahasiswa</p>
         </div>
@@ -308,7 +308,7 @@ export function AdminStudentLiveChat() {
           ))}
         </div>
       </aside>
-      <section className="border border-gray-200 bg-white">
+      <section className="min-w-0 border border-gray-200 bg-white">
         <div className="border-b border-gray-200 px-5 py-3">
           <p className="text-sm font-extrabold text-[#1F2937]" data-testid="admin-student-chat-title">
             {selectedConversation ? `Chat dengan ${selectedConversation.student_name}` : "Pilih percakapan mahasiswa"}

@@ -12,6 +12,7 @@ import AiAdministrativeVerification from "@/components/AiAdministrativeVerificat
 import ApplicantArchiveManager from "@/components/ApplicantArchiveManager";
 import AdminRecipientDashboard from "@/components/AdminRecipientDashboard";
 import LiveChat from "@/components/LiveChat";
+import AiReferenceManager from "@/components/AiReferenceManager";
 import {
   BarChart3,
   Building2,
@@ -39,6 +40,7 @@ const MENU = [
   { id: "live-chat", label: "Live Chat", icon: MessageCircleMore },
   { id: "arsip-pendaftar", label: "Arsip Pendaftar", icon: Archive },
   { id: "website", label: "Kelola Website", icon: LayoutDashboard },
+  { id: "ai-referensi", label: "Referensi AI", icon: Sparkles },
 ];
 
 export default function SuperAdminDashboard() {
@@ -58,6 +60,7 @@ export default function SuperAdminDashboard() {
       {active === "live-chat" && <LiveChat />}
       {active === "arsip-pendaftar" && <ApplicantArchiveManager />}
       {active === "website" && <SiteManager />}
+      {active === "ai-referensi" && <AiReferenceManager />}
     </DashboardShell>
   );
 }

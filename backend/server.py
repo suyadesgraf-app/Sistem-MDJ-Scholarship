@@ -43,6 +43,13 @@ from emergentintegrations.llm.chat import (
     TextDelta,
     UserMessage,
 )
+from rag_service import (
+    GEMINI_MODEL,
+    OUT_OF_SCOPE_MESSAGE,
+    extract_reference_text,
+    reference_tokens,
+    split_reference_text,
+)
 
 # ---------------------------------------------------------------------------
 # Config
@@ -63,6 +70,7 @@ DEMO_STUDENT_PASSWORD = os.environ['DEMO_STUDENT_PASSWORD']
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 APP_NAME = "mdj-scholarship"
 
 # Email (Emergent-managed Resend)
@@ -472,6 +480,10 @@ class StudentDataPurgeInput(BaseModel):
 class AdminLiveChatMessageInput(BaseModel):
     session_id: str = Field(default="admin-team", min_length=1, max_length=100)
     message: str = Field(min_length=1, max_length=2000)
+
+
+class StudentAiChatInput(BaseModel):
+    question: str = Field(min_length=1, max_length=1200)
 
 
 STUDENT_CHAT_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "pdf"}
@@ -6087,6 +6099,177 @@ async def download_student_live_chat_attachment(
     )
 
 
+AI_REFERENCE_MIME_TYPES = {
+    "pdf": "application/pdf",
+    "doc": "application/msword",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xls": "application/vnd.ms-excel",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "mp3": "audio/mpeg",
+    "wav": "audio/wav",
+    "ogg": "audio/ogg",
+    "aac": "audio/aac",
+    "flac": "audio/flac",
+}
+
+
+async def retrieve_ai_reference_chunks(question: str) -> list[dict]:
+    terms = reference_tokens(question)
+    if not terms:
+        return []
+    chunks = await db.ai_reference_chunks.find(
+        {},
+        {"_id": 0, "reference_name": 1, "text": 1},
+    ).to_list(5000)
+    ranked = []
+    for chunk in chunks:
+        score = len(terms.intersection(reference_tokens(chunk["text"])))
+        if score:
+            ranked.append((score, chunk))
+    ranked.sort(key=lambda item: item[0], reverse=True)
+    return [item[1] for item in ranked[:5]]
+
+
+@api_router.get("/super-admin/ai-references")
+async def list_ai_references(user: dict = Depends(require_roles("super_admin"))):
+    references = await db.ai_references.find({}, {"_id": 0, "storage_path": 0}).sort(
+        "created_at", -1
+    ).to_list(200)
+    return {"references": references}
+
+
+@api_router.post("/super-admin/ai-references")
+async def upload_ai_reference(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_roles("super_admin")),
+):
+    filename = file.filename or "referensi"
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension not in AI_REFERENCE_MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Format referensi belum didukung.")
+    data = await file.read()
+    if not data or len(data) > 20 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran referensi harus antara 1 byte dan 20MB.")
+    reference_id = str(uuid.uuid4())
+    mime_type = AI_REFERENCE_MIME_TYPES[extension]
+    stored = put_object(f"{APP_NAME}/ai-references/{reference_id}.{extension}", data, mime_type)
+    try:
+        extracted = await extract_reference_text(
+            data,
+            filename,
+            extension,
+            mime_type,
+            GEMINI_API_KEY,
+        )
+    except Exception as error:
+        raise HTTPException(status_code=422, detail=f"Referensi tidak dapat diproses: {str(error)[:160]}")
+    chunks = split_reference_text(extracted)
+    if not chunks:
+        raise HTTPException(status_code=422, detail="Tidak ada informasi yang dapat diindeks.")
+    reference = {
+        "id": reference_id,
+        "name": filename,
+        "content_type": mime_type,
+        "size": stored["size"],
+        "storage_path": stored["path"],
+        "chunk_count": len(chunks),
+        "created_by": user["user_id"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.ai_references.insert_one(dict(reference))
+    await db.ai_reference_chunks.insert_many([
+        {
+            "id": str(uuid.uuid4()),
+            "reference_id": reference_id,
+            "reference_name": filename,
+            "text": chunk,
+        }
+        for chunk in chunks
+    ])
+    reference.pop("storage_path", None)
+    return {"reference": reference}
+
+
+@api_router.delete("/super-admin/ai-references/{reference_id}")
+async def delete_ai_reference(
+    reference_id: str,
+    user: dict = Depends(require_roles("super_admin")),
+):
+    result = await db.ai_references.delete_one({"id": reference_id})
+    if not result.deleted_count:
+        raise HTTPException(status_code=404, detail="Referensi AI tidak ditemukan.")
+    await db.ai_reference_chunks.delete_many({"reference_id": reference_id})
+    return {"message": "Referensi AI dan indeksnya telah dihapus."}
+
+
+@api_router.get("/student/ai-chat/messages")
+async def list_student_ai_chat_messages(user: dict = Depends(require_roles("student"))):
+    session_id = f"student-rag-{user['user_id']}"
+    messages = await db.student_ai_chat_messages.find(
+        {"session_id": session_id},
+        {"_id": 0},
+    ).sort("created_at", 1).to_list(40)
+    return {"session_id": session_id, "messages": messages}
+
+
+@api_router.post("/student/ai-chat/stream")
+async def stream_student_ai_chat(
+    payload: StudentAiChatInput,
+    user: dict = Depends(require_roles("student")),
+):
+    question = payload.question.strip()
+    session_id = f"student-rag-{user['user_id']}"
+    chunks = await retrieve_ai_reference_chunks(question)
+    sources = list({chunk["reference_name"] for chunk in chunks})
+
+    async def event_stream():
+        answer = ""
+        try:
+            if not chunks:
+                answer = OUT_OF_SCOPE_MESSAGE
+                yield f"event: delta\ndata: {json.dumps({'text': answer})}\n\n"
+            else:
+                context = "\n\n".join(
+                    f"[{chunk['reference_name']}]\n{chunk['text']}" for chunk in chunks
+                )
+                chat = LlmChat(
+                    api_key=GEMINI_API_KEY,
+                    session_id=session_id,
+                    system_message=(
+                        "Jawab hanya berdasarkan referensi. Gunakan Bahasa Indonesia. "
+                        f"Jika tidak cukup, jawab persis: {OUT_OF_SCOPE_MESSAGE}"
+                    ),
+                ).with_model("gemini", GEMINI_MODEL)
+                async for event in chat.stream_message(UserMessage(text=f"REFERENSI:\n{context}\n\nPERTANYAAN: {question}")):
+                    if isinstance(event, TextDelta):
+                        answer += event.content
+                        yield f"event: delta\ndata: {json.dumps({'text': event.content})}\n\n"
+                    elif isinstance(event, StreamDone):
+                        break
+                if not answer.strip():
+                    answer = OUT_OF_SCOPE_MESSAGE
+                    yield f"event: delta\ndata: {json.dumps({'text': answer})}\n\n"
+        except Exception:
+            answer = OUT_OF_SCOPE_MESSAGE
+            yield f"event: delta\ndata: {json.dumps({'text': answer})}\n\n"
+        finally:
+            now = datetime.now(timezone.utc).isoformat()
+            await db.student_ai_chat_messages.insert_many([
+                {"id": str(uuid.uuid4()), "session_id": session_id, "role": "user", "text": question, "created_at": now},
+                {"id": str(uuid.uuid4()), "session_id": session_id, "role": "assistant", "text": answer, "sources": sources, "created_at": datetime.now(timezone.utc).isoformat()},
+            ])
+            yield f"event: done\ndata: {json.dumps({'sources': sources})}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
 @api_router.get("/")
 async def root():
     return {"message": "MDJ Scholarship API"}
@@ -6152,6 +6335,8 @@ async def startup():
     await db.admin_live_chat_messages.create_index([("session_id", 1), ("created_at", 1)])
     await db.student_live_chat_messages.create_index([("student_id", 1), ("created_at", 1)])
     await db.student_live_chat_messages.create_index("attachment.id", sparse=True)
+    await db.ai_reference_chunks.create_index("reference_id")
+    await db.student_ai_chat_messages.create_index([("session_id", 1), ("created_at", 1)])
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
