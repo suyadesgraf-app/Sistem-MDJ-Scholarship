@@ -1,0 +1,20 @@
+{
+  "summary": "Frontend-only UI test of StudentAiChatWidget placement/drag. Logged in as demo student. Desktop 1920x1080: collapsed open button positioned at right_gap=24px, bottom_gap=24px (bottom-right corner as expected). Sidebar 'Keluar' (Logout) button rendered at x=12,y=1028,w=172,h=40 in the left sidebar — no overlap with widget (widget at x=1840). Drag test: opened widget (initial box x=1536,y=596), dragged from student-ai-chat-drag-handle to (500,300); widget moved to x=320,y=277 (delta ~1200px x, ~319px y) and remained fully inside viewport. Chat input remained functional and typing works after move. Close→reopen works after drag. Mobile 390x844: collapsed button at x=310 (within viewport), scrollWidth==clientWidth==390 (no horizontal overflow), opened widget spans x=8..366 (inside viewport, honors calc(100vw-32px)).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "StudentAiChatWidget.jsx clampPosition on resize only clamps left, not bottom. If viewport height shrinks below current bottom+widget height the widget may go off-screen top; consider clamping bottom too.",
+    "startDrag uses pointermove/pointerup on window but does not call setPointerCapture; works OK in tests but on touch devices could drop pointer if the target unmounts.",
+    "Widget uses z-40 which is fine vs. sidebar, but ensure any global modal (z-50+) still overlays it — verified visually here."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100% (4/4 scenarios: desktop placement+no-overlap, drag, mobile placement+no-overflow, open/close after move)"},
+  "test_credentials": "Used /app/memory/test_credentials.md (mahasiswa.mdj@baznasbazisdki.id).",
+  "seed_data_creation": "None. No data mutations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Widget testids: student-ai-chat-widget, student-ai-chat-open-button, student-ai-chat-close-button, student-ai-chat-drag-handle, student-ai-chat-input, student-ai-chat-send-button, student-ai-chat-messages. Sidebar Logout label is 'Keluar' (not 'Logout'). Widget default position right:24, bottom:24; drag switches to left/bottom coordinates.",
+  "rca of the issue": "Original overlap bug (widget bottom-left overlapping sidebar 'Keluar') resolved by initializing position to {right:24, bottom:24, left:null} and drag handler now writes left+bottom (right:null) so post-drag position is preserved. Fix verified in current build."
+}

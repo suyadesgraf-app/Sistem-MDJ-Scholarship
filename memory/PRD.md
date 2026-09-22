@@ -654,3 +654,16 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   tertutup ketika waktu selesai telah tercapai, tanpa menghapus draf mahasiswa.
 - Beranda menampilkan hitung mundur Hari/Jam/Menit/Detik menuju waktu selesai dan mengubah status visual menjadi
   Ditutup saat hitungan mencapai nol. Build frontend/backend dan input `datetime-local` telah diverifikasi.
+
+## 2026-09 — Persistensi nama dan akses periode mahasiswa
+- Nama Lengkap mahasiswa kini tidak lagi ditimpa oleh seed demo setelah backend restart. Header kandidat dan
+  sapaan Ringkasan selalu memakai nilai Nama Lengkap yang tersimpan.
+- Menu Pendaftaran dan Status Seleksi menerapkan jendela periode yang sama: keduanya terkunci sebelum waktu
+  mulai maupun setelah waktu selesai; draf pendaftaran tetap tersimpan.
+- Testing agent lulus: 5/5 backend dan 6/6 alur UI, termasuk simpan nama → restart → login ulang serta tiga
+  kondisi periode (berakhir, belum mulai, aktif).
+
+## 2026-09 — Posisi widget AI mahasiswa
+- Tombol AI chat dipindahkan dari kiri bawah ke kanan bawah agar tidak menutupi menu Keluar pada sidebar.
+- Widget dapat dipindahkan melalui pegangan judul dan tetap berada dalam viewport pada desktop maupun ponsel.
+- Testing agent lulus 4/4 skenario: posisi kanan bawah, tanpa overlap sidebar, drag, buka/tutup, dan mobile tanpa overflow.
