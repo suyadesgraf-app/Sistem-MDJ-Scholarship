@@ -691,6 +691,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Testing agent lulus 6/6 backend dan seluruh alur UI DOCX/PDF, penolakan format tidak didukung, otorisasi,
   simpan, tampilan publik, dan pemulihan konten uji.
 
+## 2026-09 — Pembaruan slogan MDJ
+- Slogan beranda dan footer diubah dari “Muda dengan Zakat, Bahagia dengan Manfaat.” menjadi
+  **MDJ Scholarship Circle of Ummah**.
+- Konten hero CMS aktif serta fallback kode diselaraskan. Build frontend dan tampilan hero/footer diverifikasi.
+
 ## 2026-09 — Penyederhanaan sidebar Admin Wilayah
 - Menu **Import Seleksi** dan **Verifikasi AI** disembunyikan sementara hanya untuk Admin Wilayah.
 - Dashboard, Ringkasan, Data Peserta, Pencairan Dana, dan Live Chat tetap tersedia. Menu Admin Provinsi serta

@@ -4138,7 +4138,7 @@ DEFAULT_SITE_CONTENT = {
     "hero": {
         "eyebrow": "Program Beasiswa Pendidikan DKI Jakarta",
         "title": "Wujudkan Pendidikan dan Masa Depan Terbaikmu",
-        "subtitle": "Program Masa Depan Jakarta (MDJ) hadir sebagai wujud nyata dukungan BAZNAS (BAZIS) Provinsi DKI Jakarta. Muda dengan Zakat, Bahagia dengan Manfaat.",
+        "subtitle": "Program Masa Depan Jakarta (MDJ) hadir sebagai wujud nyata dukungan BAZNAS (BAZIS) Provinsi DKI Jakarta. MDJ Scholarship Circle of Ummah",
     },
     "stats": [
         {"label": "Total Pendaftar (22-25)", "value": "16.935"},

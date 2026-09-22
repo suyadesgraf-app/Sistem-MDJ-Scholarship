@@ -187,7 +187,7 @@ export default function Landing() {
               {hero.title || "Wujudkan Pendidikan dan Masa Depan Terbaikmu"}
             </h1>
             <p className="text-base lg:text-lg text-white/85 leading-relaxed max-w-xl mb-8">
-              {hero.subtitle || "Program Masa Depan Jakarta (MDJ) hadir sebagai wujud nyata dukungan BAZNAS (BAZIS) Provinsi DKI Jakarta. Muda dengan Zakat, Bahagia dengan Manfaat."}
+              {hero.subtitle || "Program Masa Depan Jakarta (MDJ) hadir sebagai wujud nyata dukungan BAZNAS (BAZIS) Provinsi DKI Jakarta. MDJ Scholarship Circle of Ummah"}
             </p>
             <div className="flex flex-wrap gap-3">
               <button onClick={() => go("/login")} data-testid="hero-register-btn"
@@ -516,7 +516,7 @@ export default function Landing() {
             <p data-testid="footer-copyright">
               © {new Date().getFullYear()} BAZNAS (BAZIS) Provinsi DKI Jakarta. Seluruh hak dilindungi.
             </p>
-            <p data-testid="footer-tagline">Muda dengan Zakat, Bahagia dengan Manfaat.</p>
+            <p data-testid="footer-tagline">MDJ Scholarship Circle of Ummah</p>
           </div>
         </div>
       </footer>
