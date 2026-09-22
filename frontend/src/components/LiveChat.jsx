@@ -1,0 +1,188 @@
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, MessageCircleMore, RefreshCw, Send } from "lucide-react";
+import { toast } from "sonner";
+import api from "@/lib/api";
+
+const ADMIN_TEAM_SESSION_ID = "admin-team";
+
+function formatMessageTime(value) {
+  if (!value) {
+    return "Baru saja";
+  }
+
+  return new Intl.DateTimeFormat("id-ID", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
+export default function LiveChat() {
+  const [messages, setMessages] = useState([]);
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const messageListRef = useRef(null);
+
+  const loadMessages = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
+    try {
+      const response = await api.get("/admin/live-chat/messages", {
+        params: { session_id: ADMIN_TEAM_SESSION_ID },
+      });
+      setMessages(response.data.messages || []);
+    } catch (error) {
+      if (!silent) {
+        toast.error(error.response?.data?.detail || "Pesan Live Chat belum dapat dimuat.");
+      }
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    loadMessages();
+    const intervalId = window.setInterval(() => loadMessages({ silent: true }), 15000);
+    return () => window.clearInterval(intervalId);
+  }, [loadMessages]);
+
+  useEffect(() => {
+    if (messageListRef.current) {
+      messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const sendMessage = async (event) => {
+    event.preventDefault();
+    const trimmedMessage = message.trim();
+    if (!trimmedMessage || sending) {
+      return;
+    }
+
+    setSending(true);
+    try {
+      const response = await api.post("/admin/live-chat/messages", {
+        session_id: ADMIN_TEAM_SESSION_ID,
+        message: trimmedMessage,
+      });
+      setMessages((previous) => [...previous, response.data.message]);
+      setMessage("");
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Pesan belum berhasil dikirim.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="space-y-6" data-testid="live-chat-manager">
+      <div className="border-l-4 border-[#0B6B3A] bg-[#F0FBF5] px-5 py-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#0B6B3A]">
+              Koordinasi Internal
+            </p>
+            <h2 className="mt-1 font-display text-2xl font-extrabold text-[#1F2937]">
+              Live Chat Tim Admin
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#4B5563]">
+              Ruang percakapan bersama untuk koordinasi operasional MDJ Scholarship.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => loadMessages()}
+            disabled={loading}
+            data-testid="live-chat-refresh-button"
+            className="inline-flex items-center justify-center gap-2 rounded-lg border border-[#B7E4C7] bg-white px-4 py-2.5 text-sm font-bold text-[#0B6B3A] transition-colors hover:bg-[#E8F6EE] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+            Muat Ulang
+          </button>
+        </div>
+      </div>
+
+      <div className="border border-gray-200 bg-white shadow-sm">
+        <div
+          ref={messageListRef}
+          data-testid="live-chat-message-list"
+          className="max-h-[440px] min-h-[260px] space-y-4 overflow-y-auto p-5 mdj-scrollbar"
+        >
+          {loading ? (
+            <div className="flex min-h-[220px] items-center justify-center" data-testid="live-chat-loading">
+              <Loader2 className="h-6 w-6 animate-spin text-[#27AE60]" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div
+              className="flex min-h-[220px] flex-col items-center justify-center text-center"
+              data-testid="live-chat-empty-state"
+            >
+              <MessageCircleMore className="h-9 w-9 text-[#9CA3AF]" />
+              <p className="mt-3 text-sm font-bold text-[#4B5563]">Belum ada pesan</p>
+              <p className="mt-1 text-sm text-[#6B7280]">Mulai koordinasi dengan tim admin.</p>
+            </div>
+          ) : (
+            messages.map((item) => (
+              <article
+                key={item.id}
+                data-testid={`live-chat-message-${item.id}`}
+                className="border-l-2 border-[#B7E4C7] bg-[#F9FAFB] px-4 py-3"
+              >
+                <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <p className="text-sm font-extrabold text-[#1F2937]">{item.sender_name}</p>
+                  <time
+                    className="text-xs font-medium text-[#6B7280]"
+                    data-testid={`live-chat-message-time-${item.id}`}
+                  >
+                    {formatMessageTime(item.created_at)}
+                  </time>
+                </div>
+                <p
+                  className="mt-2 whitespace-pre-wrap break-words text-sm leading-relaxed text-[#374151]"
+                  data-testid={`live-chat-message-content-${item.id}`}
+                >
+                  {item.message}
+                </p>
+              </article>
+            ))
+          )}
+        </div>
+
+        <form
+          onSubmit={sendMessage}
+          className="border-t border-gray-200 p-4"
+          data-testid="live-chat-send-form"
+        >
+          <label className="sr-only" htmlFor="live-chat-message-input">
+            Tulis pesan untuk tim admin
+          </label>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <textarea
+              id="live-chat-message-input"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              maxLength={2000}
+              rows={3}
+              placeholder="Tulis pesan untuk tim admin..."
+              data-testid="live-chat-message-input"
+              className="min-h-[84px] flex-1 resize-y rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-[#1F2937] outline-none transition-colors placeholder:text-[#9CA3AF] focus:border-[#27AE60] focus:ring-2 focus:ring-[#E8F6EE]"
+            />
+            <button
+              type="submit"
+              disabled={!message.trim() || sending}
+              data-testid="live-chat-send-button"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#0B6B3A] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#07532D] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Kirim Pesan
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  );
+}

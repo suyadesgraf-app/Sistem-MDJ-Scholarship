@@ -9,41 +9,49 @@ import ActiveLetterApprovalManager from "@/components/ActiveLetterApprovalManage
 import SelectionImportManager from "@/components/SelectionImportManager";
 import AiAdministrativeVerification from "@/components/AiAdministrativeVerification";
 import AdminUsers from "@/components/AdminUsers";
-import SelectionAnnouncementManager from "@/components/SelectionAnnouncementManager";
+import LiveChat from "@/components/LiveChat";
 import { useAuth } from "@/context/AuthContext";
 import {
+  BarChart3,
   Building2,
   FileCheck2,
   HandCoins,
   FileSpreadsheet,
-  Home,
-  Megaphone,
+  LayoutDashboard,
+  MessageCircleMore,
   ShieldCheck,
   Sparkles,
   Users,
 } from "lucide-react";
 
 const BASE_MENU = [
-  { id: "dashboard", label: "Dashboard", icon: Home },
-  { id: "ringkasan", label: "Ringkasan", icon: Home },
+  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "ringkasan", label: "Ringkasan", icon: BarChart3 },
   { id: "peserta", label: "Data Peserta", icon: Users },
-  { id: "pencairan-dana", label: "Pencairan Dana", icon: HandCoins },
-  { id: "verifikasi-ai", label: "Verifikasi AI", icon: Sparkles },
   { id: "import-seleksi", label: "Import Seleksi", icon: FileSpreadsheet },
+  { id: "verifikasi-ai", label: "Verifikasi AI", icon: Sparkles },
 ];
 
 export default function AdminDashboard() {
   const { user } = useAuth();
-  const [active, setActive] = useState("ringkasan");
+  const [active, setActive] = useState("dashboard");
   const isRegionalAdmin = user?.role === "admin_wilayah";
   const menu = useMemo(() => {
-    if (isRegionalAdmin) return BASE_MENU;
+    if (isRegionalAdmin) {
+      return [
+        ...BASE_MENU,
+        { id: "pencairan-dana", label: "Pencairan Dana", icon: HandCoins },
+        { id: "live-chat", label: "Live Chat", icon: MessageCircleMore },
+      ];
+    }
+
     return [
       ...BASE_MENU,
-      { id: "pengumuman-seleksi", label: "Pengumuman Seleksi", icon: Megaphone },
-      { id: "kampus", label: "Kampus", icon: Building2 },
       { id: "surat-aktif", label: "Surat Aktif AI", icon: FileCheck2 },
+      { id: "pencairan-dana", label: "Pencairan Dana", icon: HandCoins },
+      { id: "kampus", label: "Kampus", icon: Building2 },
       { id: "admin-wilayah", label: "Admin Wilayah", icon: ShieldCheck },
+      { id: "live-chat", label: "Live Chat", icon: MessageCircleMore },
     ];
   }, [isRegionalAdmin]);
   const activeMenu = menu.find((item) => item.id === active);
@@ -66,10 +74,10 @@ export default function AdminDashboard() {
       {active === "pencairan-dana" && <DisbursementManager />}
       {active === "verifikasi-ai" && <AiAdministrativeVerification />}
       {active === "import-seleksi" && <SelectionImportManager />}
-      {active === "pengumuman-seleksi" && <SelectionAnnouncementManager />}
       {active === "kampus" && <CampusManager />}
       {active === "surat-aktif" && <ActiveLetterApprovalManager />}
       {active === "admin-wilayah" && <AdminUsers canManageProvincial={false} />}
+      {active === "live-chat" && <LiveChat />}
     </DashboardShell>
   );
 }

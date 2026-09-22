@@ -469,6 +469,11 @@ class StudentDataPurgeInput(BaseModel):
     include_orphaned_registrations: bool = False
 
 
+class AdminLiveChatMessageInput(BaseModel):
+    session_id: str = Field(default="admin-team", min_length=1, max_length=100)
+    message: str = Field(min_length=1, max_length=2000)
+
+
 REG_STATUSES = ["draft", "submitted", "perlu_perbaikan", "verifikasi", "lolos_administrasi",
                 "wawancara", "verifikasi_faktual", "lolos", "ditolak"]
 SELECTION_RESULT_PASSED_STATUSES = (
@@ -5829,6 +5834,44 @@ async def purge_non_demo_student_data(
     }
 
 
+@api_router.get("/admin/live-chat/messages")
+async def list_admin_live_chat_messages(
+    session_id: str = "admin-team",
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    if session_id != "admin-team":
+        raise HTTPException(status_code=404, detail="Sesi Live Chat tidak ditemukan.")
+    messages = await db.admin_live_chat_messages.find(
+        {"session_id": session_id},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(100)
+    messages.reverse()
+    return {"session_id": session_id, "messages": messages}
+
+
+@api_router.post("/admin/live-chat/messages")
+async def create_admin_live_chat_message(
+    payload: AdminLiveChatMessageInput,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    if payload.session_id != "admin-team":
+        raise HTTPException(status_code=404, detail="Sesi Live Chat tidak ditemukan.")
+    message = payload.message.strip()
+    if not message:
+        raise HTTPException(status_code=400, detail="Pesan Live Chat tidak boleh kosong.")
+    record = {
+        "id": str(uuid.uuid4()),
+        "session_id": payload.session_id,
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Admin"),
+        "sender_role": user.get("role"),
+        "message": message,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.admin_live_chat_messages.insert_one(dict(record))
+    return {"message": record}
+
+
 @api_router.get("/")
 async def root():
     return {"message": "MDJ Scholarship API"}
@@ -5891,6 +5934,7 @@ async def startup():
     await db.active_letter_approvals.create_index([("workflow", 1), ("status", 1), ("created_at", -1)])
     await db.active_letter_approvals.create_index([("user_id", 1), ("source_id", 1)])
     await db.stage_ii_eligibilities.create_index("user_id", unique=True)
+    await db.admin_live_chat_messages.create_index([("session_id", 1), ("created_at", 1)])
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
