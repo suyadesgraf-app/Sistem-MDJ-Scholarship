@@ -683,6 +683,14 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Testing agent lulus 5/5 backend dan seluruh verifikasi rute footer, halaman publik, edit CMS, pembatasan akses,
   serta responsivitas ponsel. Konten CMS uji dipulihkan setelah pengujian.
 
+## 2026-09 — Impor berkas Informasi Legal
+- Setiap editor Kebijakan Privasi, Syarat dan Ketentuan, dan Pedoman Program kini memiliki kontrol
+  **Import PDF/DOC** yang mengekstrak isi PDF, DOC, atau DOCX langsung ke textarea sebelum disimpan.
+- Impor hanya tersedia untuk Super Admin; berkas tidak disimpan sebagai konten publik, sehingga admin tetap dapat
+  meninjau serta menyunting teks hasil ekstraksi sebelum menekan Simpan Informasi Legal.
+- Testing agent lulus 6/6 backend dan seluruh alur UI DOCX/PDF, penolakan format tidak didukung, otorisasi,
+  simpan, tampilan publik, dan pemulihan konten uji.
+
 ## 2026-09 — Penyederhanaan sidebar Admin Wilayah
 - Menu **Import Seleksi** dan **Verifikasi AI** disembunyikan sementara hanya untuk Admin Wilayah.
 - Dashboard, Ringkasan, Data Peserta, Pencairan Dana, dan Live Chat tetap tersedia. Menu Admin Provinsi serta
