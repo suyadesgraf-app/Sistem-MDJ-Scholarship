@@ -31,11 +31,22 @@ def split_reference_text(text: str, size: int = 900) -> list[str]:
 
 
 def reference_tokens(text: str) -> set[str]:
-    return {
-        token
-        for token in re.findall(r"[a-zA-Z0-9]{3,}", text.lower())
-        if token not in {"yang", "dan", "atau", "untuk", "dengan", "dari", "pada", "ini", "itu"}
+    stop_words = {"yang", "dan", "atau", "untuk", "dengan", "dari", "pada", "ini", "itu", "apa", "sih"}
+    synonyms = {
+        "syarat": {"syarat", "persyaratan", "ketentuan", "kriteria"},
+        "persyaratan": {"syarat", "persyaratan", "ketentuan", "kriteria"},
+        "ketentuan": {"syarat", "persyaratan", "ketentuan", "kriteria"},
+        "program": {"program", "beasiswa", "scholarship", "mdj", "masa", "depan", "jakarta"},
+        "beasiswa": {"program", "beasiswa", "scholarship", "mdj"},
     }
+    tokens = set()
+    for token in re.findall(r"[a-zA-Z0-9]{3,}", text.lower()):
+        normalized = token[:-3] if token.endswith("nya") and len(token) > 5 else token
+        if normalized in stop_words:
+            continue
+        tokens.add(normalized)
+        tokens.update(synonyms.get(normalized, set()))
+    return tokens
 
 
 def extract_pdf(data: bytes) -> str:
