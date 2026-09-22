@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, MessageCircleMore, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/lib/api";
+import { AdminStudentLiveChat } from "@/components/StudentLiveChat";
 
 const ADMIN_TEAM_SESSION_ID = "admin-team";
 
@@ -17,6 +18,7 @@ function formatMessageTime(value) {
 }
 
 export default function LiveChat() {
+  const [channel, setChannel] = useState("team");
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -87,10 +89,12 @@ export default function LiveChat() {
               Koordinasi Internal
             </p>
             <h2 className="mt-1 font-display text-2xl font-extrabold text-[#1F2937]">
-              Live Chat Tim Admin
+              {channel === "team" ? "Live Chat Tim Admin" : "Live Chat Mahasiswa"}
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#4B5563]">
-              Ruang percakapan bersama untuk koordinasi operasional MDJ Scholarship.
+              {channel === "team"
+                ? "Ruang percakapan bersama untuk koordinasi operasional MDJ Scholarship."
+                : "Baca dan balas pesan mahasiswa sesuai cakupan akses Anda."}
             </p>
           </div>
           <button
@@ -106,7 +110,26 @@ export default function LiveChat() {
         </div>
       </div>
 
-      <div className="border border-gray-200 bg-white shadow-sm">
+      <div className="flex flex-wrap gap-2" data-testid="live-chat-channel-tabs">
+        <button
+          type="button"
+          onClick={() => setChannel("team")}
+          data-testid="live-chat-team-tab"
+          className={channel === "team" ? "bg-[#0B6B3A] px-4 py-2 text-sm font-bold text-white" : "border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-[#4B5563]"}
+        >
+          Tim Admin
+        </button>
+        <button
+          type="button"
+          onClick={() => setChannel("students")}
+          data-testid="live-chat-students-tab"
+          className={channel === "students" ? "bg-[#0B6B3A] px-4 py-2 text-sm font-bold text-white" : "border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-[#4B5563]"}
+        >
+          Pesan Mahasiswa
+        </button>
+      </div>
+
+      {channel === "students" ? <AdminStudentLiveChat /> : <div className="border border-gray-200 bg-white shadow-sm">
         <div
           ref={messageListRef}
           data-testid="live-chat-message-list"
@@ -182,7 +205,7 @@ export default function LiveChat() {
             </button>
           </div>
         </form>
-      </div>
+      </div>}
     </section>
   );
 }

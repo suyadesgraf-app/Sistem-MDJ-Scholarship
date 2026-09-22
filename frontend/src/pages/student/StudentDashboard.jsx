@@ -14,10 +14,11 @@ import SelectionResultPopup from "@/components/SelectionResultPopup";
 import RegistrationClosedDialog from "@/components/RegistrationClosedDialog";
 import DocumentRevisionPopup from "@/components/DocumentRevisionPopup";
 import SiteAnnouncementPopup from "@/components/SiteAnnouncementPopup";
+import StudentLiveChat from "@/components/StudentLiveChat";
 import { docFileUrl } from "@/components/DocPreview";
 import {
   Home, User, FileText, Activity, Megaphone, Settings, Save, Loader2,
-  CheckCircle2, FileCheck,
+  CheckCircle2, FileCheck, MessageCircleMore,
 } from "lucide-react";
 
 const MENU = [
@@ -26,6 +27,7 @@ const MENU = [
   { id: "daftar", label: "Pendaftaran", icon: FileText },
   { id: "status", label: "Status Seleksi", icon: Activity },
   { id: "pengumuman", label: "Pengumuman", icon: Megaphone },
+  { id: "live-chat-admin", label: "Live Chat Admin", icon: MessageCircleMore },
   { id: "pengaturan", label: "Pengaturan", icon: Settings },
 ];
 
@@ -437,6 +439,7 @@ export default function StudentDashboard() {
         </div>
       )}
 
+      {active === "live-chat-admin" && <StudentLiveChat />}
       {active === "pengaturan" && <AccountSettings />}
       <DocumentRevisionPopup
         revision={documentRevision}

@@ -474,6 +474,10 @@ class AdminLiveChatMessageInput(BaseModel):
     message: str = Field(min_length=1, max_length=2000)
 
 
+STUDENT_CHAT_ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "pdf"}
+STUDENT_CHAT_MAX_FILE_SIZE = 10 * 1024 * 1024
+
+
 REG_STATUSES = ["draft", "submitted", "perlu_perbaikan", "verifikasi", "lolos_administrasi",
                 "wawancara", "verifikasi_faktual", "lolos", "ditolak"]
 SELECTION_RESULT_PASSED_STATUSES = (
@@ -5872,6 +5876,217 @@ async def create_admin_live_chat_message(
     return {"message": record}
 
 
+async def resolve_student_chat_target(user: dict, student_id: Optional[str]) -> dict:
+    role = user.get("role")
+    if role == "student":
+        if student_id and student_id != user["user_id"]:
+            raise HTTPException(status_code=404, detail="Percakapan mahasiswa tidak ditemukan.")
+        return user
+    if role not in MANAGEMENT_ROLES:
+        raise HTTPException(status_code=403, detail="Akses Live Chat mahasiswa ditolak.")
+    if not student_id:
+        raise HTTPException(status_code=400, detail="Pilih mahasiswa untuk membuka percakapan.")
+
+    student = await db.users.find_one(
+        {"user_id": student_id, "role": "student", "is_archived": {"$ne": True}},
+        {"_id": 0},
+    )
+    if not student:
+        raise HTTPException(status_code=404, detail="Percakapan mahasiswa tidak ditemukan.")
+
+    region_scope = regional_admin_region(user)
+    if region_scope:
+        profile = await db.profiles.find_one({"user_id": student_id}, {"_id": 0, "data": 1})
+        student_region = profile_region((profile or {}).get("data", {}))
+        if student_region != region_scope:
+            raise HTTPException(status_code=404, detail="Percakapan mahasiswa tidak ditemukan.")
+    return student
+
+
+def student_chat_attachment_matches(data: bytes, extension: str) -> bool:
+    signatures = {
+        "pdf": data.startswith(b"%PDF"),
+        "jpg": data.startswith(b"\xff\xd8\xff"),
+        "jpeg": data.startswith(b"\xff\xd8\xff"),
+        "png": data.startswith(b"\x89PNG\r\n\x1a\n"),
+        "webp": data.startswith(b"RIFF") and data[8:12] == b"WEBP",
+    }
+    return bool(data) and signatures.get(extension, False)
+
+
+async def create_student_chat_attachment(file: UploadFile, student_id: str) -> dict:
+    filename = file.filename or "lampiran"
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension not in STUDENT_CHAT_ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Gunakan JPG, PNG, WEBP, atau PDF.")
+    data = await file.read()
+    if not data or len(data) > STUDENT_CHAT_MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="Ukuran lampiran harus antara 1 byte dan 10MB.")
+    if not student_chat_attachment_matches(data, extension):
+        raise HTTPException(status_code=400, detail="Isi lampiran tidak sesuai dengan format berkas.")
+
+    content_type = MIME_TYPES[extension]
+    data, extension, content_type = compress_image(data, extension, content_type)
+    attachment_id = str(uuid.uuid4())
+    path = f"{APP_NAME}/student-live-chat/{student_id}/{attachment_id}.{extension}"
+    result = put_object(path, data, content_type)
+    return {
+        "id": attachment_id,
+        "storage_path": result["path"],
+        "original_filename": filename,
+        "content_type": content_type,
+        "size": result["size"],
+    }
+
+
+def serialize_student_chat_message(record: dict) -> dict:
+    item = dict(record)
+    item.pop("_id", None)
+    attachment = item.get("attachment")
+    if attachment:
+        item["attachment"] = {
+            "id": attachment["id"],
+            "original_filename": attachment["original_filename"],
+            "content_type": attachment["content_type"],
+            "size": attachment["size"],
+        }
+    return item
+
+
+@api_router.get("/student-live-chat/conversations")
+async def list_student_live_chat_conversations(
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    student_query = {"role": "student", "is_archived": {"$ne": True}}
+    region_scope = regional_admin_region(user)
+    if region_scope:
+        profiles = await db.profiles.find(
+            {"$or": [{"data.kota": region_scope}, {"data.provinsi": region_scope}]},
+            {"_id": 0, "user_id": 1},
+        ).to_list(5000)
+        student_query["user_id"] = {"$in": [profile["user_id"] for profile in profiles]}
+    students = await db.users.find(
+        student_query,
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+    ).to_list(5000)
+    student_ids = [student["user_id"] for student in students]
+    if not student_ids:
+        return {"conversations": []}
+
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": student_ids}},
+        {"_id": 0, "user_id": 1, "data.kota": 1, "data.provinsi": 1},
+    ).to_list(5000)
+    region_by_student = {
+        profile["user_id"]: profile_region(profile.get("data", {}))
+        for profile in profiles
+    }
+    messages = await db.student_live_chat_messages.find(
+        {"student_id": {"$in": student_ids}},
+        {"_id": 0},
+    ).sort("created_at", -1).to_list(1000)
+    latest_by_student = {}
+    for message in messages:
+        latest_by_student.setdefault(message["student_id"], message)
+
+    conversations = []
+    for student in students:
+        latest = latest_by_student.get(student["user_id"])
+        if not latest:
+            continue
+        conversations.append({
+            "student_id": student["user_id"],
+            "student_name": student.get("name", "Mahasiswa"),
+            "student_email": student.get("email", ""),
+            "region": region_by_student.get(student["user_id"], ""),
+            "last_message": latest.get("message", "") or "Lampiran dikirim.",
+            "last_message_at": latest.get("created_at"),
+        })
+    conversations.sort(key=lambda item: item.get("last_message_at") or "", reverse=True)
+    return {"conversations": conversations}
+
+
+@api_router.get("/student-live-chat/messages")
+async def list_student_live_chat_messages(
+    student_id: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    student = await resolve_student_chat_target(user, student_id)
+    messages = await db.student_live_chat_messages.find(
+        {"student_id": student["user_id"]},
+        {"_id": 0},
+    ).sort("created_at", 1).to_list(500)
+    return {
+        "student": {
+            "user_id": student["user_id"],
+            "name": student.get("name", "Mahasiswa"),
+        },
+        "messages": [serialize_student_chat_message(message) for message in messages],
+    }
+
+
+@api_router.post("/student-live-chat/messages")
+async def create_student_live_chat_message(
+    message: str = Form(""),
+    student_id: Optional[str] = Form(None),
+    attachment: Optional[UploadFile] = File(None),
+    user: dict = Depends(get_current_user),
+):
+    if user.get("role") not in {*MANAGEMENT_ROLES, "student"}:
+        raise HTTPException(status_code=403, detail="Akses Live Chat mahasiswa ditolak.")
+    student = await resolve_student_chat_target(user, student_id)
+    cleaned_message = message.strip()
+    if len(cleaned_message) > 2000:
+        raise HTTPException(status_code=400, detail="Pesan maksimal terdiri dari 2.000 karakter.")
+    if not cleaned_message and not attachment:
+        raise HTTPException(status_code=400, detail="Tulis pesan atau lampirkan berkas terlebih dahulu.")
+
+    chat_attachment = None
+    if attachment:
+        chat_attachment = await create_student_chat_attachment(attachment, student["user_id"])
+    record = {
+        "id": str(uuid.uuid4()),
+        "student_id": student["user_id"],
+        "sender_id": user["user_id"],
+        "sender_name": user.get("name", "Pengguna MDJ"),
+        "sender_role": user.get("role"),
+        "message": cleaned_message,
+        "attachment": chat_attachment,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.student_live_chat_messages.insert_one(dict(record))
+    return {"message": serialize_student_chat_message(record)}
+
+
+@api_router.get("/student-live-chat/attachments/{attachment_id}")
+async def download_student_live_chat_attachment(
+    attachment_id: str,
+    request: Request,
+    auth: str = Query(None),
+):
+    token = request.cookies.get("access_token") or request.cookies.get("session_token") or auth
+    if not token:
+        authorization = request.headers.get("Authorization", "")
+        token = authorization[7:] if authorization.startswith("Bearer ") else None
+    viewer = await resolve_user_from_token(token) if token else None
+    if not viewer:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    record = await db.student_live_chat_messages.find_one(
+        {"attachment.id": attachment_id},
+        {"_id": 0},
+    )
+    if not record or not record.get("attachment"):
+        raise HTTPException(status_code=404, detail="Lampiran Live Chat tidak ditemukan.")
+    await resolve_student_chat_target(viewer, record["student_id"])
+    attachment = record["attachment"]
+    data, content_type = get_object(attachment["storage_path"])
+    return StarletteResponse(
+        content=data,
+        media_type=attachment.get("content_type", content_type),
+        headers={"Cache-Control": "private, max-age=3600"},
+    )
+
+
 @api_router.get("/")
 async def root():
     return {"message": "MDJ Scholarship API"}
@@ -5935,6 +6150,8 @@ async def startup():
     await db.active_letter_approvals.create_index([("user_id", 1), ("source_id", 1)])
     await db.stage_ii_eligibilities.create_index("user_id", unique=True)
     await db.admin_live_chat_messages.create_index([("session_id", 1), ("created_at", 1)])
+    await db.student_live_chat_messages.create_index([("student_id", 1), ("created_at", 1)])
+    await db.student_live_chat_messages.create_index("attachment.id", sparse=True)
     # Seed super admin
     existing = await db.users.find_one({"email": ADMIN_EMAIL})
     if not existing:
