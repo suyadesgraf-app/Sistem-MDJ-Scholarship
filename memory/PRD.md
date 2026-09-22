@@ -600,3 +600,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Verifikasi: backend memuat ulang berhasil, login email/password tetap tersedia, dan endpoint OAuth mengarah
   ke Google Authorization Endpoint. Callback produksi yang perlu didaftarkan adalah `/api/auth/google/callback`
   pada domain aplikasi yang digunakan.
+
+## 2026-09 — Halaman Privacy Policy
+- Menambahkan halaman publik `/privacy-policy` untuk Sistem Registrasi BAZNAS dan MDJ Scholarship.
+- Halaman mencakup Pengumpulan Data Pengguna, Penggunaan Data, serta Keamanan Data, dilengkapi tautan kembali
+  ke beranda.
+- Verifikasi: build frontend lulus dan halaman tampil baik di desktop maupun ponsel tanpa overflow horizontal.
