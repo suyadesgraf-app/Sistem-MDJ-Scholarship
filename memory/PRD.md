@@ -630,3 +630,7 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Tidak ada bukti, transaksi, hasil AI, maupun data tinjauan server yang dihapus. Perubahan hanya merapikan
   tampilan agar antrean lama tidak mengganggu unggahan berikutnya.
 - Verifikasi: build frontend lulus dan navigasi keluar/masuk kembali ke menu Pencairan Dana berjalan tanpa error.
+
+## 2026-09 — Penyederhanaan login email
+- Label dan placeholder bidang masuk kini hanya menyebut **Email**; opsi atau penyebutan NIK dihapus dari UI.
+- Verifikasi: build frontend lulus dan tampilan ponsel menunjukkan label serta placeholder email yang benar.

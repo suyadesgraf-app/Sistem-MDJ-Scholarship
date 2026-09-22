@@ -193,7 +193,7 @@ export default function Login() {
           <form onSubmit={submit} className="space-y-4">
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-[#1F2937]">
-                Email atau NIK <span className="text-[#DC2626]">*</span>
+                Email <span className="text-[#DC2626]">*</span>
               </label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -203,7 +203,7 @@ export default function Login() {
                   onChange={(event) => setEmail(event.target.value)}
                   data-testid="login-email-input"
                   required
-                  placeholder="Masukkan email atau NIK Anda"
+                  placeholder="Masukkan email Anda"
                   className="w-full rounded-lg border border-gray-300 py-3 pl-11 pr-4 text-sm outline-none
                     transition-colors focus:border-transparent focus:ring-2 focus:ring-[#27AE60]"
                 />
