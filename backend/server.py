@@ -464,6 +464,10 @@ class ActiveLetterDecisionInput(BaseModel):
     source_ids: List[str] = []
 
 
+class StudentDataPurgeInput(BaseModel):
+    confirmation: str = Field(min_length=1, max_length=100)
+
+
 REG_STATUSES = ["draft", "submitted", "perlu_perbaikan", "verifikasi", "lolos_administrasi",
                 "wawancara", "verifikasi_faktual", "lolos", "ditolak"]
 SELECTION_RESULT_PASSED_STATUSES = (
@@ -5629,6 +5633,172 @@ async def restore_applicant_archive(
         },
     )
     return {"message": "Data pendaftar berhasil dipulihkan.", "batch_id": batch_id}
+
+
+@api_router.post("/super-admin/student-data/purge")
+async def purge_non_demo_student_data(
+    payload: StudentDataPurgeInput,
+    user: dict = Depends(require_roles("super_admin")),
+):
+    if payload.confirmation.strip() != "HAPUS SEMUA DATA MAHASISWA":
+        raise HTTPException(
+            status_code=400,
+            detail="Konfirmasi penghapusan permanen tidak sesuai.",
+        )
+
+    demo_email = DEMO_STUDENT_EMAIL.lower()
+    demo_user = await db.users.find_one(
+        {"email": demo_email, "role": "student"},
+        {"_id": 0, "user_id": 1},
+    )
+    if not demo_user:
+        raise HTTPException(status_code=404, detail="Akun demo mahasiswa tidak ditemukan.")
+
+    demo_user_id = demo_user["user_id"]
+    student_cursor = db.users.find(
+        {"role": "student", "email": {"$ne": demo_email}},
+        {"_id": 0, "user_id": 1, "email": 1},
+    )
+    students = [student async for student in student_cursor]
+    test_registration_cursor = db.registrations.find(
+        {"is_test_data": True, "user_id": {"$ne": demo_user_id}},
+        {"_id": 0, "user_id": 1},
+    )
+    test_registration_user_ids = [
+        registration["user_id"]
+        async for registration in test_registration_cursor
+    ]
+    user_ids = list({
+        *(student["user_id"] for student in students),
+        *test_registration_user_ids,
+    })
+    emails = [student["email"] for student in students]
+    if not user_ids:
+        await db.users.update_one(
+            {"user_id": demo_user_id},
+            {
+                "$set": {"is_active": True, "is_archived": False},
+                "$unset": {
+                    "archive_batch_id": "",
+                    "archived_at": "",
+                    "archived_by": "",
+                },
+            },
+        )
+        return {
+            "message": "Tidak ada data mahasiswa non-demo yang perlu dihapus.",
+            "deleted_student_count": 0,
+            "deleted_test_registration_count": 0,
+            "deleted_records": {},
+        }
+
+    user_scope = {"user_id": {"$in": user_ids}}
+    deleted_records = {}
+    direct_user_collections = [
+        "profiles",
+        "registrations",
+        "documents",
+        "notifications",
+        "user_sessions",
+        "verification_recommendations",
+        "beneficiary_records",
+        "beneficiary_disbursements",
+        "active_letter_approvals",
+        "stage_ii_eligibilities",
+        "beneficiary_audit_events",
+    ]
+    for collection_name in direct_user_collections:
+        result = await db[collection_name].delete_many(user_scope)
+        deleted_records[collection_name] = result.deleted_count
+
+    for collection_name in ["password_reset_tokens", "email_change_tokens"]:
+        result = await db[collection_name].delete_many({"email": {"$in": emails}})
+        deleted_records[collection_name] = result.deleted_count
+
+    deleted_source_ids = []
+    source_cursor = db.beneficiary_sources.find(
+        {"matched_user_ids": {"$in": user_ids}},
+        {"_id": 0, "id": 1, "matched_user_ids": 1},
+    )
+    async for source in source_cursor:
+        remaining_user_ids = [
+            source_user_id
+            for source_user_id in source.get("matched_user_ids", [])
+            if source_user_id not in user_ids
+        ]
+        if remaining_user_ids:
+            await db.beneficiary_sources.update_one(
+                {"id": source["id"]},
+                {"$set": {"matched_user_ids": remaining_user_ids}},
+            )
+            continue
+        await db.beneficiary_sources.delete_one({"id": source["id"]})
+        deleted_source_ids.append(source["id"])
+    deleted_records["beneficiary_sources"] = len(deleted_source_ids)
+
+    if deleted_source_ids:
+        result = await db.beneficiary_reviews.delete_many(
+            {"source_id": {"$in": deleted_source_ids}}
+        )
+        deleted_records["beneficiary_reviews"] = result.deleted_count
+    else:
+        deleted_records["beneficiary_reviews"] = 0
+
+    deleted_disbursement_aggregates = 0
+    disbursement_cursor = db.campus_disbursements.find(
+        {"recipient_user_ids": {"$in": user_ids}},
+        {"_id": 0, "id": 1, "recipient_user_ids": 1},
+    )
+    async for disbursement in disbursement_cursor:
+        remaining_user_ids = [
+            recipient_user_id
+            for recipient_user_id in disbursement.get("recipient_user_ids", [])
+            if recipient_user_id not in user_ids
+        ]
+        if remaining_user_ids:
+            await db.campus_disbursements.update_one(
+                {"id": disbursement["id"]},
+                {"$set": {"recipient_user_ids": remaining_user_ids}},
+            )
+            continue
+        result = await db.campus_disbursements.delete_one({"id": disbursement["id"]})
+        deleted_disbursement_aggregates += result.deleted_count
+    deleted_records["campus_disbursements"] = deleted_disbursement_aggregates
+
+    result = await db.users.delete_many(
+        {"role": "student", "email": {"$ne": demo_email}},
+    )
+    deleted_records["users"] = result.deleted_count
+    await db.users.update_one(
+        {"user_id": demo_user_id},
+        {
+            "$set": {"is_active": True, "is_archived": False},
+            "$unset": {
+                "archive_batch_id": "",
+                "archived_at": "",
+                "archived_by": "",
+            },
+        },
+    )
+    await db.beneficiary_audit_events.insert_one({
+        "id": str(uuid.uuid4()),
+        "actor_id": user["user_id"],
+        "actor_name": user.get("name", "Super Admin"),
+        "action": "purge_non_demo_student_data",
+        "detail": {
+            "deleted_student_count": result.deleted_count,
+            "deleted_test_registration_count": deleted_records["registrations"],
+            "deleted_records": deleted_records,
+        },
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {
+        "message": "Seluruh data mahasiswa non-demo berhasil dihapus permanen.",
+        "deleted_student_count": result.deleted_count,
+        "deleted_test_registration_count": deleted_records["registrations"],
+        "deleted_records": deleted_records,
+        "preserved_demo_email": demo_email,
+    }
 
 
 @api_router.get("/")

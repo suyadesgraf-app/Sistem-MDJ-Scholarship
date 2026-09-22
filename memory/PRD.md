@@ -536,3 +536,15 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Diuji ulang: suite arsip 13/13 lulus, build frontend lulus, API ringkasan mengembalikan 5 aktif/0 terarsip,
   dan dialog desktop serta layar ponsel 390px terverifikasi tanpa overflow. Arsip massal tidak dieksekusi pada
   data aktif saat pengujian.
+
+## 2026-09 — Pembersihan data uji mahasiswa
+- Sesuai konfirmasi Super Admin, seluruh akun mahasiswa selain `mahasiswa.mdj@baznasbazisdki.id` dihapus
+  permanen. Akun demo dipulihkan ke kondisi aktif agar tetap dapat dipakai untuk pengujian.
+- Sebanyak 55 registrasi berpenanda `is_test_data`, 55 profil, 50 metadata dokumen, 156 notifikasi,
+  21 rekomendasi AI, data PM/pencairan terkait, serta audit yang merujuk data uji ikut dibersihkan.
+- Endpoint Super Admin `POST /api/super-admin/student-data/purge` mengharuskan frasa konfirmasi eksplisit dan
+  juga membersihkan referensi pencairan. Berkas Object Storage tidak lagi memiliki referensi database maupun
+  akses aplikasi karena layanan penyimpanan tidak menyediakan API hapus fisik.
+- Verifikasi: login akun demo HTTP 200, ringkasan menunjukkan 1 mahasiswa aktif/0 terarsip, dan jumlah
+  registrasi maupun dokumen dengan `is_test_data: true` adalah 0. Sebanyak 36 registrasi lama tanpa penanda
+  data uji dan tanpa akun pengguna tetap dipertahankan untuk mencegah penghapusan data yang tidak teridentifikasi.
