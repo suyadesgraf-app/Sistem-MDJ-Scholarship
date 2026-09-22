@@ -24,6 +24,7 @@ import tempfile
 import io
 from PIL import Image as PILImage
 from openpyxl import Workbook, load_workbook
+from openpyxl.drawing.image import Image as ExcelImage
 from openpyxl.styles import Font, PatternFill
 import secrets
 import asyncio
@@ -2372,6 +2373,78 @@ async def list_campus_disbursements(
             }),
         })
     return sorted(result, key=lambda item: item["campus"].lower())
+
+
+@api_router.get("/admin/disbursements/export")
+async def export_campus_disbursements(
+    stage: int = 1,
+    region: Optional[str] = None,
+    user: dict = Depends(require_roles(*MANAGEMENT_ROLES)),
+):
+    if stage not in {1, 2}:
+        raise HTTPException(status_code=400, detail="Tahap pencairan tidak valid.")
+    campuses = await list_campus_disbursements(region=region, user=user)
+    workbook = Workbook()
+    recap = workbook.active
+    recap.title = f"Rekap Tahap {stage}"
+    headers = ["No", "Kampus", "Wilayah", "Mahasiswa", "Status", "Nominal", "Tanggal", "Bukti TF"]
+    recap.append(headers)
+    for cell in recap[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="0B6B3A")
+    proof_sheet = workbook.create_sheet("Bukti Transfer")
+    proof_sheet.append(["Kampus", "Wilayah", "Nama Berkas", "Pratinjau Bukti Transfer"])
+    for cell in proof_sheet[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill("solid", fgColor="0B6B3A")
+    proof_row = 2
+    for index, campus in enumerate(campuses, 1):
+        stage_data = campus["stage_one"] if stage == 1 else campus["stage_two"]
+        recap.append([
+            index,
+            campus["campus"],
+            ", ".join(campus["regions"]),
+            "\n".join(student["name"] for student in campus["students"]),
+            stage_data.get("status", "belum_diproses"),
+            stage_data.get("transfer_amount") or stage_data.get("expected_amount") or 0,
+            stage_data.get("disbursed_at") or "-",
+            len(stage_data.get("proofs", [])),
+        ])
+        for proof in stage_data.get("proofs", []):
+            source = await db.beneficiary_sources.find_one({"id": proof.get("source_id")}, {"_id": 0})
+            proof_sheet.append([campus["campus"], ", ".join(campus["regions"]), proof.get("original_filename", "Bukti TF"), ""])
+            if source and str(source.get("content_type", "")).startswith("image/"):
+                try:
+                    data, _ = get_object(source["storage_path"])
+                    image = PILImage.open(io.BytesIO(data))
+                    image.thumbnail((320, 180))
+                    buffer = io.BytesIO()
+                    image.convert("RGB").save(buffer, format="PNG")
+                    excel_image = ExcelImage(io.BytesIO(buffer.getvalue()))
+                    excel_image.width = image.width
+                    excel_image.height = image.height
+                    proof_sheet.add_image(excel_image, f"D{proof_row}")
+                    proof_sheet.row_dimensions[proof_row].height = max(80, image.height * 0.75)
+                except Exception:
+                    proof_sheet.cell(proof_row, 4, "Pratinjau gambar tidak tersedia")
+            elif source:
+                proof_sheet.cell(proof_row, 4, "Bukti PDF tersedia sebagai lampiran sumber")
+            proof_row += 1
+    recap.column_dimensions["B"].width = 34
+    recap.column_dimensions["C"].width = 26
+    recap.column_dimensions["D"].width = 34
+    proof_sheet.column_dimensions["A"].width = 30
+    proof_sheet.column_dimensions["B"].width = 24
+    proof_sheet.column_dimensions["C"].width = 42
+    proof_sheet.column_dimensions["D"].width = 48
+    output = io.BytesIO()
+    workbook.save(output)
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=rekap-pencairan-tahap-{stage}.xlsx"},
+    )
 
 
 @api_router.get("/admin/disbursements/campuses/{campus_key}")

@@ -612,3 +612,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Halaman mencakup Pengumpulan Data Pengguna, Penggunaan Data, serta Keamanan Data, dilengkapi tautan kembali
   ke beranda.
 - Verifikasi: build frontend lulus dan halaman tampil baik di desktop maupun ponsel tanpa overflow horizontal.
+
+## 2026-09 — Ekspor Pencairan Dana
+- Menambahkan tombol **Export Tahap I/II** pada Pencairan Dana. Ekspor mengikuti tahap aktif dan filter wilayah
+  yang sedang digunakan admin.
+- Workbook Excel berisi lembar rekap kampus serta lembar **Bukti Transfer**. Bukti JPG/PNG disematkan sebagai
+  pratinjau gambar pada workbook; bukti PDF tetap dicatat sebagai lampiran sumber pada lembar bukti.
+- Verifikasi: endpoint ekspor HTTP 200 menghasilkan workbook valid dengan lembar `Rekap Tahap 1` dan
+  `Bukti Transfer`; build frontend dan tampilan tombol admin lulus.

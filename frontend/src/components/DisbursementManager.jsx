@@ -4,6 +4,7 @@ import {
   Banknote,
   Building2,
   CheckCircle2,
+  Download,
   Eye,
   FileUp,
   Loader2,
@@ -60,6 +61,7 @@ export default function DisbursementManager() {
   const [activeStage, setActiveStage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [detail, setDetail] = useState(null);
   const activeStageField = activeStage === 1 ? "stage_one" : "stage_two";
 
@@ -177,6 +179,26 @@ export default function DisbursementManager() {
     }
   };
 
+  const exportDisbursements = async () => {
+    setExporting(true);
+    try {
+      const response = await api.get("/admin/disbursements/export", {
+        params: { stage: activeStage, region: lockedRegion || (region === "all" ? undefined : region) },
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `rekap-pencairan-tahap-${activeStage}.xlsx`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error("Ekspor pencairan dana belum berhasil dibuat.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-7" data-testid="disbursement-manager">
       <section className="border-l-4 border-[#0B6B3A] bg-[#F0FBF5] px-5 py-4">
@@ -288,6 +310,16 @@ export default function DisbursementManager() {
               {REGIONS.map((item) => <option key={item} value={item}>{item}</option>)}
             </select>
           )}
+          <button
+            type="button"
+            onClick={exportDisbursements}
+            disabled={exporting}
+            data-testid="export-disbursement-button"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0B6B3A] px-4 py-2.5 text-sm font-bold text-white hover:bg-[#07532D] disabled:opacity-60"
+          >
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            Export {stageLabel(activeStage)}
+          </button>
         </div>
         {uploadRegion && (
           <p
