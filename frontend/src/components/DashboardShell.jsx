@@ -90,8 +90,8 @@ export default function DashboardShell({
                 setOpen(false);
               }}
               data-testid={mobile ? `mobile-menu-${m.id}` : `menu-${m.id}`}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${isActive ? "bg-[#E8F6EE] text-[#0B6B3A] border-l-4 border-[#27AE60]" : "text-[#6B7280] hover:bg-gray-50 hover:text-[#1F2937] border-l-4 border-transparent"}`}>
-              <m.icon className="w-5 h-5 shrink-0" /> {m.label}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-semibold transition-colors ${isActive ? "bg-[#E8F6EE] text-[#0B6B3A] border-l-4 border-[#27AE60]" : "text-[#6B7280] hover:bg-gray-50 hover:text-[#1F2937] border-l-4 border-transparent"}`}>
+              <m.icon className="w-5 h-5 shrink-0" /> <span className="whitespace-nowrap">{m.label}</span>
             </button>
           );
         })}

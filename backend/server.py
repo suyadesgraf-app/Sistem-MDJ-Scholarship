@@ -1526,7 +1526,7 @@ async def get_pending_selection_announcement(
         {"user_id": user["user_id"]},
         {"_id": 0, "user_id": 1, "status": 1, "category": 1, "is_announcement_published": 1},
     )
-    if (
+    if False and (
         registration
         and registration.get("status") in SELECTION_RESULT_STATUSES
         and not registration.get("is_announcement_published")
@@ -5561,19 +5561,18 @@ async def publish_selection_announcement(
     if payload.stage not in {"administration", "beneficiary"}:
         raise HTTPException(status_code=400, detail="Tahapan pengumuman tidak valid.")
     summary = await selection_announcement_summary(payload.category)
-    if not summary["recipient_count"]:
-        raise HTTPException(status_code=400, detail="Tidak ada hasil seleksi baru yang dapat diumumkan.")
-
     selected_category = summary["category"]
     category_query = {}
     if selected_category != "all":
         category_query["category"] = selected_category
+    stage_statuses = {"lolos_administrasi", "ditolak"} if payload.stage == "administration" else {"penerima_manfaat", "ditolak"}
+    published_field = f"is_announcement_published_{payload.stage}"
     recipient_query = {
         **category_query,
-        "status": {"$in": SELECTION_RESULT_STATUSES},
+        "status": {"$in": list(stage_statuses)},
         "$or": [
-            {"is_announcement_published": {"$exists": False}},
-            {"is_announcement_published": False},
+            {published_field: {"$exists": False}},
+            {published_field: False},
         ],
     }
     registrations = await db.registrations.find(
@@ -5606,7 +5605,7 @@ async def publish_selection_announcement(
     for registration in registrations:
         result = (
             "passed"
-            if registration.get("status") in SELECTION_RESULT_PASSED_STATUSES
+            if registration.get("status") in (SELECTION_RESULT_PASSED_STATUSES | {"penerima_manfaat"})
             else "failed"
         )
         notifications.append({
@@ -5629,7 +5628,7 @@ async def publish_selection_announcement(
         {"user_id": {"$in": [item["user_id"] for item in registrations]}},
         {
             "$set": {
-                "is_announcement_published": True,
+                published_field: True,
                 "selection_announcement_id": announcement_id,
                 "selection_announcement_published_at": now,
             }

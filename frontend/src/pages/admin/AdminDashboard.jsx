@@ -50,11 +50,11 @@ export default function AdminDashboard() {
     return [
       ...BASE_MENU,
       { id: "surat-aktif", label: "Surat Aktif AI", icon: FileCheck2 },
+      { id: "pengumuman-seleksi", label: "Pengumuman Seleksi", icon: BellRing },
       { id: "pencairan-dana", label: "Pencairan Dana", icon: HandCoins },
       { id: "kampus", label: "Kampus", icon: Building2 },
       { id: "admin-wilayah", label: "Admin Wilayah", icon: ShieldCheck },
       { id: "live-chat", label: "Live Chat", icon: MessageCircleMore },
-      { id: "pengumuman-seleksi", label: "Pengumuman Hasil Seleksi", icon: BellRing },
     ];
   }, [isRegionalAdmin]);
   const activeMenu = menu.find((item) => item.id === active);
