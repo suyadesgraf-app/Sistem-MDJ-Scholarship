@@ -38,21 +38,8 @@ const CATEGORIES = [
 const Logo = ({ light, logoUrl }) => (
   <div className="flex items-center gap-2.5" data-testid="mdj-logo">
     {logoUrl ? (
-      <div className="flex items-center gap-2" data-testid="mdj-header-logo-image">
-        <div className="h-14 w-44 overflow-hidden rounded-lg bg-white p-1 shadow-md shadow-black/15">
-          <img
-          src={`${logoUrl}?part=government`}
-            alt="Logo Pemerintah Provinsi DKI Jakarta dan BAZNAS (BAZIS)"
-          className="h-full w-full object-contain"
-          />
-        </div>
-        <div className="h-14 w-14 overflow-hidden rounded-lg bg-[#27AE60] p-1 shadow-md shadow-black/15">
-          <img
-            src={`${logoUrl}?part=mdj`}
-            alt="Logo MDJ Scholarship"
-            className="h-full w-full object-contain"
-          />
-        </div>
+      <div className="h-10 w-10 overflow-hidden rounded-lg bg-[#27AE60] shadow-md shadow-[#27AE60]/30">
+        <img src={logoUrl} alt="Logo MDJ Scholarship" className="h-full w-full object-contain" data-testid="mdj-header-logo-image" />
       </div>
     ) : (
       <>

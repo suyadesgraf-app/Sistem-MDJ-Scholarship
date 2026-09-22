@@ -644,3 +644,5 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Tampilan disempurnakan menjadi dua kartu logo seperti referensi visual: kartu putih untuk Pemerintah Provinsi
   DKI Jakarta dan BAZNAS (BAZIS), serta kartu hijau terpisah untuk MDJ Scholarship. Endpoint publik logo
   menyediakan potongan aset yang tepat untuk masing-masing kartu.
+- Atas permintaan berikutnya, header dikembalikan ke gaya awal dengan satu logo MDJ saja. Aset CMS diperbarui
+  menggunakan unggahan `New Logo MDJ.png`; tata letak kartu ganda tidak lagi digunakan.
