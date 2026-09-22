@@ -646,3 +646,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   menyediakan potongan aset yang tepat untuk masing-masing kartu.
 - Atas permintaan berikutnya, header dikembalikan ke gaya awal dengan satu logo MDJ saja. Aset CMS diperbarui
   menggunakan unggahan `New Logo MDJ.png`; tata letak kartu ganda tidak lagi digunakan.
+
+## 2026-09 — Periode pendaftaran berbasis tanggal dan jam
+- Super Admin kini mengaktifkan Pendaftaran Dibuka terlebih dahulu sebelum dapat mengisi Tanggal & Jam Mulai,
+  Tanggal & Jam Selesai, Tanggal Pengumuman, serta Tahun Program melalui pemilih tanggal bawaan browser.
+- Backend menolak akses pendaftaran sebelum waktu mulai dan otomatis mengubah status pendaftaran menjadi
+  tertutup ketika waktu selesai telah tercapai, tanpa menghapus draf mahasiswa.
+- Beranda menampilkan hitung mundur Hari/Jam/Menit/Detik menuju waktu selesai dan mengubah status visual menjadi
+  Ditutup saat hitungan mencapai nol. Build frontend/backend dan input `datetime-local` telah diverifikasi.

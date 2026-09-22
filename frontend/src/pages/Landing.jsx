@@ -130,6 +130,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const [content, setContent] = useState(null);
   const [faqOpen, setFaqOpen] = useState(0);
+  const [remainingTime, setRemainingTime] = useState(null);
   const go = (p) => navigate(p);
 
   useEffect(() => {
@@ -148,6 +149,23 @@ export default function Landing() {
   const bannerBg = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : HERO_IMG;
   const aboutBg = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : ABOUT_IMG;
   const logoUrl = c.logo_url ? `${API}/site/logo` : null;
+  const registrationIsOpen = settings.registration_open && (!settings.registration_start_at || Date.now() >= new Date(settings.registration_start_at).getTime()) && (!settings.registration_end_at || Date.now() < new Date(settings.registration_end_at).getTime());
+
+  useEffect(() => {
+    const updateRemainingTime = () => {
+      const end = settings.registration_end_at ? new Date(settings.registration_end_at) : null;
+      const distance = end ? Math.max(0, end.getTime() - Date.now()) : 0;
+      setRemainingTime({
+        days: Math.floor(distance / 86400000),
+        hours: Math.floor((distance % 86400000) / 3600000),
+        minutes: Math.floor((distance % 3600000) / 60000),
+        seconds: Math.floor((distance % 60000) / 1000),
+      });
+    };
+    updateRemainingTime();
+    const timer = window.setInterval(updateRemainingTime, 1000);
+    return () => window.clearInterval(timer);
+  }, [settings.registration_end_at]);
 
   return (
     <div className="min-h-screen bg-white font-sans">
@@ -187,16 +205,24 @@ export default function Landing() {
               <p className="font-display font-extrabold text-lg text-[#1F2937]">Masa Depan Jakarta {settings.year || "2026"}</p>
               <p className="text-sm text-[#6B7280] mt-1 mb-5">Mewujudkan SDM Jakarta yang Terdidik, Unggul, dan Berakhlak Mulia.</p>
               <div className="rounded-xl bg-[#E8F6EE] p-4 flex items-center gap-3">
-                <div className={`w-2.5 h-2.5 rounded-full ${settings.registration_open ? "bg-[#27AE60] animate-pulse" : "bg-[#DC2626]"}`} />
+                <div className={`w-2.5 h-2.5 rounded-full ${registrationIsOpen ? "bg-[#27AE60] animate-pulse" : "bg-[#DC2626]"}`} />
                 <div>
                   <p className="text-xs text-[#6B7280]">Status Pendaftaran</p>
-                  <p className="font-bold text-[#0B6B3A] text-sm">{settings.registration_open ? "Sedang Dibuka" : "Ditutup"}</p>
+                  <p className="font-bold text-[#0B6B3A] text-sm">{registrationIsOpen ? "Sedang Dibuka" : "Ditutup"}</p>
                 </div>
               </div>
               <div className="mt-4 space-y-2.5 text-sm">
-                <div className="flex items-center justify-between"><span className="text-[#6B7280] flex items-center gap-2"><Calendar className="w-4 h-4" /> Periode</span><span className="font-semibold text-[#1F2937]">{settings.period_start} - {settings.period_end}</span></div>
+                <div className="flex items-center justify-between"><span className="text-[#6B7280] flex items-center gap-2"><Calendar className="w-4 h-4" /> Periode</span><span className="font-semibold text-[#1F2937]">{settings.registration_start_at ? new Date(settings.registration_start_at).toLocaleDateString("id-ID") : settings.period_start} - {settings.registration_end_at ? new Date(settings.registration_end_at).toLocaleDateString("id-ID") : settings.period_end}</span></div>
                 <div className="flex items-center justify-between"><span className="text-[#6B7280] flex items-center gap-2"><Megaphone className="w-4 h-4" /> Pengumuman</span><span className="font-semibold text-[#1F2937]">{settings.announcement_date}</span></div>
               </div>
+              {registrationIsOpen && settings.registration_end_at && remainingTime && (
+                <div className="mt-5 border-t border-gray-100 pt-4" data-testid="registration-countdown">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#0B6B3A]">Pendaftaran berakhir dalam</p>
+                  <div className="mt-2 grid grid-cols-4 gap-2 text-center">
+                    {[[remainingTime.days, "Hari"], [remainingTime.hours, "Jam"], [remainingTime.minutes, "Menit"], [remainingTime.seconds, "Detik"]].map(([value, label]) => <div key={label} className="bg-[#E8F6EE] px-1 py-2"><p className="font-display text-lg font-black text-[#0B6B3A]">{String(value).padStart(2, "0")}</p><p className="text-[10px] font-bold text-[#6B7280]">{label}</p></div>)}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -158,11 +158,11 @@ export default function SiteManager() {
               <input type="checkbox" checked={!!c.settings?.registration_open} onChange={(e) => setSetting("registration_open", e.target.checked)} data-testid="reg-open-toggle" className="w-5 h-5 accent-[#27AE60]" />
               <span className="text-sm font-semibold text-[#1F2937]">Pendaftaran Dibuka</span>
             </label>
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Fld label="Tanggal Mulai"><input value={c.settings?.period_start || ""} onChange={(e) => setSetting("period_start", e.target.value)} data-testid="period-start-input" className={ic} /></Fld>
-              <Fld label="Tanggal Selesai"><input value={c.settings?.period_end || ""} onChange={(e) => setSetting("period_end", e.target.value)} data-testid="period-end-input" className={ic} /></Fld>
-              <Fld label="Tanggal Pengumuman"><input value={c.settings?.announcement_date || ""} onChange={(e) => setSetting("announcement_date", e.target.value)} data-testid="announcement-date-input" className={ic} /></Fld>
-              <Fld label="Tahun Program"><input value={c.settings?.year || ""} onChange={(e) => setSetting("year", e.target.value)} className={ic} /></Fld>
+            <div className={`grid sm:grid-cols-2 gap-4 ${!c.settings?.registration_open ? "opacity-50" : ""}`}>
+              <Fld label="Tanggal & Jam Mulai"><input type="datetime-local" disabled={!c.settings?.registration_open} value={c.settings?.registration_start_at || ""} onChange={(e) => setSetting("registration_start_at", e.target.value)} data-testid="period-start-input" className={ic} /></Fld>
+              <Fld label="Tanggal & Jam Selesai"><input type="datetime-local" disabled={!c.settings?.registration_open} value={c.settings?.registration_end_at || ""} onChange={(e) => setSetting("registration_end_at", e.target.value)} data-testid="period-end-input" className={ic} /></Fld>
+              <Fld label="Tanggal Pengumuman"><input type="date" disabled={!c.settings?.registration_open} value={c.settings?.announcement_date || ""} onChange={(e) => setSetting("announcement_date", e.target.value)} data-testid="announcement-date-input" className={ic} /></Fld>
+              <Fld label="Tahun Program"><input type="number" disabled={!c.settings?.registration_open} value={c.settings?.year || ""} onChange={(e) => setSetting("year", e.target.value)} className={ic} /></Fld>
             </div>
           </Panel>
           <Panel title="Teks Hero">

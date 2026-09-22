@@ -1216,7 +1216,34 @@ async def ensure_cpm_id(registration: Optional[dict]) -> Optional[dict]:
 async def is_registration_period_open() -> bool:
     content = await db.site_content.find_one({"key": "main"}, {"_id": 0, "settings": 1})
     settings = (content or {}).get("settings") or {}
-    return settings.get("registration_open") is True
+    if settings.get("registration_open") is not True:
+        return False
+    now = datetime.now(timezone.utc)
+    end_at = settings.get("registration_end_at")
+    if end_at:
+        try:
+            deadline = datetime.fromisoformat(end_at.replace("Z", "+00:00"))
+            if deadline.tzinfo is None:
+                deadline = deadline.replace(tzinfo=timezone.utc)
+            if now >= deadline:
+                await db.site_content.update_one(
+                    {"key": "main"},
+                    {"$set": {"settings.registration_open": False}},
+                )
+                return False
+        except ValueError:
+            return False
+    start_at = settings.get("registration_start_at")
+    if start_at:
+        try:
+            starts = datetime.fromisoformat(start_at.replace("Z", "+00:00"))
+            if starts.tzinfo is None:
+                starts = starts.replace(tzinfo=timezone.utc)
+            if now < starts:
+                return False
+        except ValueError:
+            return False
+    return True
 
 
 async def registration_completion_gaps(user_id: str) -> Dict[str, List[str]]:
