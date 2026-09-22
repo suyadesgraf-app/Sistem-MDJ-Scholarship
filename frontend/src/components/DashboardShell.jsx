@@ -38,11 +38,13 @@ export default function DashboardShell({
   unreadNotificationCount = 0,
   onNotificationClick,
   onReadAllNotifications,
+  displayName,
 }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [logoUrl, setLogoUrl] = useState(null);
+  const identityUser = displayName?.trim() ? { ...user, name: displayName.trim() } : user;
 
   useEffect(() => {
     api.get("/site/content")
@@ -134,14 +136,14 @@ export default function DashboardShell({
               <CandidateIdentity
                 avatarUrl={avatarUrl}
                 candidateId={candidateId}
-                user={user}
+                user={identityUser}
                 notifications={notifications}
                 unreadNotificationCount={unreadNotificationCount}
                 onNotificationClick={onNotificationClick}
                 onReadAllNotifications={onReadAllNotifications}
               />
             ) : (
-              <AccountIdentity avatarUrl={avatarUrl} user={user} />
+              <AccountIdentity avatarUrl={avatarUrl} user={identityUser} />
             )}
           </div>
         </header>

@@ -289,6 +289,7 @@ export default function StudentDashboard() {
 
   return (
     <DashboardShell menu={MENU} active={active} onSelect={selectDashboardMenu} brandLabel="Portal Pendaftar"
+      displayName={data.namaLengkap || user?.name}
       title={MENU.find((m) => m.id === active)?.label} subtitle="Program Masa Depan Jakarta 2026"
       avatarUrl={avatarUrl}
       candidateId={reg.cpm_id}
