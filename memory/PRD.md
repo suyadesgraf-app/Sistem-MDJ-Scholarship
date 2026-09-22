@@ -691,6 +691,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Testing agent lulus 6/6 backend dan seluruh alur UI DOCX/PDF, penolakan format tidak didukung, otorisasi,
   simpan, tampilan publik, dan pemulihan konten uji.
 
+## 2026-09 — Voice note tekan–kunci–kirim
+- Live Chat Tim Admin memakai pola voice note: tahan tombol mic untuk merekam, lepas untuk mengirim otomatis,
+  atau geser ke atas untuk mengunci rekaman lalu tekan tombol sekali lagi untuk mengirim.
+- Kontrol mic dibuat sebagai tombol ikon tanpa teks “Balasan saya”; unggah dokumen dan pesan teks tetap berjalan.
+- Testing agent lulus 9/9 backend dan seluruh alur UI MediaRecorder, termasuk rekam/lepas, mode kunci, kirim
+  otomatis, pesan teks, unggah PDF, serta pembersihan data uji.
+
 ## 2026-09 — Pembaruan slogan MDJ
 - Slogan beranda dan footer diubah dari “Muda dengan Zakat, Bahagia dengan Manfaat.” menjadi
   **MDJ Scholarship Circle of Ummah**.

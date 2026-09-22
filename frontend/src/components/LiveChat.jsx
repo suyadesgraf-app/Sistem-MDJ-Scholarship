@@ -93,26 +93,6 @@ export default function LiveChat() {
     }
   };
 
-  const toggleRecording = async () => {
-    if (recording) {
-      recorderRef.current?.stop();
-      return;
-    }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const recorder = new MediaRecorder(stream);
-    audioPartsRef.current = [];
-    recorder.ondataavailable = (event) => audioPartsRef.current.push(event.data);
-    recorder.onstop = () => {
-      const blob = new Blob(audioPartsRef.current, { type: recorder.mimeType || "audio/webm" });
-      setAttachment(new File([blob], `voice-note-${Date.now()}.webm`, { type: blob.type }));
-      stream.getTracks().forEach((track) => track.stop());
-      setRecording(false);
-    };
-    recorder.start();
-    recorderRef.current = recorder;
-    setRecording(true);
-  };
-
   const sendVoiceNote = async (file) => {
     setSending(true);
     try {
