@@ -4206,13 +4206,20 @@ async def get_site_content():
 
 
 @api_router.get("/site/logo")
-async def get_site_logo():
+async def get_site_logo(part: Optional[str] = None):
     content = await db.site_content.find_one({"key": "main"}, {"_id": 0, "logo_url": 1})
     logo_path = (content or {}).get("logo_url")
     if not logo_path:
         raise HTTPException(status_code=404, detail="Logo website belum tersedia.")
     storage_path = logo_path.removeprefix("/api/files/")
     data, content_type = get_object(storage_path)
+    if part in {"government", "mdj"}:
+        image = PILImage.open(io.BytesIO(data)).convert("RGBA")
+        split_at = int(image.width * 0.7)
+        crop = image.crop((0, 0, split_at, image.height)) if part == "government" else image.crop((split_at, 0, image.width, image.height))
+        output = io.BytesIO()
+        crop.save(output, format="PNG")
+        return StarletteResponse(content=output.getvalue(), media_type="image/png", headers={"Cache-Control": "public, max-age=3600"})
     return StarletteResponse(content=data, media_type=content_type, headers={"Cache-Control": "public, max-age=3600"})
 
 

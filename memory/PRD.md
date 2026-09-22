@@ -641,3 +641,6 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Area logo dibuat horizontal agar seluruh identitas terlihat utuh. Rute publik `/api/site/logo` ditambahkan
   untuk menampilkan aset CMS tanpa autentikasi pada beranda.
 - Verifikasi: header beranda menampilkan logo gabungan dan build frontend/backend lulus.
+- Tampilan disempurnakan menjadi dua kartu logo seperti referensi visual: kartu putih untuk Pemerintah Provinsi
+  DKI Jakarta dan BAZNAS (BAZIS), serta kartu hijau terpisah untuk MDJ Scholarship. Endpoint publik logo
+  menyediakan potongan aset yang tepat untuk masing-masing kartu.
