@@ -40,6 +40,14 @@ const DOC_TYPES = [
 ];
 const DEFAULT_REGISTRATION_CATEGORY = "Mahasiswa Sarjana (S1)";
 
+function isRegistrationWindowOpen(settings = {}) {
+  if (settings.registration_open !== true) return false;
+  const now = Date.now();
+  const starts = settings.registration_start_at ? new Date(settings.registration_start_at).getTime() : null;
+  const ends = settings.registration_end_at ? new Date(settings.registration_end_at).getTime() : null;
+  return (!starts || now >= starts) && (!ends || now < ends);
+}
+
 export default function StudentDashboard() {
   const { user, setUser } = useAuth();
   const [active, setActive] = useState("ringkasan");
@@ -242,7 +250,7 @@ export default function StudentDashboard() {
   };
 
   const selectDashboardMenu = async (menuId) => {
-    if (menuId !== "daftar") {
+    if (!["daftar", "status"].includes(menuId)) {
       setActive(menuId);
       return;
     }
@@ -250,11 +258,11 @@ export default function StudentDashboard() {
       const response = await api.get("/site/content");
       const nextContent = response.data || {};
       setContent(nextContent);
-      if (nextContent.settings?.registration_open !== true && !reg.revision_requested) {
+      if (!isRegistrationWindowOpen(nextContent.settings) && !reg.revision_requested) {
         setRegistrationClosedDialogOpen(true);
         return;
       }
-      setActive("daftar");
+      setActive(menuId);
     } catch {
       setRegistrationClosedDialogOpen(true);
     }
@@ -303,7 +311,7 @@ export default function StudentDashboard() {
         <div className="space-y-6">
           <Card className="bg-gradient-to-r from-[#0B6B3A] to-[#27AE60] text-white">
             <p className="text-white/80 text-sm">Assalamualaikum,</p>
-            <h2 className="font-display font-black text-2xl mt-1">{user?.name}</h2>
+            <h2 className="font-display font-black text-2xl mt-1" data-testid="student-greeting-name">{data.namaLengkap || user?.name}</h2>
             <p className="text-white/80 text-sm mt-2">Lengkapi profil dan berkas Anda untuk melanjutkan pendaftaran MDJ Scholarship.</p>
           </Card>
           <div className="grid sm:grid-cols-3 gap-4">

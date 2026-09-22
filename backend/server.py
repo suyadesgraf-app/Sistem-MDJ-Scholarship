@@ -6640,15 +6640,13 @@ async def startup():
         updates = {}
         if exists.get("role") != account["role"]:
             updates["role"] = account["role"]
-        if exists.get("name") != account["name"]:
-            updates["name"] = account["name"]
         if not exists.get("is_active", True):
             updates["is_active"] = True
         if not verify_password(account["password"], exists.get("password_hash") or ""):
             updates["password_hash"] = hash_password(account["password"])
         if updates:
             await db.users.update_one({"email": account["email"]}, {"$set": updates})
-            logger.info("Refreshed demo %s account", account["role"])
+            logger.info("Refreshed demo %s account configuration", account["role"])
     # Seed site content
     if not await db.site_content.find_one({"key": "main"}):
         await db.site_content.insert_one({"key": "main", **DEFAULT_SITE_CONTENT})

@@ -1,0 +1,62 @@
+{
+  "summary": "Iter42 tested student profile Nama Lengkap persistence across save/reload/relogin/backend-restart on preview URL. Reproduced the reported bug: after PUT /api/profile with 'Nama Uji Persisten', the header identity (top-right) and Ringkasan greeting immediately show 'Nama Uji Persisten' (because saveProfile calls setUser(response.data.user)). Persistence across pure re-login (no backend restart) works — both /api/auth/me and /api/profile return 'Nama Uji Persisten', and after re-login the header AccountIdentity + Ringkasan greeting still show the saved name. However, after a supervisor-triggered backend restart the demo-student startup seed at /app/backend/server.py:6605-6651 unconditionally overwrites users.name back to 'Mahasiswa Demo MDJ' whenever the stored name differs (line 6643-6644), while profiles.data.namaLengkap is left untouched. Post-restart re-login: /api/auth/me.name='Mahasiswa Demo MDJ' (reverted), /api/profile.data.namaLengkap='Nama Uji Persisten' (persisted). UI impact: Header (DashboardShell CandidateIdentity/AccountIdentity) uses displayName={data.namaLengkap || user?.name} so avatar+name in header stayed correct as 'Nama Uji Persisten'. BUT StudentDashboard.jsx line 306 renders <h2>{user?.name}</h2> in the Ringkasan greeting card, which after the restart displayed the stale 'Mahasiswa Demo MDJ' next to Assalamualaikum — this is exactly the 'reverts to demo fallback' regression described in the bug report. The 'Calon Penerima Manfaat' string appears only as a badge on Profil Saya card (correctly a status/role label, not a name). Demo data restored via authenticated PUT — final /api/auth/me.name='Mahasiswa Demo MDJ' and /api/profile.data.namaLengkap='Mahasiswa Demo MDJ'. No TEST_ strings remain.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "startup demo-account seed (/app/backend/server.py lines 6605-6651)",
+        "issue": "On every backend startup, if users.name != hardcoded demo default ('Mahasiswa Demo MDJ' / 'Admin Provinsi MDJ') the code forcibly resets users.name to the demo default (lines 6643-6644). This wipes any name a demo student saved via PUT /api/profile. profiles.data.namaLengkap is NOT reset, causing a permanent divergence between /api/auth/me.name (reverted) and /api/profile.data.namaLengkap (persisted) after any backend restart / redeploy. This is the concrete root cause of the reported 'header candidate name reverts to demo fallback' regression.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "StudentDashboard Ringkasan greeting card",
+        "issue": "Line 306 (/app/frontend/src/pages/student/StudentDashboard.jsx) renders <h2>{user?.name}</h2>. It should mirror the header displayName logic and use {data.namaLengkap || user?.name} so that a saved profile name survives a stale /api/auth/me response. Currently after backend restart the greeting shows 'Mahasiswa Demo MDJ' even though the user saved a different name.",
+        "selector": "main h2 (inside Assalamualaikum card)",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Save Nama Lengkap -> reload/backend-restart -> /api/auth/me",
+        "issue": "Backend seed clobbers users.name on startup, so on subsequent /auth/me the frontend AuthContext receives the demo default instead of the saved name. Any UI element bound to user?.name (Ringkasan greeting, AccountIdentity name when data has not yet loaded) will visibly revert.",
+        "affected_selectors": ["main h2 (Ringkasan)", "header AccountIdentity name (during initial load before /api/profile resolves)"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "DashboardShell header (student, CandidateIdentity variant when reg.cpm_id present)",
+        "issues": [
+          "CandidateIdentity currently only renders 'Calon Penerima Manfaat' + 'ID: <cpm_id>' — the saved student name is not displayed anywhere in this header variant (identityUser.name is only used for the avatar initial/alt text). If product intent is 'header shows saved name', add a visible <p>{user.name}</p> above/next to the role label using identityUser.name."
+        ]
+      }
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Backend: in /app/backend/server.py startup demo-account seed (lines 6640-6650), do NOT update users.name for accounts that already exist. Only set name on initial insert. (Same treatment for role/is_active is fine; only name is user-editable.)",
+    "Frontend: /app/frontend/src/pages/student/StudentDashboard.jsx line 306 — change <h2>{user?.name}</h2> to <h2>{data.namaLengkap || user?.name}</h2> so Ringkasan greeting matches header displayName logic and survives a stale /auth/me.",
+    "(Optional per design spec) Render identityUser.name inside DashboardShell CandidateIdentity above the 'Calon Penerima Manfaat' role label — currently the candidate name is nowhere visible in the CandidateIdentity variant.",
+    "After both fixes, re-run: login → PUT /api/profile with unique name → restart backend → re-login → assert /api/auth/me.name equals saved name AND Ringkasan h2 shows saved name."
+  ],
+  "critical_code_review_comments": [
+    "server.py:6643-6644 refresh loop treats users.name as configuration rather than user data — this is the RCA of the persistence bug. Guard with `if 'name' not in exists or not exists.get('name'):` at most, or drop the name refresh entirely.",
+    "DashboardShell CandidateIdentity renders role label but never renders identityUser.name — the plumbing added (displayName -> identityUser) is only surfaced via the avatar initial. If the requirement is 'header shows saved name', the CandidateIdentity JSX needs an explicit name <p>.",
+    "StudentDashboard.jsx has two independent bindings to the student's name (header displayName uses data.namaLengkap fallback, Ringkasan h2 uses raw user?.name). These should share one memoized value to avoid divergence.",
+    "get_profile fallback (server.py:987-994) returns a transient dict built from users doc when no profile exists but does not persist it; combined with the seed reset, a fresh restart with no profile write produces a self-consistent 'demo' view — this masked the bug until a real PUT was made."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "POST /api/auth/login, GET /api/auth/me, GET /api/profile, PUT /api/profile all return 200 and payloads are correct in the no-restart case (100%); persistence across supervisor backend restart fails 1/1 due to seed overwrite.",
+    "frontend": "Header AccountIdentity + Profil form + Simpan flow all display saved name correctly (OK). Ringkasan greeting card reverts to demo default after restart (FAIL)."
+  },
+  "test_credentials": "Used /app/memory/test_credentials.md verbatim (mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!).",
+  "seed_data_creation": "Temporarily PUT /api/profile data={namaLengkap:'Nama Uji Persisten', email:'mahasiswa.mdj@baznasbazisdki.id', nik:null, noTelp:null}. Restored via authenticated PUT to {namaLengkap:'Mahasiswa Demo MDJ', ...}. Final verification: /api/auth/me.name='Mahasiswa Demo MDJ' AND /api/profile.data.namaLengkap='Mahasiswa Demo MDJ'. No 'Nama Uji Persisten' remains. Note: profiles document now has an updated_at timestamp it may not have had originally, but the data fields match the pre-test values shown by /api/profile fallback.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "To reproduce: (1) login demo student, (2) PUT /api/profile with a distinct namaLengkap, (3) `sudo supervisorctl restart backend && sleep 4`, (4) re-login and GET /api/auth/me — bug is present when me.name != saved namaLengkap. Header displayName plumbing already exists in DashboardShell (identityUser fallback), but Ringkasan greeting (StudentDashboard.jsx:306) bypasses it and reads user?.name directly. Frontend testids used: menu-profil, save-profile-btn, header-candidate-identity, candidate-role-label, candidate-id-value, header-profile-initial, header-role-label. Login form uses placeholders 'Masukkan email Anda' / 'Masukkan kata sandi' (no data-testid on the inputs — consider adding login-email/login-password testids).",
+  "rca of the issue": "Root cause: /app/backend/server.py startup seed loop (lines 6605-6651) unconditionally refreshes users.name back to the hardcoded demo default whenever it differs, treating name as immutable seed data. When a demo student edits Nama Lengkap and saves, PUT /api/profile correctly writes both profiles.data.namaLengkap and users.name (line 1003-1012). But on the next backend restart the seed overwrites users.name → /api/auth/me returns the demo default → AuthContext.setUser puts the stale name into React state → any UI reading user?.name (e.g. StudentDashboard.jsx:306 <h2>{user?.name}</h2>) reverts. Header AccountIdentity/CandidateIdentity avoid the revert because DashboardShell recomputes identityUser from displayName={data.namaLengkap || user?.name}, and data.namaLengkap survives. Reproduction steps: login demo student → save Nama Lengkap='Nama Uji Persisten' → verify me.name='Nama Uji Persisten' → `sudo supervisorctl restart backend` → re-login → GET /api/auth/me returns 'Mahasiswa Demo MDJ' while GET /api/profile still returns 'Nama Uji Persisten'. Mitigation: (a) drop name from the seed-refresh $set (only set on insert), (b) additionally make Ringkasan greeting use data.namaLengkap || user?.name so any transient AuthContext staleness (e.g. token-only relogin before /api/profile resolves) does not surface a wrong name."
+}

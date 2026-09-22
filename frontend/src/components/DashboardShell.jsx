@@ -198,9 +198,8 @@ function CandidateIdentity({
         onReadAll={onReadAllNotifications}
       />
       <div className="hidden min-w-0 border-l border-gray-200 pl-4 sm:block">
-        <p className="truncate text-sm font-bold text-[#1F2937]" data-testid="candidate-role-label">
-          Calon Penerima Manfaat
-        </p>
+        <p className="max-w-[160px] truncate text-sm font-bold text-[#1F2937]" data-testid="candidate-display-name">{user?.name}</p>
+        <p className="text-xs font-semibold text-[#6B7280]" data-testid="candidate-role-label">Calon Penerima Manfaat</p>
         <p className="text-xs text-[#6B7280]" data-testid="candidate-id-value">
           ID: {candidateId}
         </p>
