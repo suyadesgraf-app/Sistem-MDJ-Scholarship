@@ -557,3 +557,14 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   lalu menghapus hanya rekaman ber-`user_id` yang tidak memiliki akun pemilik. Data admin tidak tersentuh.
 - Verifikasi akhir: login akun demo HTTP 200, hanya 1 mahasiswa aktif/0 terarsip, total registrasi 0, dan
   seluruh koleksi data mahasiswa non-demo yang diverifikasi bernilai 0.
+
+## 2026-09 — Navigasi Admin dan Live Chat
+- Menu Admin Provinsi kini berurutan: **Dashboard, Ringkasan, Data Peserta, Import Seleksi, Verifikasi AI,
+  Surat Aktif AI, Pencairan Dana, Kampus, Admin Wilayah, Live Chat**. Ikon Dashboard (`LayoutDashboard`) dan
+  Ringkasan (`BarChart3`) dibuat berbeda agar mudah dibedakan.
+- Super Admin memakai urutan inti yang sama, kemudian mempertahankan menu khusus **Arsip Pendaftar** dan
+  **Kelola Website**. Dashboard menjadi halaman awal untuk kedua peran.
+- **Live Chat** adalah ruang koordinasi internal nyata dengan sesi `admin-team`, pesan tersimpan, pembaruan
+  otomatis setiap 15 detik, validasi pesan, dan pembatasan akses berbasis peran.
+- Diuji testing agent: 10/10 backend dan seluruh pemeriksaan UI desktop/mobile lulus, termasuk urutan menu,
+  ikon berbeda, sinkronisasi pesan Admin Provinsi ↔ Super Admin, RBAC, sesi tidak valid, dan pembersihan pesan uji.

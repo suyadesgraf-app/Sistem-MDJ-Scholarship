@@ -1,0 +1,25 @@
+{
+  "summary": "Iter37 verified sidebar menu ordering + Live Chat feature (backend + frontend) end-to-end. Backend pytest 10/10 passed against /api/admin/live-chat/messages covering: unauth GET/POST -> 401/403, student GET/POST -> 403, admin/super_admin GET/POST for session_id != 'admin-team' -> 404, empty and whitespace-only message rejected (400/422), admin creates message then super_admin fetches same id (session admin-team), super_admin can also post and admin sees it. Response objects contain no Mongo '_id'. Frontend Playwright at 1920x1080 and 390x844 using real preview URL: (1) Admin Provinsi (admin.mdj) sidebar order EXACTLY matches [dashboard, ringkasan, peserta, import-seleksi, verifikasi-ai, surat-aktif, pencairan-dana, kampus, admin-wilayah, live-chat]; (2) Dashboard vs Ringkasan SVG icons differ (LayoutDashboard vs BarChart3); (3) Super Admin (supri) first 10 items match [dashboard, ringkasan, peserta, import-seleksi, verifikasi-ai, surat-aktif, pencairan-dana, kampus, admin, live-chat] followed by arsip-pendaftar + website; (4) Super Admin can open Dashboard, Ringkasan, and Live Chat routes; (5) Live Chat send button disabled when input empty (empty submit blocked); (6) Admin sent 'TEST_UI_iter37_1790038369' via UI; Super Admin subsequently saw the same message in admin-team session -> cross-role sync works; (7) No horizontal overflow (scrollWidth-clientWidth = 0px) at 1920 desktop AND 390 mobile for both Admin and Super Admin views. All ephemeral chat messages (UI + backend fixtures) deleted from admin_live_chat_messages after tests; DB confirmed clean (0 messages remain in admin-team session).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_live_chat.py",
+    "/app/test_reports/pytest/iter37_live_chat.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py MANAGEMENT_ROLES include admin, super_admin, admin_wilayah - the live-chat endpoints therefore also grant access to admin_wilayah. Spec only mentioned admin + super_admin; if admin_wilayah is not intended to see the admin-team channel, restrict via require_roles('admin','super_admin') instead.",
+    "Both dashboard and website (Kelola Website) in SuperAdminDashboard.jsx use the same LayoutDashboard icon. Not a spec violation (spec only required Dashboard vs Ringkasan to differ) but two identical icons in one sidebar is confusing UX - suggest a different icon (e.g., Settings2 or Globe) for 'Kelola Website'.",
+    "LiveChat.jsx polls loadMessages every 15s; acceptable for internal admin coordination but consider server-side push (websocket/sse) once traffic grows.",
+    "server.py is now 6019 lines - modularization recommendation from prior iterations still stands.",
+    "Live chat POST returns 200 (should arguably be 201 Created for a POST that creates a resource) - cosmetic."
+  ],
+  "updated_files": ["/app/backend/tests/test_live_chat.py"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (all assertions passed)"},
+  "test_credentials": "Super Admin supri@baznasbazisdki.id/MdjSuper2026! ; Admin admin.mdj@baznasbazisdki.id/AdminMDJ2026! ; Student mahasiswa.mdj@baznasbazisdki.id/MahasiswaMDJ2026! (all from /app/frontend/.env)",
+  "seed_data_creation": "Ephemeral only: 2 messages created by backend pytest and 1 by Playwright UI. All deleted after tests (pytest cleanup fixture + explicit pymongo delete_many with regex ^TEST_iter37_ / ^TEST_UI_iter37_). Post-test verification: db.admin_live_chat_messages.find({session_id:'admin-team'}) returns [].",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: MONGO_URL=mongodb://localhost:27017 DB_NAME=test_database pytest backend/tests/test_live_chat.py -o addopts='' -v --junitxml=test_reports/pytest/iter37_live_chat.xml. Cleanup regex if orphaned data: db.admin_live_chat_messages.delete_many({message:/^TEST_/}). Sidebar testids follow menu-<id> (desktop) and mobile-menu-<id> (mobile drawer) - filter out mobile- prefix when reading desktop order. Admin Provinsi id for AdminUsers panel = 'admin-wilayah'; Super Admin id for same panel = 'admin' (different intentionally). Login uses data-testid=login-email-input & login-password-input (not type=email).",
+  "rca of the issue": "No bug reproduced - feature works as specified. Only advisory code-review comments noted above."
+}
