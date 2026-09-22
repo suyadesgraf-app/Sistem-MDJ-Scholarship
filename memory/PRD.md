@@ -634,3 +634,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 ## 2026-09 — Penyederhanaan login email
 - Label dan placeholder bidang masuk kini hanya menyebut **Email**; opsi atau penyebutan NIK dihapus dari UI.
 - Verifikasi: build frontend lulus dan tampilan ponsel menunjukkan label serta placeholder email yang benar.
+
+## 2026-09 — Logo gabungan beranda
+- Logo beranda diperbarui menggunakan aset unggahan yang memuat identitas Pemerintah Provinsi DKI Jakarta,
+  BAZNAS (BAZIS), dan MDJ Scholarship.
+- Area logo dibuat horizontal agar seluruh identitas terlihat utuh. Rute publik `/api/site/logo` ditambahkan
+  untuk menampilkan aset CMS tanpa autentikasi pada beranda.
+- Verifikasi: header beranda menampilkan logo gabungan dan build frontend/backend lulus.

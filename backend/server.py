@@ -4205,6 +4205,17 @@ async def get_site_content():
     return content
 
 
+@api_router.get("/site/logo")
+async def get_site_logo():
+    content = await db.site_content.find_one({"key": "main"}, {"_id": 0, "logo_url": 1})
+    logo_path = (content or {}).get("logo_url")
+    if not logo_path:
+        raise HTTPException(status_code=404, detail="Logo website belum tersedia.")
+    storage_path = logo_path.removeprefix("/api/files/")
+    data, content_type = get_object(storage_path)
+    return StarletteResponse(content=data, media_type=content_type, headers={"Cache-Control": "public, max-age=3600"})
+
+
 @api_router.put("/site/content")
 async def update_site_content(payload: SiteContentInput, user: dict = Depends(require_roles("super_admin"))):
     current = await db.site_content.find_one({"key": "main"}, {"_id": 0}) or {}

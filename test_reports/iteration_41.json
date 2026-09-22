@@ -1,0 +1,31 @@
+{
+  "summary": "Iter41 tested new Syarat (6) + Kelengkapan Berkas (11) landing sections + Super Admin CMS edit/add flow. Backend pytest 5/5 passed in /app/backend/tests/test_site_content_syarat.py: (1) public GET /api/site/content returns eligibility_requirements length 6 and required_documents length 11 with 'Surat Permohonan' and 'Pakta Integritas' present; (2) PUT /api/site/content is 401/403 unauthenticated, 403 for student, 403 for admin (RBAC), 200 for super_admin; (3) super_admin edited first eligibility item, appended one syarat and one berkas — response reflects 7/12 and public GET returns same; (4) restore PUT returns lists back to 6/11 with original first eligibility text. Frontend Playwright on preview URL: Landing #persyaratan renders <div data-testid=eligibility-requirements> with 6 CheckCircle rows and <div data-testid=required-documents> with 11 rows including 'Surat Permohonan' and 'Pakta Integritas'; no horizontal overflow at 1920x1080 desktop or 390x844 mobile (scrollWidth == clientWidth). Super Admin login → Kelola Website → site-tab-persyaratan and site-tab-berkas tabs present; used data-testid=eligibility-requirement-0/add-eligibility-requirement/eligibility-requirement-6 and required-document-0/add-required-document/required-document-11 to edit+add+save each list via 'Simpan Perubahan' toast confirmation ('Konten website diperbarui.'). Public /api/site/content reflected 7/12 with TEST_iter41 markers, then full restore via authenticated PUT returned 6/11 with original 'Warga DKI Jakarta...' first eligibility item. Final GET confirms original data intact (elig=6, docs=11, last doc = 'Pakta Integritas ...').",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_site_content_syarat.py",
+    "/app/test_reports/pytest/iter41_site_content.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py GET /api/site/content auto-inserts DEFAULT_SITE_CONTENT into DB on first miss AND backfills missing eligibility_requirements/required_documents on subsequent reads — good migration path, and matches the review request expectation.",
+    "PUT /api/site/content applies a plain $set of whatever keys the client sends. This is fine for the two new list keys, but note: a super_admin can wipe eligibility_requirements to [] with a single PUT — consider validating that these arrays remain non-empty or at least log audit events for CMS mutations.",
+    "SiteManager.jsx StringListEditor delete button has no data-testid (only add and per-index input do). Not required by spec but adding del-eligibility-requirement-<idx> / del-required-document-<idx> would parallel ArrayEditor's del-<testid>-<idx> convention for future automated regression.",
+    "Landing.jsx RequirementList <section> lacks role/aria-label; screen readers will announce the surrounding page heading but not the inner list purpose."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_site_content_syarat.py",
+    "/app/test_reports/iteration_41.json"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (public landing + CMS edit/add/save + restore all verified end-to-end)"},
+  "test_credentials": "Used /app/memory/test_credentials.md verbatim (super_admin supri@baznasbazisdki.id, admin.mdj@baznasbazisdki.id, mahasiswa.mdj@baznasbazisdki.id). No new users created.",
+  "seed_data_creation": "Per-run only. Test PUT temporarily set eligibility_requirements to 7 items (index 0 = 'TEST_iter41 CMS EDITED syarat', index 6 = 'TEST_iter41 CMS syarat baru') and required_documents to 12 items (index 11 = 'TEST_iter41 CMS berkas baru'). Restored via authenticated PUT to the exact original 6/11 arrays from DEFAULT_SITE_CONTENT; final GET confirmed elig=6, docs=11, eligibility_requirements[0]='Warga DKI Jakarta (dibuktikan dengan KTP & KK DKI Jakarta).', required_documents[-1]='Pakta Integritas (format disesuaikan dengan ketentuan BAZNAS DKI Jakarta).'. No TEST_iter41 strings remain in the DB.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Rerun backend: MONGO_URL=... DB_NAME=test_database python -m pytest backend/tests/test_site_content_syarat.py -o addopts='' -v --junitxml=test_reports/pytest/iter41_site_content.xml. Frontend CMS testids: site-tab-persyaratan, site-tab-berkas, eligibility-requirement-<idx>, add-eligibility-requirement, required-document-<idx>, add-required-document, then click 'Simpan Perubahan' button. Note: super_admin lands at /super-admin (NOT /admin) — wait_for_url('**/super-admin**').",
+  "rca of the issue": "No bugs found. Feature works as specified: two separate lists rendered on Landing #persyaratan (6 eligibility + 11 documents, with Surat Permohonan and Pakta Integritas present), Super Admin can edit/add via Kelola Website tabs Syarat Pendaftar & Kelengkapan Berkas, PUT /api/site/content correctly restricted to super_admin (student/admin → 403, unauth → 401/403), and landing reflects saved content immediately after save."
+}

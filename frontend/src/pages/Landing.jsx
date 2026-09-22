@@ -37,24 +37,28 @@ const CATEGORIES = [
 
 const Logo = ({ light, logoUrl }) => (
   <div className="flex items-center gap-2.5" data-testid="mdj-logo">
-    <div className="h-10 w-10 overflow-hidden rounded-lg bg-[#27AE60] shadow-md shadow-[#27AE60]/30">
-      {logoUrl ? (
+    {logoUrl ? (
+      <div className="h-12 w-52 overflow-hidden rounded-lg bg-white/95 p-1 shadow-md shadow-black/10 sm:w-60">
         <img
           src={logoUrl}
-          alt="Logo MDJ Scholarship"
-          className="h-full w-full object-contain"
+          alt="Logo Pemerintah Provinsi DKI Jakarta, BAZNAS, dan MDJ Scholarship"
+          className="h-full w-full object-contain object-left"
           data-testid="mdj-header-logo-image"
         />
-      ) : (
+      </div>
+    ) : (
+      <>
+        <div className="h-10 w-10 overflow-hidden rounded-lg bg-[#27AE60] shadow-md shadow-[#27AE60]/30">
         <span className="flex h-full w-full items-center justify-center text-xs font-black text-white">
           MDJ
         </span>
-      )}
-    </div>
-    <div className="leading-tight">
-      <p className={`font-display font-extrabold text-base ${light ? "text-white" : "text-[#1F2937]"}`}>MDJ Scholarship</p>
-      <p className={`text-[10px] font-semibold ${light ? "text-white/70" : "text-[#6B7280]"}`}>BAZNAS (BAZIS) DKI Jakarta</p>
-    </div>
+        </div>
+        <div className="leading-tight">
+          <p className={`font-display font-extrabold text-base ${light ? "text-white" : "text-[#1F2937]"}`}>MDJ Scholarship</p>
+          <p className={`text-[10px] font-semibold ${light ? "text-white/70" : "text-[#6B7280]"}`}>BAZNAS (BAZIS) DKI Jakarta</p>
+        </div>
+      </>
+    )}
   </div>
 );
 
@@ -148,7 +152,7 @@ export default function Landing() {
   const hero = c.hero || {};
   const bannerBg = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : HERO_IMG;
   const aboutBg = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : ABOUT_IMG;
-  const logoUrl = c.logo_url ? `${API.replace("/api", "")}${c.logo_url}` : null;
+  const logoUrl = c.logo_url ? `${API}/site/logo` : null;
 
   return (
     <div className="min-h-screen bg-white font-sans">
