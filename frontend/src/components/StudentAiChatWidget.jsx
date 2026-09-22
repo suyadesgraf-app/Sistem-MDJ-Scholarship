@@ -4,7 +4,7 @@ import api from "@/lib/api";
 
 export default function StudentAiChatWidget() {
   const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ left: 20, bottom: 20 });
+  const [position, setPosition] = useState({ left: null, right: 24, bottom: 24 });
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [sending, setSending] = useState(false);
@@ -17,7 +17,7 @@ export default function StudentAiChatWidget() {
   useEffect(() => {
     const clampPosition = () => setPosition((current) => ({
       ...current,
-      left: Math.max(8, Math.min(current.left, window.innerWidth - 368)),
+      left: current.left === null ? null : Math.max(8, Math.min(current.left, window.innerWidth - 368)),
     }));
     window.addEventListener("resize", clampPosition);
     return () => window.removeEventListener("resize", clampPosition);
@@ -26,8 +26,16 @@ export default function StudentAiChatWidget() {
   const startDrag = (event) => {
     const startX = event.clientX;
     const startY = event.clientY;
-    const start = position;
-    const move = (moveEvent) => setPosition({ left: Math.max(8, start.left + moveEvent.clientX - startX), bottom: Math.max(8, start.bottom - moveEvent.clientY + startY) });
+    const box = dragRef.current?.getBoundingClientRect();
+    const start = {
+      left: box?.left ?? 24,
+      bottom: Math.max(8, window.innerHeight - (box?.bottom ?? window.innerHeight - 24)),
+    };
+    const move = (moveEvent) => setPosition({
+      left: Math.max(8, Math.min(window.innerWidth - 56, start.left + moveEvent.clientX - startX)),
+      right: null,
+      bottom: Math.max(8, Math.min(window.innerHeight - 56, start.bottom - moveEvent.clientY + startY)),
+    });
     const stop = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", stop); };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", stop);
@@ -48,7 +56,7 @@ export default function StudentAiChatWidget() {
     } finally { setSending(false); }
   };
 
-  return <div ref={dragRef} style={{ left: position.left, bottom: position.bottom }} className="fixed z-40" data-testid="student-ai-chat-widget">
+  return <div ref={dragRef} style={{ left: position.left ?? "auto", right: position.right ?? "auto", bottom: position.bottom }} className="fixed z-40" data-testid="student-ai-chat-widget">
     {open ? <div className="flex h-[460px] w-[min(360px,calc(100vw-32px))] flex-col border border-[#B7E4C7] bg-white shadow-2xl">
       <div onPointerDown={startDrag} className="flex cursor-grab items-center justify-between bg-[#0B6B3A] px-3 py-3 text-white" data-testid="student-ai-chat-drag-handle"><span className="flex items-center gap-2 text-sm font-bold"><GripVertical className="h-4 w-4" />AI Referensi MDJ</span><button type="button" onClick={() => setOpen(false)} data-testid="student-ai-chat-close-button"><X className="h-4 w-4" /></button></div>
       <div className="flex-1 space-y-3 overflow-y-auto p-3" data-testid="student-ai-chat-messages">{messages.map((item) => <div key={item.id} className={item.role === "user" ? "ml-auto max-w-[85%] bg-[#E8F6EE] p-2 text-sm" : "max-w-[85%] border border-gray-200 p-2 text-sm"}>{item.text || <Loader2 className="h-4 w-4 animate-spin" />}</div>)}</div>

@@ -1,0 +1,23 @@
+{
+  "summary": "Retested both bugs from iteration_42. (1) Nama Lengkap persistence: saved 'Nama Uji Persisten' via PUT /api/profile, restarted backend via supervisorctl, re-logged in and confirmed /api/auth/me.name and /api/profile.data.namaLengkap both retained the saved value. Fix (removing name from demo seed refresh $set at server.py:6640-6649) is effective. Header CandidateIdentity still uses displayName={data.namaLengkap || user?.name} and Ringkasan h2 uses the same fallback (StudentDashboard.jsx:314) — both display correctly. (2) Registration window enforcement: via Super Admin PUT /api/site/content, exercised three windows (past/past, future/future, active) and clicked Pendaftaran + Status Seleksi menus in the student UI. RegistrationClosedDialog appears in both closed windows for both menus (6/6 UI cases) and is suppressed in the active window. Backend POST /api/registration returns 403 outside the window and 200 inside. Draft persists across window closure (GET /registration returns existing draft even when window ended). All 5 pytest cases passed and all 6 UI cases passed. Original site_content settings and demo student profile fully restored after tests.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_persistence_and_period.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py demo seed (6605-6649): fix landed correctly — name is only set on initial insert; only role/is_active/password_hash are refreshed for existing accounts. Good.",
+    "isRegistrationWindowOpen exists both in backend (async, also side-effect closes registration_open when past deadline) and frontend (pure). Duplication is acceptable but keep in sync if fields evolve.",
+    "selectDashboardMenu re-fetches /site/content on each menu click — good, avoids stale client cache. On network failure it defaults to opening the closed dialog (fail-closed), which is safe."
+  ],
+  "updated_files": ["/app/backend/tests/test_persistence_and_period.py"],
+  "success_rate": {"backend": "100% (5/5 pytest)", "frontend": "100% (6/6 UI dialog cases)"},
+  "test_credentials": "Used /app/memory/test_credentials.md verbatim (super_admin supri@baznasbazisdki.id and student mahasiswa.mdj@baznasbazisdki.id).",
+  "seed_data_creation": "Temporarily PUT /api/profile namaLengkap='Nama Uji Persisten' then restored to original {'namaLengkap':'Mahasiswa Demo MDJ', ...}. Temporarily mutated site_content.settings.registration_start_at/end_at between past/future values then restored to the exact pre-test values captured at test start. Final /api/auth/me.name='Mahasiswa Demo MDJ', /api/profile.data.namaLengkap='Mahasiswa Demo MDJ', /api/registration draft retained (user_id=user_485a33c3b073, status=draft). No 'Nama Uji Persisten' or TEST_ strings remain.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Both bugs from iteration_42 are resolved. Regression tests are in /app/backend/tests/test_persistence_and_period.py (5 pytest cases: name-persists-across-restart, ended-window-403, future-window-403, active-window-200, draft-remains-after-close). Registration draft (status=draft) for demo student exists and is expected to survive; do not delete. Menu testids: menu-daftar, menu-status, menu-ringkasan. Dialog testids: registration-closed-dialog, close-registration-closed-dialog. Login form uses placeholder-based selectors 'Masukkan email Anda' / 'Masukkan kata sandi' (no login-email/login-password testids yet — worth adding).",
+  "rca of the issue": "Iteration_42 RCA (seed clobbering users.name) is validated as fixed. Iteration_42 also flagged Ringkasan h2 binding to user?.name; that is fixed at StudentDashboard.jsx:314 to use {data.namaLengkap || user?.name}. Registration period gate is enforced both server-side (is_registration_period_open in server.py:1216-1246, guarding POST /registration at line 1295-1296) and client-side (isRegistrationWindowOpen in StudentDashboard.jsx:43-49, guarding selectDashboardMenu for both 'daftar' and 'status')."
+}
