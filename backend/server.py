@@ -6229,6 +6229,11 @@ def student_chat_attachment_matches(data: bytes, extension: str) -> bool:
         "jpeg": data.startswith(b"\xff\xd8\xff"),
         "png": data.startswith(b"\x89PNG\r\n\x1a\n"),
         "webp": data.startswith(b"RIFF") and data[8:12] == b"WEBP",
+        "webm": data.startswith(b"\x1a\x45\xdf\xa3"),
+        "ogg": data.startswith(b"OggS"),
+        "mp3": data.startswith(b"ID3") or (len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xE0) == 0xE0),
+        "wav": data.startswith(b"RIFF") and data[8:12] == b"WAVE",
+        "m4a": len(data) >= 12 and data[4:8] == b"ftyp",
     }
     return bool(data) and signatures.get(extension, False)
 
@@ -6237,15 +6242,16 @@ async def create_student_chat_attachment(file: UploadFile, student_id: str) -> d
     filename = file.filename or "lampiran"
     extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
     if extension not in STUDENT_CHAT_ALLOWED_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="Gunakan JPG, PNG, WEBP, atau PDF.")
+        raise HTTPException(status_code=400, detail="Gunakan JPG, PNG, WEBP, PDF, atau audio MP3/WAV/OGG/WEBM/M4A.")
     data = await file.read()
     if not data or len(data) > STUDENT_CHAT_MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail="Ukuran lampiran harus antara 1 byte dan 10MB.")
     if not student_chat_attachment_matches(data, extension):
         raise HTTPException(status_code=400, detail="Isi lampiran tidak sesuai dengan format berkas.")
 
-    content_type = STUDENT_CHAT_AUDIO_MIME_TYPES.get(extension, MIME_TYPES[extension])
-    data, extension, content_type = compress_image(data, extension, content_type)
+    content_type = STUDENT_CHAT_AUDIO_MIME_TYPES.get(extension) or MIME_TYPES[extension]
+    if content_type.startswith("image/"):
+        data, extension, content_type = compress_image(data, extension, content_type)
     attachment_id = str(uuid.uuid4())
     path = f"{APP_NAME}/student-live-chat/{student_id}/{attachment_id}.{extension}"
     result = put_object(path, data, content_type)

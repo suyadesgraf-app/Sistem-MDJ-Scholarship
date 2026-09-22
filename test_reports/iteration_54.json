@@ -1,0 +1,54 @@
+{
+  "summary": "Tested student voice note feature (iter 54). Frontend mic UI at mobile 390x844 works: paperclip icon-only (x=33, w=44) and student-chat-record-button (x=89, w=44) render side-by-side (same y), both inside viewport, no horizontal overflow. Pointer-down on mic reveals student-chat-recording-status. However, BACKEND blocks all audio voice notes: create_student_chat_attachment calls student_chat_attachment_matches() which only defines magic-byte signatures for pdf/jpg/jpeg/png/webp - it lacks any entry for webm/ogg/mp3/wav/m4a. Consequently every audio upload (including the .webm blob produced by MediaRecorder) is rejected with HTTP 400 'Isi lampiran tidak sesuai dengan format berkas.' 4 of 5 audio tests fail; extension whitelist test (test_unsupported_extension_rejected) passes.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/student-live-chat/messages (audio attachment)",
+        "issue": "student_chat_attachment_matches() in server.py (around line 6225-6233) has no signature entries for webm/ogg/mp3/wav/m4a even though STUDENT_CHAT_ALLOWED_EXTENSIONS and STUDENT_CHAT_AUDIO_MIME_TYPES include them. Every audio voice note POSTed by the new student mic recorder is rejected with 400 'Isi lampiran tidak sesuai dengan format berkas.' - the voice-note feature is completely non-functional end-to-end.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "POST /api/student-live-chat/messages",
+        "issue": "Error message 'Gunakan JPG, PNG, WEBP, atau PDF.' (line 6240) does not mention supported audio formats (mp3/wav/ogg/webm/m4a) even though they are whitelisted."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Student mic press-hold, release-to-send voice note",
+        "issue": "UI records and POSTs a .webm blob correctly, but backend returns 400 (see backend critical bug). No student-chat-audio-<id> element will ever appear until backend accepts audio.",
+        "affected_selectors": ["student-chat-record-button", "student-chat-recording-status", "student-chat-audio-<id>"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_student_live_chat_audio.py",
+    "/app/test_reports/pytest/iter54_audio.xml"
+  ],
+  "action_items": [
+    "Add magic-byte signatures for audio formats to student_chat_attachment_matches (server.py ~L6225). Suggested checks: webm -> data.startswith(b'\\x1A\\x45\\xDF\\xA3'); ogg -> data.startswith(b'OggS'); mp3 -> data.startswith(b'ID3') or (len(data)>=2 and data[0]==0xFF and (data[1]&0xE0)==0xE0); wav -> data.startswith(b'RIFF') and data[8:12]==b'WAVE'; m4a -> len(data)>=12 and data[4:8]==b'ftyp'. Alternatively, skip magic-byte enforcement for known audio extensions and rely on extension+MIME whitelist.",
+    "Update error message on line 6240 to mention supported audio formats.",
+    "After fix, re-run /app/backend/tests/test_student_live_chat_audio.py to confirm webm/ogg/mp3 uploads succeed and admin can download; then perform manual mobile E2E (hold mic, release, verify student-chat-audio-<id> renders and Admin Provinsi can play)."
+  ],
+  "critical_code_review_comments": [
+    "server.py 6236-6245: extension whitelist and matches() diverge - typical foot-gun; keep one source of truth by driving matches() off a dict keyed on the same set.",
+    "server.py 6240: hard-coded Indonesian error text lists only image/PDF; keep in sync with extension whitelist.",
+    "StudentLiveChat.jsx uses window.MediaRecorder without a graceful fallback message for browsers that lack the API (older iOS Safari <14.5) - consider disabling mic button with a tooltip.",
+    "Backend never verifies audio duration or transcodes; a large webm (up to 10MB) is stored as-is. Acceptable for MVP but note for scale."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_student_live_chat_audio.py"
+  ],
+  "success_rate": {"backend": "20% (1/5 audio-related assertions pass, all non-audio tests unchanged from iter 38)", "frontend": "100% (mic + paperclip visible side-by-side at 390px, no overflow, recording status appears on hold)"},
+  "test_credentials": "Mahasiswa: mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!; Admin Provinsi: admin.mdj@baznasbazisdki.id / AdminMDJ2026!",
+  "seed_data_creation": "None (test file creates ephemeral messages and cleans them up in test_zzz_cleanup).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Frontend mic UI is fully wired (StudentLiveChat.jsx L210 has student-chat-record-button with pointerDown/pointerMove/pointerUp/click handlers, recording-status testid appears). The blocker is server-side magic byte gate. Re-run /app/backend/tests/test_student_live_chat_audio.py after fix. For E2E, use context.grant_permissions(['microphone']) on Playwright; hold mic ~1s then release should append student-chat-audio-<id> to message list.",
+  "rca of the issue": "When iter 53 added mic support, backend was extended with STUDENT_CHAT_ALLOWED_EXTENSIONS and STUDENT_CHAT_AUDIO_MIME_TYPES for webm/ogg/mp3/wav/m4a, but the signature validator student_chat_attachment_matches() (which was originally written only for images and PDF in iter 38) was not updated. Extension check passes -> data.read() -> student_chat_attachment_matches(data, 'webm') looks up signatures dict where 'webm' key is absent -> .get('webm', False) returns False -> 400 raised. Fix: add audio magic-byte checks or bypass matches() when extension is in STUDENT_CHAT_AUDIO_MIME_TYPES."
+}

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="4" skipped="0" tests="6" time="2.413" timestamp="2026-09-22T06:16:48.242276+00:00" hostname="agent-env-21cf42e1-98ba-4205-8db0-5d568d0c6c7e"><testcase classname="tests.test_student_live_chat_audio" name="test_audio_webm_accepted" time="0.685"><failure message="AssertionError: webm upload failed: 400 {&quot;detail&quot;:&quot;Isi lampiran tidak sesuai dengan format berkas.&quot;}&#10;assert 400 == 200&#10; +  where 400 = &lt;Response [400]&gt;.status_code">backend/tests/test_student_live_chat_audio.py:85: in test_audio_webm_accepted
+    assert r.status_code == 200, f"webm upload failed: {r.status_code} {r.text}"
+E   AssertionError: webm upload failed: 400 {"detail":"Isi lampiran tidak sesuai dengan format berkas."}
+E   assert 400 == 200
+E    +  where 400 = &lt;Response [400]&gt;.status_code</failure></testcase><testcase classname="tests.test_student_live_chat_audio" name="test_audio_ogg_accepted" time="0.115"><failure message="AssertionError: ogg upload failed: 400 {&quot;detail&quot;:&quot;Isi lampiran tidak sesuai dengan format berkas.&quot;}&#10;assert 400 == 200&#10; +  where 400 = &lt;Response [400]&gt;.status_code">backend/tests/test_student_live_chat_audio.py:100: in test_audio_ogg_accepted
+    assert r.status_code == 200, f"ogg upload failed: {r.status_code} {r.text}"
+E   AssertionError: ogg upload failed: 400 {"detail":"Isi lampiran tidak sesuai dengan format berkas."}
+E   assert 400 == 200
+E    +  where 400 = &lt;Response [400]&gt;.status_code</failure></testcase><testcase classname="tests.test_student_live_chat_audio" name="test_audio_mp3_accepted" time="0.117"><failure message="AssertionError: mp3 upload failed: 400 {&quot;detail&quot;:&quot;Isi lampiran tidak sesuai dengan format berkas.&quot;}&#10;assert 400 == 200&#10; +  where 400 = &lt;Response [400]&gt;.status_code">backend/tests/test_student_live_chat_audio.py:110: in test_audio_mp3_accepted
+    assert r.status_code == 200, f"mp3 upload failed: {r.status_code} {r.text}"
+E   AssertionError: mp3 upload failed: 400 {"detail":"Isi lampiran tidak sesuai dengan format berkas."}
+E   assert 400 == 200
+E    +  where 400 = &lt;Response [400]&gt;.status_code</failure></testcase><testcase classname="tests.test_student_live_chat_audio" name="test_unsupported_extension_rejected" time="0.130" /><testcase classname="tests.test_student_live_chat_audio" name="test_admin_can_download_student_audio" time="0.511"><failure message="AssertionError: {&quot;detail&quot;:&quot;Isi lampiran tidak sesuai dengan format berkas.&quot;}&#10;assert 400 == 200&#10; +  where 400 = &lt;Response [400]&gt;.status_code">backend/tests/test_student_live_chat_audio.py:129: in test_admin_can_download_student_audio
+    assert r.status_code == 200, r.text
+E   AssertionError: {"detail":"Isi lampiran tidak sesuai dengan format berkas."}
+E   assert 400 == 200
+E    +  where 400 = &lt;Response [400]&gt;.status_code</failure></testcase><testcase classname="tests.test_student_live_chat_audio" name="test_zzz_cleanup" time="0.002" /></testsuite></testsuites>
