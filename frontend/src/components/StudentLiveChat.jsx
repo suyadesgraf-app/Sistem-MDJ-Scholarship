@@ -148,11 +148,12 @@ function ChatComposer({ disabled, onSend, studentId }) {
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <label
               htmlFor="student-chat-attachment-input"
+              title="Lampirkan dokumen"
+              aria-label="Lampirkan dokumen"
               data-testid="student-chat-attachment-label"
-              className="inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-[#0B6B3A]"
+              className="inline-flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-[#B7E4C7] text-[#0B6B3A] transition-colors hover:bg-[#E8F6EE]"
             >
-              <Paperclip className="h-4 w-4" />
-              Lampirkan gambar atau PDF
+              <Paperclip className="h-5 w-5" />
             </label>
             <input
               ref={fileInputRef}
