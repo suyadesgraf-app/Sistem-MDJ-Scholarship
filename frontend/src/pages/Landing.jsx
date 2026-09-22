@@ -318,6 +318,11 @@ export default function Landing() {
               </div>
               <h3 className="font-display font-bold text-lg text-[#1F2937] mb-2">{a.title}</h3>
               <p className="text-sm text-[#6B7280] leading-relaxed">{a.summary}</p>
+              {a.banner?.url && <img src={`${API.replace("/api", "")}${a.banner.url}`} alt={`Banner ${a.title}`} className="mt-4 w-full rounded-lg border border-gray-100 object-contain" data-testid={`announcement-banner-${i}`} />}
+              {(a.attachment?.url || a.link) && <div className="mt-4 flex flex-wrap gap-3 text-sm font-bold text-[#0B6B3A]">
+                {a.attachment?.url && <a href={`${API.replace("/api", "")}${a.attachment.url}`} target="_blank" rel="noreferrer" data-testid={`announcement-attachment-${i}`}>Lihat {a.attachment.name}</a>}
+                {a.link && <a href={a.link} target="_blank" rel="noreferrer" data-testid={`announcement-link-${i}`}>Buka Tautan</a>}
+              </div>}
             </div>
           ))}
         </div>

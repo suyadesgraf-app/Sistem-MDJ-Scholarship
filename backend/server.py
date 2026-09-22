@@ -4251,6 +4251,41 @@ async def get_site_logo(part: Optional[str] = None):
     return StarletteResponse(content=data, media_type=content_type, headers={"Cache-Control": "public, max-age=3600"})
 
 
+ANNOUNCEMENT_ATTACHMENT_MIME_TYPES = {
+    "jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "pdf": "application/pdf",
+    "doc": "application/msword", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xls": "application/vnd.ms-excel", "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+
+@api_router.post("/super-admin/site-announcements/upload")
+async def upload_site_announcement_attachment(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_roles("super_admin")),
+):
+    filename = file.filename or "lampiran"
+    extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    if extension not in ANNOUNCEMENT_ATTACHMENT_MIME_TYPES:
+        raise HTTPException(status_code=400, detail="Format lampiran belum didukung.")
+    data = await file.read()
+    if not data or len(data) > 15 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran lampiran harus antara 1 byte dan 15MB.")
+    file_id = str(uuid.uuid4())
+    mime_type = ANNOUNCEMENT_ATTACHMENT_MIME_TYPES[extension]
+    stored = put_object(f"{APP_NAME}/site-announcements/{file_id}.{extension}", data, mime_type)
+    await db.site_announcement_files.insert_one({"id": file_id, "storage_path": stored["path"], "original_filename": filename, "content_type": mime_type, "size": stored["size"], "is_deleted": False})
+    return {"id": file_id, "url": f"/api/site/announcement-files/{file_id}", "name": filename, "content_type": mime_type}
+
+
+@api_router.get("/site/announcement-files/{file_id}")
+async def get_site_announcement_file(file_id: str):
+    record = await db.site_announcement_files.find_one({"id": file_id, "is_deleted": False}, {"_id": 0})
+    if not record:
+        raise HTTPException(status_code=404, detail="Lampiran pengumuman tidak ditemukan.")
+    data, content_type = get_object(record["storage_path"])
+    return StarletteResponse(content=data, media_type=record.get("content_type", content_type))
+
+
 @api_router.put("/site/content")
 async def update_site_content(payload: SiteContentInput, user: dict = Depends(require_roles("super_admin"))):
     current = await db.site_content.find_one({"key": "main"}, {"_id": 0}) or {}
@@ -5605,7 +5640,7 @@ async def publish_selection_announcement(
     for registration in registrations:
         result = (
             "passed"
-            if registration.get("status") in (SELECTION_RESULT_PASSED_STATUSES | {"penerima_manfaat"})
+            if registration.get("status") in (*SELECTION_RESULT_PASSED_STATUSES, "penerima_manfaat")
             else "failed"
         )
         notifications.append({

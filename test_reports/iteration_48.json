@@ -1,0 +1,41 @@
+{
+  "summary": "Iter48 verified iter47 review requirements: (1) sidebar shows 'Pengumuman Seleksi' immediately before 'Pencairan Dana' with whitespace:nowrap for both Admin Provinsi and Super Admin; Admin Wilayah excluded via code review of AdminDashboard.jsx L42-48. (2) Backend pytest /app/backend/tests/test_selection_announcement_stage.py 5/5 pass after fixing one production bug. (3) Publish endpoint requires stage, invalid stage returns 400, administration and beneficiary stages both stored on announcement + notifications, penerima_manfaat treated as result=passed. (4) PUT /admin/participants/{uid}/status creates only selection_progress notification (no selection_result, no is_announcement_published flag) and student pending endpoint returns null before explicit Publikasikan.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/admin/selection-announcements/publish",
+        "issue": "Fixed by testing agent: server.py L5608 had `SELECTION_RESULT_PASSED_STATUSES | {'penerima_manfaat'}` but SELECTION_RESULT_PASSED_STATUSES is a tuple (L506), causing TypeError: unsupported operand type(s) for |: 'tuple' and 'set'. Every publish call was returning HTTP 500. Replaced with tuple unpack `(*SELECTION_RESULT_PASSED_STATUSES, 'penerima_manfaat')`."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_selection_announcement_stage.py",
+    "/app/test_reports/pytest/iter48_stage.xml"
+  ],
+  "action_items": [
+    "OPTIONAL: Legacy tests test_selection_announcement_broadcast.py (14 failures) and test_selection_announcement_backfill.py assume auto-broadcast on status update AND publish payload without stage. These tests reflect pre-iter47 behavior that was intentionally disabled/changed. Main agent should either delete the legacy tests or update them to send `stage` and expect the new stage-scoped `is_announcement_published_<stage>` field. Not blocking the current review request.",
+    "test_beneficiary_pm.py has 7 unrelated failures (bank masking, disbursement) — pre-existing; not touched in this iteration."
+  ],
+  "critical_code_review_comments": [
+    "server.py L506-513: SELECTION_RESULT_PASSED_STATUSES / SELECTION_RESULT_STATUSES are tuples but code repeatedly attempts set-union operations. Consider standardizing on frozenset to prevent recurrence of the L5608 bug.",
+    "server.py L5568 uses hard-coded stage->statuses mapping in-line; extracting to a module-level constant STAGE_STATUS_MAP would improve maintainability.",
+    "server.py has grown to 6691 lines — recommend splitting selection_announcement / participants / disbursement routers into separate modules (per code_review_guidelines file-size rule >700).",
+    "Legacy backfill tests still reference `is_announcement_published` (non-stage) field but publish now writes `is_announcement_published_<stage>`. Two flags floating around in the code (L1111, L1527, L1561 use legacy field; L5569 uses new field). Risk of state drift; either migrate all references to stage-scoped or maintain both explicitly."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (L5608 tuple/set union fix)"
+  ],
+  "success_rate": {"backend": "100% (5/5 in requested test file)", "frontend": "100% (sidebar label/order/nowrap for admin + super_admin)"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026! ; admin.mdj@baznasbazisdki.id / AdminMDJ2026! ; mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!",
+  "seed_data_creation": "None persisted. Each test uses unique TEST_ITER47_* categories and _cleanup() teardown deletes users/registrations/notifications/sessions/selection_announcements in finally-block. Verified: 0 leftover documents matching test_tag='TEST_iter47_stage'.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Iter47 review is fully satisfied. Only the single tuple/set union bug on server.py L5608 was found; already patched. Legacy tests (backfill/broadcast) intentionally fail because behavior changed per requirement 3 (no auto broadcast). test_beneficiary_pm.py has pre-existing unrelated failures. Admin Wilayah credentials not available in test_credentials.md — verified via source (AdminDashboard.jsx line 42-48 explicitly excludes 'pengumuman-seleksi' from regional admin menu because it's only appended in the else branch).",
+  "rca of the issue": "Root cause: Iter47 patch introduced `SELECTION_RESULT_PASSED_STATUSES | {'penerima_manfaat'}` at server.py L5608 assuming SELECTION_RESULT_PASSED_STATUSES was a set, but L506 defines it as a tuple. Python's `|` operator between tuple and set raises TypeError at request-time (not import-time), so build passed but every publish call 500'd. Reproduction: POST /api/admin/selection-announcements/publish with any category and stage='administration' → 500. Fix: `(*SELECTION_RESULT_PASSED_STATUSES, 'penerima_manfaat')` on the same line. All 5 tests in test_selection_announcement_stage.py now green. Retest confirmed."
+}
