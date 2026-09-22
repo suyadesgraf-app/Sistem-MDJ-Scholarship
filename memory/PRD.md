@@ -586,3 +586,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   mengunduhnya.
 - Diuji testing agent: 9/9 backend baru dan 20/20 regresi Live Chat mahasiswa lulus, termasuk unggah PDF,
   audio WEBM, unduh terautentikasi, RBAC semua peran, dan pembersihan data uji.
+
+## 2026-09 — Konfigurasi Google OAuth organisasi
+- Menambahkan variabel konfigurasi rahasia `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` pada backend dengan
+  nilai kosong, tanpa mengubah alur Google OAuth terkelola maupun login email/password yang sedang berjalan.
+- Backend dimuat ulang dan kedua variabel terverifikasi tersedia untuk integrasi OAuth organisasi berikutnya.

@@ -236,3 +236,47 @@ Menyamakan nama yang tampil pada area **Calon Penerima Manfaat** dengan isian
   kolom **Nama Lengkap**, termasuk kapitalisasi yang dipilih mahasiswa.
 - Sinkronisasi hanya dijalankan setelah tombol **Simpan** berhasil, bukan saat
   mahasiswa masih mengetik.
+
+# Proposal — Google OAuth Redirect URI
+
+## Kondisi saat ini
+
+- Google OAuth aplikasi memakai layanan OAuth terkelola.
+- Pengguna kembali ke dashboard pada domain yang sedang mereka buka.
+- Untuk preview saat ini, alamat kembali aplikasi adalah:
+  `https://sistem-registrasi.preview.emergentagent.com/dashboard`
+- Pada domain sendiri, alamat kembali menjadi:
+  `https://<domain-anda>/dashboard`.
+
+## Keputusan bila OAuth Google milik organisasi digunakan
+
+- Tetap memakai OAuth terkelola yang ada, atau menggantinya dengan kredensial Google milik organisasi.
+- Bila diganti, callback Google Console perlu ditentukan dan diuji ulang bersama alur masuk Google.
+
+## Asumsi
+
+- Tidak ada perubahan autentikasi yang diminta; informasi ini hanya menjelaskan alamat kembali aplikasi saat ini.
+
+# Proposal — Kredensial OAuth Google Milik Organisasi
+
+## Tujuan
+
+- Menambahkan konfigurasi rahasia `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`.
+- Menggunakan kredensial tersebut untuk alur masuk Google yang dikelola aplikasi, tanpa mengganggu akun email/password yang sudah ada.
+
+## Yang perlu disiapkan
+
+- Nilai Client ID dan Client Secret dari Google Cloud Console.
+- JavaScript Origin untuk domain preview, domain produksi, dan setiap domain sendiri yang digunakan.
+- Redirect URI untuk masing-masing domain dengan pola `/auth/google`.
+
+## Perilaku yang diusulkan
+
+- Redirect selalu mengikuti domain yang sedang dibuka pengguna, sehingga preview dan domain sendiri tidak tertukar.
+- Bila kredensial belum tersedia atau belum valid, alur Google tidak menggantikan login email/password yang sudah ada.
+- Login Google tetap memakai perlindungan state dan sesi aman.
+
+## Asumsi yang dapat ditinjau
+
+- Belum ada domain sendiri yang perlu didaftarkan. Jika ada, domain tersebut perlu ditambahkan sebagai JavaScript Origin dan Redirect URI di Google Cloud Console.
+- Nilai rahasia akan diberikan melalui konfigurasi rahasia, bukan ditampilkan pada halaman aplikasi atau disimpan di kode.
