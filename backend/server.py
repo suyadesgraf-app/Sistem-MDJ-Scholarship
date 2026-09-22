@@ -4146,6 +4146,27 @@ DEFAULT_SITE_CONTENT = {
         "Surat Keterangan tidak sedang menerima beasiswa lain.",
         "Pakta Integritas Kader Akademia MDJ (Sesuai format BAZNAS).",
     ],
+    "eligibility_requirements": [
+        "Warga DKI Jakarta (dibuktikan dengan KTP & KK DKI Jakarta).",
+        "Berstatus sebagai Mahasiswa Aktif di perguruan tinggi.",
+        "Berasal dari keluarga kurang mampu atau mendapat rekomendasi dari lembaga keagamaan/ormas Islam resmi.",
+        "Tidak sedang menerima beasiswa dari pihak/lembaga lain.",
+        "Mendapatkan izin dan persetujuan dari Orang Tua/Wali.",
+        "Bersedia menyetujui dan mematuhi aturan/integritas yang ditetapkan oleh BAZNAS DKI Jakarta.",
+    ],
+    "required_documents": [
+        "Surat Permohonan.",
+        "KTP DKI Jakarta.",
+        "Kartu Keluarga (KK).",
+        "Kartu Tanda Mahasiswa (KTM).",
+        "Pas Foto Ukuran 3x4.",
+        "Surat Keterangan Tidak Mampu (SKTM) atau Surat Rekomendasi dari Masjid, Majelis Taklim, Lembaga Keagamaan, atau Ormas Islam Resmi.",
+        "Surat Keterangan Mahasiswa Aktif.",
+        "Transkrip Nilai Terakhir.",
+        "Surat Persetujuan Orang Tua/Wali.",
+        "Surat Keterangan Tidak Menerima Beasiswa Lain.",
+        "Pakta Integritas (format disesuaikan dengan ketentuan BAZNAS DKI Jakarta).",
+    ],
     "faqs": [
         {"q": "Apa itu Program Masa Depan Jakarta?", "a": "Program Masa Depan Jakarta Scholarship merupakan Bantuan Biaya Pendidikan Mahasiswa DKI Jakarta yang diselenggarakan oleh BAZNAS (BAZIS) Provinsi DKI Jakarta."},
         {"q": "Siapa saja yang dapat mendaftar?", "a": "Mahasiswa (Diploma/Sarjana) aktif yang berdomisili di DKI Jakarta dan memenuhi kriteria keluarga prasejahtera."},
@@ -4169,6 +4190,17 @@ async def get_site_content():
             {"$set": {"registration_flow": content["registration_flow"]}},
             upsert=True,
         )
+    missing_lists = {
+        key: value
+        for key, value in {
+            "eligibility_requirements": DEFAULT_SITE_CONTENT["eligibility_requirements"],
+            "required_documents": DEFAULT_SITE_CONTENT["required_documents"],
+        }.items()
+        if key not in content
+    }
+    if missing_lists:
+        content.update(missing_lists)
+        await db.site_content.update_one({"key": "main"}, {"$set": missing_lists}, upsert=True)
     content.pop("key", None)
     return content
 

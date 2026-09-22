@@ -6,7 +6,7 @@ import { Loader2, Plus, Trash2, UploadCloud, Save, Image as ImageIcon } from "lu
 
 const TABS = [
   ["umum", "Umum & Banner"], ["alur", "Alur Pendaftaran"], ["pengumuman", "Pengumuman"],
-  ["statistik", "Statistik"], ["persyaratan", "Persyaratan"], ["faq", "FAQ"],
+  ["statistik", "Statistik"], ["persyaratan", "Syarat Pendaftar"], ["berkas", "Kelengkapan Berkas"], ["faq", "FAQ"],
 ];
 
 export default function SiteManager() {
@@ -205,7 +205,11 @@ export default function SiteManager() {
       )}
 
       {tab === "persyaratan" && (
-        <StringListEditor items={c.requirements || []} onChange={(v) => setField("requirements", v)} onSave={() => save({ requirements: c.requirements })} saving={saving} testid="requirement" />
+        <StringListEditor items={c.eligibility_requirements || []} onChange={(v) => setField("eligibility_requirements", v)} onSave={() => save({ eligibility_requirements: c.eligibility_requirements })} saving={saving} testid="eligibility-requirement" addLabel="Tambah Syarat" />
+      )}
+
+      {tab === "berkas" && (
+        <StringListEditor items={c.required_documents || []} onChange={(v) => setField("required_documents", v)} onSave={() => save({ required_documents: c.required_documents })} saving={saving} testid="required-document" addLabel="Tambah Berkas" />
       )}
 
       {tab === "faq" && (
@@ -238,7 +242,7 @@ function ArrayEditor({ items, onChange, onSave, saving, template, render, testid
   );
 }
 
-function StringListEditor({ items, onChange, onSave, saving, testid }) {
+function StringListEditor({ items, onChange, onSave, saving, testid, addLabel = "Tambah" }) {
   return (
     <div className="space-y-3">
       {items.map((it, idx) => (
@@ -247,7 +251,7 @@ function StringListEditor({ items, onChange, onSave, saving, testid }) {
           <button onClick={() => onChange(items.filter((_, i) => i !== idx))} className="p-2.5 text-[#DC2626] hover:bg-[#FEE2E2] rounded-lg shrink-0"><Trash2 className="w-4 h-4" /></button>
         </div>
       ))}
-      <button onClick={() => onChange([...items, ""])} data-testid={`add-${testid}`} className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-bold text-[#6B7280] hover:border-[#27AE60] hover:text-[#27AE60] flex items-center justify-center gap-2 transition-colors"><Plus className="w-4 h-4" /> Tambah Persyaratan</button>
+      <button onClick={() => onChange([...items, ""])} data-testid={`add-${testid}`} className="w-full py-3 border-2 border-dashed border-gray-200 rounded-xl text-sm font-bold text-[#6B7280] hover:border-[#27AE60] hover:text-[#27AE60] flex items-center justify-center gap-2 transition-colors"><Plus className="w-4 h-4" /> {addLabel}</button>
       <SaveBar onSave={onSave} saving={saving} />
     </div>
   );

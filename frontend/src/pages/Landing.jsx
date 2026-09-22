@@ -142,7 +142,8 @@ export default function Landing() {
   const stats = c.stats || [];
   const registrationFlow = c.registration_flow || [];
   const announcements = c.announcements || [];
-  const requirements = c.requirements || [];
+  const requirements = c.eligibility_requirements || c.requirements || [];
+  const requiredDocuments = c.required_documents || [];
   const faqs = c.faqs || [];
   const hero = c.hero || {};
   const bannerBg = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : HERO_IMG;
@@ -266,17 +267,13 @@ export default function Landing() {
       <section id="persyaratan" className="py-20 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-3 gap-10">
           <div className="lg:col-span-1">
-            <h2 className="font-display font-extrabold text-3xl lg:text-4xl tracking-tight text-[#1F2937] mb-4">Persyaratan Utama</h2>
-            <p className="text-[#6B7280] leading-relaxed mb-6">Pastikan Anda memenuhi persyaratan dasar berikut sebelum memulai pendaftaran. Dokumen tidak lengkap dapat menyebabkan penolakan.</p>
-            <div className="rounded-2xl bg-[#FEF9E7] border border-[#F2C94C]/40 p-4 text-sm text-[#7a5c00]">Persyaratan spesifik dapat berbeda bergantung kategori program dan gelombang pendaftaran.</div>
+            <h2 className="font-display font-extrabold text-3xl lg:text-4xl tracking-tight text-[#1F2937] mb-4">Syarat & Kelengkapan Berkas</h2>
+            <p className="text-[#6B7280] leading-relaxed mb-6">Pastikan Anda memenuhi ketentuan dan menyiapkan dokumen sebelum memulai pendaftaran.</p>
+            <div className="rounded-2xl bg-[#FEF9E7] border border-[#F2C94C]/40 p-4 text-sm text-[#7a5c00]">Dokumen tidak lengkap dapat menyebabkan pendaftaran tidak dapat diproses.</div>
           </div>
-          <div className="lg:col-span-2 grid sm:grid-cols-2 gap-3">
-            {requirements.map((r, i) => (
-              <div key={i} className="flex items-start gap-3 bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
-                <CheckCircle2 className="w-5 h-5 text-[#27AE60] shrink-0 mt-0.5" />
-                <span className="text-sm text-[#1F2937]">{r}</span>
-              </div>
-            ))}
+          <div className="lg:col-span-2 grid gap-6 md:grid-cols-2">
+            <RequirementList title="Syarat (Kriteria / Ketentuan Pendaftar)" items={requirements} testId="eligibility-requirements" />
+            <RequirementList title="Kelengkapan Berkas (Dokumen yang Harus Disiapkan)" items={requiredDocuments} testId="required-documents" />
           </div>
         </div>
       </section>
@@ -494,4 +491,13 @@ export default function Landing() {
       </footer>
     </div>
   );
+}
+
+function RequirementList({ title, items, testId }) {
+  return <section className="border border-gray-100 bg-white p-5 shadow-sm" data-testid={testId}>
+    <h3 className="font-display text-lg font-extrabold text-[#1F2937]">{title}</h3>
+    <div className="mt-4 space-y-3">
+      {items.map((item, index) => <div key={`${item}-${index}`} className="flex items-start gap-3"><CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#27AE60]" /><span className="text-sm leading-relaxed text-[#1F2937]">{item}</span></div>)}
+    </div>
+  </section>;
 }
