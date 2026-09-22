@@ -697,6 +697,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Kontrol mic dibuat sebagai tombol ikon tanpa teks “Balasan saya”; unggah dokumen dan pesan teks tetap berjalan.
 - Testing agent lulus 9/9 backend dan seluruh alur UI MediaRecorder, termasuk rekam/lepas, mode kunci, kirim
   otomatis, pesan teks, unggah PDF, serta pembersihan data uji.
+- Composer mahasiswa dan Admin Wilayah kini juga memakai tombol lampiran ikon dan mic yang sama. Voice note
+  mahasiswa mendukung WebM/OGG/MP3/WAV/M4A dengan validasi tanda tangan berkas, pengiriman tekan–lepas,
+  mode kunci, pemutaran audio, dan akses baca Admin Provinsi.
+- Testing agent regresi lulus 6/6 backend dan 100% alur mobile: mic serta lampiran berdampingan, rekam/lepas,
+  kunci, upload, dan pemutaran Admin berhasil tanpa overflow.
 
 ## 2026-09 — Pembaruan slogan MDJ
 - Slogan beranda dan footer diubah dari “Muda dengan Zakat, Bahagia dengan Manfaat.” menjadi
