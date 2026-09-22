@@ -623,3 +623,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Judul rekap pada halaman dan baris teratas workbook kini menggunakan teks **REKAPITULASI PENCAIRAN MASA
   DEPAN JAKARTA SCHOLARSHIP BAZNAS (BAZIS) PROVINSI DKI JAKARTA**. Baris berikutnya mempertahankan Tahap
   aktif dan wilayah aktif sebagai penanda ekspor.
+
+## 2026-09 — Penyembunyian antrean tinjauan transfer
+- Antrean **Tinjauan Pemetaan Transfer** kini disembunyikan secara lokal pada sesi browser saat pengguna keluar
+  dari menu Pencairan Dana atau sebelum mengunggah bukti transfer berikutnya untuk Tahap/Wilayah yang sama.
+- Tidak ada bukti, transaksi, hasil AI, maupun data tinjauan server yang dihapus. Perubahan hanya merapikan
+  tampilan agar antrean lama tidak mengganggu unggahan berikutnya.
+- Verifikasi: build frontend lulus dan navigasi keluar/masuk kembali ke menu Pencairan Dana berjalan tanpa error.

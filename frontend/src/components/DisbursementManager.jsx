@@ -64,6 +64,22 @@ export default function DisbursementManager() {
   const [exporting, setExporting] = useState(false);
   const [detail, setDetail] = useState(null);
   const activeStageField = activeStage === 1 ? "stage_one" : "stage_two";
+  const reviewScope = `${activeStage}:${lockedRegion || uploadRegion || region}`;
+  const [reviewsHidden, setReviewsHidden] = useState(false);
+
+  const hideReviewQueue = useCallback(() => {
+    window.sessionStorage.setItem(`mdj-hidden-transfer-reviews:${reviewScope}`, "true");
+    setReviewsHidden(true);
+  }, [reviewScope]);
+
+  useEffect(() => {
+    setReviewsHidden(
+      window.sessionStorage.getItem(`mdj-hidden-transfer-reviews:${reviewScope}`) === "true",
+    );
+    return () => {
+      window.sessionStorage.setItem(`mdj-hidden-transfer-reviews:${reviewScope}`, "true");
+    };
+  }, [reviewScope]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -131,6 +147,9 @@ export default function DisbursementManager() {
 
   const upload = async (endpoint, files, extras = {}) => {
     if (!files?.length) return;
+    if (endpoint === "/admin/disbursements/transfer-proofs") {
+      hideReviewQueue();
+    }
     setUploading(true);
     const formData = new FormData();
     Object.entries(extras).forEach(([key, value]) => formData.append(key, value));
@@ -396,7 +415,7 @@ export default function DisbursementManager() {
         </div>
       </section>
 
-      {isManager && reviews.length > 0 && (
+      {isManager && reviews.length > 0 && !reviewsHidden && (
         <ReviewQueue
           reviews={reviews}
           activeStage={activeStage}
