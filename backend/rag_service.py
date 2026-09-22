@@ -31,7 +31,7 @@ def split_reference_text(text: str, size: int = 900) -> list[str]:
 
 
 def reference_tokens(text: str) -> set[str]:
-    stop_words = {"yang", "dan", "atau", "untuk", "dengan", "dari", "pada", "ini", "itu", "apa", "sih", "aja", "ajah", "dong", "deh", "yah", "ya", "loh"}
+    stop_words = {"yang", "dan", "atau", "untuk", "dengan", "dari", "pada", "ini", "itu", "apa", "sih", "aja", "ajah", "dong", "deh", "yah", "ya", "loh", "bagaimana", "kenapa", "mengapa", "kapan", "dimana", "siapa", "adalah", "akan", "sudah", "juga", "saja", "kah", "tidak", "bukan"}
     synonyms = {
         "syarat": {"syarat", "persyaratan", "ketentuan", "kriteria"},
         "persyaratan": {"syarat", "persyaratan", "ketentuan", "kriteria"},

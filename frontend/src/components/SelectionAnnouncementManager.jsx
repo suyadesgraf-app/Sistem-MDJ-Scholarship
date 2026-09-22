@@ -13,6 +13,7 @@ import {
 
 export default function SelectionAnnouncementManager() {
   const [category, setCategory] = useState("all");
+  const [stage, setStage] = useState("administration");
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -40,7 +41,7 @@ export default function SelectionAnnouncementManager() {
   const publishAnnouncement = async () => {
     setPublishing(true);
     try {
-      const response = await api.post("/admin/selection-announcements/publish", { category });
+      const response = await api.post("/admin/selection-announcements/publish", { category, stage });
       toast.success(response.data.message);
       setPublishOpen(false);
       await loadSummary(category);
@@ -52,7 +53,7 @@ export default function SelectionAnnouncementManager() {
   };
 
   const recipientCount = summary?.recipient_count || 0;
-  const selectedCategoryLabel = category === "all" ? "Semua Kategori" : category;
+  const selectedStageLabel = stage === "administration" ? "Lolos Administrasi" : "Lolos Menjadi Penerima Manfaat";
 
   return (
     <div className="space-y-7" data-testid="selection-announcement-manager">
@@ -63,24 +64,22 @@ export default function SelectionAnnouncementManager() {
               Broadcast Hasil Seleksi
             </p>
             <h2 className="mt-1 font-display text-2xl font-extrabold text-[#1F2937]">
-              Pengumuman Seleksi Berkas
+              Pengumuman Hasil Seleksi
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#4B5563]">
               Kirim hasil seleksi kepada mahasiswa yang statusnya sudah ditetapkan.
             </p>
           </div>
           <label className="flex flex-col gap-1.5 text-sm font-bold text-[#1F2937]">
-            Sasaran Pengumuman
+            Tahapan
             <select
-              value={category}
-              onChange={(event) => setCategory(event.target.value)}
+              value={stage}
+              onChange={(event) => setStage(event.target.value)}
               data-testid="selection-announcement-category-select"
               className="min-w-64 rounded-lg border border-[#B7E4C7] bg-white px-3 py-2.5 text-sm"
             >
-              <option value="all">Semua Kategori</option>
-              {(summary?.categories || []).map((item) => (
-                <option key={item} value={item}>{item}</option>
-              ))}
+              <option value="administration">Lolos Administrasi</option>
+              <option value="beneficiary">Lolos Menjadi Penerima Manfaat</option>
             </select>
           </label>
         </div>
@@ -119,7 +118,7 @@ export default function SelectionAnnouncementManager() {
             <p className="mt-1 text-sm leading-relaxed text-[#6B7280]">
               {loading
                 ? "Menyiapkan ringkasan penerima..."
-                : `${recipientCount} mahasiswa siap menerima pengumuman untuk ${selectedCategoryLabel}.`}
+                : `${recipientCount} mahasiswa siap menerima pengumuman ${selectedStageLabel}.`}
             </p>
             {summary?.latest_publication && (
               <p
@@ -177,7 +176,7 @@ export default function SelectionAnnouncementManager() {
             className="border-l-4 border-[#F2C94C] bg-[#FEF9E7] px-3 py-2.5 text-sm text-[#7A5C00]"
             data-testid="selection-announcement-confirm-category"
           >
-            Sasaran: <strong>{selectedCategoryLabel}</strong>. Total penerima: {recipientCount} mahasiswa.
+            Tahapan: <strong>{selectedStageLabel}</strong>. Total penerima: {recipientCount} mahasiswa.
           </p>
           <DialogFooter>
             <button

@@ -10,9 +10,11 @@ import SelectionImportManager from "@/components/SelectionImportManager";
 import AiAdministrativeVerification from "@/components/AiAdministrativeVerification";
 import AdminUsers from "@/components/AdminUsers";
 import LiveChat from "@/components/LiveChat";
+import SelectionAnnouncementManager from "@/components/SelectionAnnouncementManager";
 import { useAuth } from "@/context/AuthContext";
 import {
   BarChart3,
+  BellRing,
   Building2,
   FileCheck2,
   HandCoins,
@@ -52,6 +54,7 @@ export default function AdminDashboard() {
       { id: "kampus", label: "Kampus", icon: Building2 },
       { id: "admin-wilayah", label: "Admin Wilayah", icon: ShieldCheck },
       { id: "live-chat", label: "Live Chat", icon: MessageCircleMore },
+      { id: "pengumuman-seleksi", label: "Pengumuman Hasil Seleksi", icon: BellRing },
     ];
   }, [isRegionalAdmin]);
   const activeMenu = menu.find((item) => item.id === active);
@@ -78,6 +81,7 @@ export default function AdminDashboard() {
       {active === "surat-aktif" && <ActiveLetterApprovalManager />}
       {active === "admin-wilayah" && <AdminUsers canManageProvincial={false} />}
       {active === "live-chat" && <LiveChat />}
+      {active === "pengumuman-seleksi" && <SelectionAnnouncementManager />}
     </DashboardShell>
   );
 }

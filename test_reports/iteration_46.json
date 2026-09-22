@@ -1,0 +1,45 @@
+{
+  "summary": "Iter46 verified the title-weighted / length-normalized retrieval with 2-chunk-per-doc cap, buffered LLM streaming (120 char), and deterministic grounded-excerpt fallback. Initial pytest run reproduced the bug (2/10 failed) because LLM was HTTP 429 rate-limited (Gemini free-tier quota exhausted) and the `except Exception` branch in POST /api/student/ai-chat/stream event_stream returned OUT_OF_SCOPE unconditionally without checking retrieved chunks — bypassing the grounded excerpt fallback. Also found stopword gap ('bagaimana') which made the genuine unrelated rendang question match KEBIJAKAN PRIVASI once we started returning grounded excerpt on exception. Applied 2 minimal fixes: (a) server.py except-branch now emits grounded excerpt when chunks exist; (b) rag_service.py stop_words extended with Indonesian question words (bagaimana/kenapa/mengapa/kapan/dimana/siapa/adalah/akan/sudah/juga/saja/kah/tidak/bukan). After fixes all 10 tests in existing test file pass, plus a new 3x repetition test (test_iter46_repeated_runs.py) confirms 3/3 syarat + 3/3 program grounded and rendang returns exact fallback. UI verified: syarat question in StudentAiChatWidget streams grounded answer citing SYARAT DAN KETENTUAN (TERMS & CONDITIONS).pdf; rendang question shows exact fallback.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/student/ai-chat/stream (Gemini quota)",
+        "issue": "Underlying LLM (gemini-3.8-flash free tier, 20 req/day) is currently RESOURCE_EXHAUSTED so exception path is taken frequently. Grounded-excerpt fallback masks this but user gets extractive citation, not synthesized answer. Long-term: upgrade quota or add retry/backoff."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_student_ai_chat_syarat_program.py",
+    "/app/backend/tests/test_iter46_repeated_runs.py",
+    "/app/test_reports/pytest/iter46_syarat_program.xml",
+    "/app/test_reports/pytest/iter46_repeated.xml"
+  ],
+  "action_items": [
+    "None blocking. Consider upgrading Gemini quota so synthesized (not just extractive) answers stream more reliably.",
+    "Optional: cap grounded-excerpt fallback text length or add a leading sentence 'Berikut kutipan langsung:' to make it clear to the user this is an excerpt, not a synthesized answer."
+  ],
+  "critical_code_review_comments": [
+    "server.py:6522-6526 (previous) unconditionally returned OUT_OF_SCOPE_MESSAGE on any Exception; ignored the retrieved chunks. Fixed here.",
+    "rag_service.py stopwords list should probably be a module-level frozenset (currently rebuilt every call) — micro-optimisation for the 5000-chunk tokenisation loop in retrieve_ai_reference_chunks.",
+    "server.py:6367 still loads up to 5000 chunks and re-tokenises every request; consider caching reference_tokens(text) at ingest time (add token_set field to ai_reference_chunks) for scale.",
+    "server.py:6518 grounded-excerpt truncation uses [:850] which can cut mid-word; would be cleaner to cut at last space/punctuation < 850."
+  ],
+  "updated_files": [
+    "/app/backend/server.py (except branch of event_stream now returns grounded excerpt when chunks are present)",
+    "/app/backend/rag_service.py (extended Indonesian stop_words with question words)",
+    "/app/backend/tests/test_iter46_repeated_runs.py (new: 3x repetition test)"
+  ],
+  "success_rate": {"backend": "100% (10/10 + 3/3 = 13/13)", "frontend": "100% (syarat grounded, weather=fallback verified in widget)"},
+  "test_credentials": "mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026! ; supri@baznasbazisdki.id / MdjSuper2026! ; admin.mdj@baznasbazisdki.id / AdminMDJ2026!",
+  "seed_data_creation": "None. Cleaned up: mongosh deleted 26 student_ai_chat_messages for session student-rag-user_485a33c3b073 created during tests. Preserved: 3 ai_references + 14 ai_reference_chunks (SYARAT DAN KETENTUAN, KEBIJAKAN PRIVASI, PAKTA INTEGRITAS) intact and untouched.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Fix is complete and stable across 3 back-to-back runs each for both Indonesian questions. Gemini free-tier quota (20 req/day) IS exhausted right now — the fix still produces a grounded citation via except branch which is what satisfies the review requirement. If quota resets, tests should still pass (either LLM synthesises grounded answer, or if it emits exact OUT_OF_SCOPE the elif branch replaces with grounded excerpt, or if it errors the except branch does the same). Test file locations: /app/backend/tests/test_student_ai_chat_syarat_program.py and /app/backend/tests/test_iter46_repeated_runs.py. Run with `pytest ... -n 0` because pytest.ini enforces xdist which can affect ordering.",
+  "rca of the issue": "Reproduction: after iter45 retrieval fix, LLM Gemini call in /api/student/ai-chat/stream raised RateLimitError (429 quota exceeded). event_stream's `except Exception` block at server.py:6522 set answer=OUT_OF_SCOPE_MESSAGE unconditionally and streamed it — bypassing the new elif branch (line 6517) that replaces OUT_OF_SCOPE with grounded excerpt when chunks exist. User saw only the fallback despite retrieval returning the correct SYARAT/PRIVASI/PAKTA sources. Mitigation applied: (1) except branch now checks `if chunks:` and returns `Berdasarkan referensi {sources[0]}: {chunks[0]['text'][:850]}` so any LLM failure with retrieved chunks still yields a grounded citation. (2) rag_service.reference_tokens stop_words extended with Indonesian interrogatives so genuinely off-topic questions (e.g. 'Bagaimana resep memasak rendang…') don't accidentally match on 'bagaimana' → still return exact OUT_OF_SCOPE_MESSAGE."
+}

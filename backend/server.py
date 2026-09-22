@@ -417,6 +417,7 @@ class DocumentEditingPermissionInput(BaseModel):
 
 class SelectionAnnouncementPublishInput(BaseModel):
     category: str = "all"
+    stage: str = "administration"
 
 
 class CreateAdminInput(BaseModel):
@@ -5557,6 +5558,8 @@ async def publish_selection_announcement(
     payload: SelectionAnnouncementPublishInput,
     user: dict = Depends(require_roles("admin", "super_admin")),
 ):
+    if payload.stage not in {"administration", "beneficiary"}:
+        raise HTTPException(status_code=400, detail="Tahapan pengumuman tidak valid.")
     summary = await selection_announcement_summary(payload.category)
     if not summary["recipient_count"]:
         raise HTTPException(status_code=400, detail="Tidak ada hasil seleksi baru yang dapat diumumkan.")
@@ -5586,11 +5589,9 @@ async def publish_selection_announcement(
         "id": announcement_id,
         "category": selected_category,
         "status_publikasi": "Published",
-        "title": "Pengumuman Hasil Seleksi Berkas",
-        "message": (
-            "Pengumuman hasil seleksi tahap berkas telah diterbitkan oleh Admin Provinsi. "
-            "Silakan cek status Anda."
-        ),
+        "stage": payload.stage,
+        "title": "Pengumuman Hasil Seleksi",
+        "message": "Pengumuman hasil seleksi telah diterbitkan. Silakan cek status Anda.",
         "passed_count": summary["passed_count"],
         "failed_count": summary["failed_count"],
         "recipient_count": len(registrations),
@@ -5615,6 +5616,7 @@ async def publish_selection_announcement(
             "source_id": announcement_id,
             "announcement_id": announcement_id,
             "category": registration.get("category", ""),
+            "stage": payload.stage,
             "result": result,
             "title": announcement["title"],
             "message": announcement["message"],
@@ -6521,7 +6523,10 @@ async def stream_student_ai_chat(
                     yield f"event: delta\ndata: {json.dumps({'text': pending_output})}\n\n"
         except Exception:
             logger.exception("Student AI chat generation failed")
-            answer = OUT_OF_SCOPE_MESSAGE
+            if chunks:
+                answer = f"Berdasarkan referensi {sources[0]}: {chunks[0]['text'][:850].strip()}"
+            else:
+                answer = OUT_OF_SCOPE_MESSAGE
             yield f"event: delta\ndata: {json.dumps({'text': answer})}\n\n"
         finally:
             now = datetime.now(timezone.utc).isoformat()

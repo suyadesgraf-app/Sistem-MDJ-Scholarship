@@ -13,8 +13,10 @@ import ApplicantArchiveManager from "@/components/ApplicantArchiveManager";
 import AdminRecipientDashboard from "@/components/AdminRecipientDashboard";
 import LiveChat from "@/components/LiveChat";
 import AiReferenceManager from "@/components/AiReferenceManager";
+import SelectionAnnouncementManager from "@/components/SelectionAnnouncementManager";
 import {
   BarChart3,
+  BellRing,
   Building2,
   FileSpreadsheet,
   FileCheck2,
@@ -38,6 +40,7 @@ const MENU = [
   { id: "kampus", label: "Kampus", icon: Building2 },
   { id: "admin", label: "Admin Wilayah", icon: ShieldCheck },
   { id: "live-chat", label: "Live Chat", icon: MessageCircleMore },
+  { id: "pengumuman-seleksi", label: "Pengumuman Hasil Seleksi", icon: BellRing },
   { id: "arsip-pendaftar", label: "Arsip Pendaftar", icon: Archive },
   { id: "website", label: "Kelola Website", icon: LayoutDashboard },
   { id: "ai-referensi", label: "Referensi AI", icon: Sparkles },
@@ -58,6 +61,7 @@ export default function SuperAdminDashboard() {
       {active === "kampus" && <CampusManager />}
       {active === "surat-aktif" && <ActiveLetterApprovalManager />}
       {active === "live-chat" && <LiveChat />}
+      {active === "pengumuman-seleksi" && <SelectionAnnouncementManager />}
       {active === "arsip-pendaftar" && <ApplicantArchiveManager />}
       {active === "website" && <SiteManager />}
       {active === "ai-referensi" && <AiReferenceManager />}

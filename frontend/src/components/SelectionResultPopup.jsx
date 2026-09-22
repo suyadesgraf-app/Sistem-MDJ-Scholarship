@@ -23,6 +23,7 @@ export default function SelectionResultPopup({ announcement, onMarkSeen, onDismi
   }
 
   const isPassed = announcement.result === "passed";
+  const isBeneficiary = announcement.stage === "beneficiary";
 
   const markSeen = async () => {
     setProcessing(true);
@@ -57,7 +58,7 @@ export default function SelectionResultPopup({ announcement, onMarkSeen, onDismi
         className="max-w-md rounded-xl border-0 bg-white p-7"
       >
         {showResult ? (
-          <SelectionResultDetail isPassed={isPassed} onDismiss={dismiss} processing={processing} />
+          <SelectionResultDetail isPassed={isPassed} isBeneficiary={isBeneficiary} onDismiss={dismiss} processing={processing} />
         ) : (
           <>
             <DialogHeader className="text-left">
@@ -68,10 +69,10 @@ export default function SelectionResultPopup({ announcement, onMarkSeen, onDismi
                 data-testid="selection-announcement-popup-title"
                 className="pt-3 font-display text-2xl font-extrabold text-[#1F2937]"
               >
-                Pengumuman Hasil Seleksi Berkas
+                Pengumuman Hasil Seleksi
               </DialogTitle>
               <DialogDescription className="leading-relaxed text-[#6B7280]">
-                Pengumuman hasil seleksi tahap berkas telah diterbitkan oleh Admin Provinsi. Silakan cek
+                Pengumuman hasil seleksi telah diterbitkan oleh Admin. Silakan cek
                 status Anda.
               </DialogDescription>
             </DialogHeader>
@@ -103,13 +104,13 @@ export default function SelectionResultPopup({ announcement, onMarkSeen, onDismi
   );
 }
 
-function SelectionResultDetail({ isPassed, onDismiss, processing }) {
+function SelectionResultDetail({ isPassed, isBeneficiary, onDismiss, processing }) {
   const iconClass = isPassed ? "bg-[#E8F6EE] text-[#27AE60]" : "bg-[#FEF2F2] text-[#DC2626]";
   const title = isPassed
-    ? "Selamat! Anda dinyatakan LULUS tahap seleksi berkas."
-    : "Mohon maaf, Anda dinyatakan TIDAK LULUS tahap seleksi berkas.";
+    ? `Selamat! Anda dinyatakan ${isBeneficiary ? "LOLOS MENJADI PENERIMA MANFAAT" : "LOLOS ADMINISTRASI"}.`
+    : "Mohon maaf, Anda belum lolos pada tahapan ini.";
   const message = isPassed
-    ? "Persiapkan diri dan pantau akun MDJ Scholarship untuk informasi tahap berikutnya."
+    ? (isBeneficiary ? "Selamat menjadi Penerima Manfaat Masa Depan Jakarta Scholarship." : "Pantau akun MDJ Scholarship secara berkala terkait jadwal wawancara.")
     : "Terima kasih atas partisipasi Anda. Tetap semangat dan terus persiapkan diri untuk kesempatan berikutnya.";
 
   return (
