@@ -7,7 +7,8 @@ load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends, UploadFile, File, Form, Query, Header
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import Response as StarletteResponse, StreamingResponse
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.responses import RedirectResponse, Response as StarletteResponse, StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from pydantic import BaseModel, Field, EmailStr
@@ -43,6 +44,7 @@ from emergentintegrations.llm.chat import (
     TextDelta,
     UserMessage,
 )
+from authlib.integrations.starlette_client import OAuth
 from rag_service import (
     GEMINI_MODEL,
     OUT_OF_SCOPE_MESSAGE,
@@ -71,6 +73,8 @@ STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
 GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
 APP_NAME = "mdj-scholarship"
 
 # Email (Emergent-managed Resend)
@@ -98,7 +102,18 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=JWT_SECRET, https_only=True, same_site="none")
 api_router = APIRouter(prefix="/api")
+
+oauth = OAuth()
+if GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET:
+    oauth.register(
+        name="google",
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile"},
+    )
 
 # ---------------------------------------------------------------------------
 # Object storage
@@ -686,6 +701,17 @@ async def login(payload: LoginInput, response: Response):
 
 @api_router.post("/auth/google/session")
 async def google_session(payload: GoogleSessionInput, response: Response):
+    organization_session = await db.user_sessions.find_one(
+        {"session_token": payload.session_id},
+        {"_id": 0},
+    )
+    if organization_session:
+        user = await db.users.find_one({"user_id": organization_session["user_id"]})
+        if not user or user.get("is_archived"):
+            raise HTTPException(status_code=403, detail="Akun pendaftar telah diarsipkan")
+        response.set_cookie(key="session_token", value=payload.session_id, httponly=True, secure=True,
+                            samesite="none", max_age=604800, path="/")
+        return {"user": clean_user(user), "token": payload.session_id}
     resp = requests.get(EMERGENT_AUTH_URL, headers={"X-Session-ID": payload.session_id}, timeout=30)
     if resp.status_code != 200:
         raise HTTPException(status_code=401, detail="Google authentication gagal")
@@ -712,6 +738,42 @@ async def google_session(payload: GoogleSessionInput, response: Response):
     response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True,
                         samesite="none", max_age=604800, path="/")
     return {"user": clean_user(user), "token": session_token}
+
+
+@api_router.get("/auth/google/login")
+async def google_oauth_login(request: Request, redirect_origin: str = Query(...)):
+    if not (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET):
+        raise HTTPException(status_code=503, detail="Google OAuth organisasi belum dikonfigurasi.")
+    parsed_origin = urlparse(redirect_origin)
+    if parsed_origin.scheme != "https" or not parsed_origin.netloc or parsed_origin.path not in {"", "/"}:
+        raise HTTPException(status_code=400, detail="Origin redirect Google OAuth tidak valid.")
+    request.session["google_redirect_origin"] = redirect_origin.rstrip("/")
+    return await oauth.google.authorize_redirect(request, request.url_for("google_oauth_callback"))
+
+
+@api_router.get("/auth/google/callback", name="google_oauth_callback")
+async def google_oauth_callback(request: Request):
+    redirect_origin = request.session.pop("google_redirect_origin", "")
+    if not redirect_origin:
+        raise HTTPException(status_code=400, detail="Sesi Google OAuth tidak ditemukan.")
+    token = await oauth.google.authorize_access_token(request)
+    profile = await oauth.google.parse_id_token(request, token)
+    email = profile["email"].lower().strip()
+    user = await db.users.find_one({"email": email})
+    if not user:
+        user = {"user_id": f"user_{uuid.uuid4().hex[:12]}", "email": email,
+                "password_hash": None, "name": profile.get("name", email), "role": "student",
+                "auth_provider": "google", "nik": None, "phone": None,
+                "picture": profile.get("picture"), "is_active": True, "auth_version": 0,
+                "created_at": datetime.now(timezone.utc).isoformat()}
+        await db.users.insert_one(dict(user))
+    if user.get("is_archived"):
+        raise HTTPException(status_code=403, detail="Akun pendaftar telah diarsipkan")
+    session_token = secrets.token_urlsafe(32)
+    await db.user_sessions.insert_one({"user_id": user["user_id"], "session_token": session_token,
+                                       "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat(),
+                                       "created_at": datetime.now(timezone.utc).isoformat()})
+    return RedirectResponse(f"{redirect_origin}/dashboard#session_id={session_token}")
 
 
 @api_router.post("/auth/logout")

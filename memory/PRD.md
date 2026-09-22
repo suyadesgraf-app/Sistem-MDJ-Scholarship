@@ -591,3 +591,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Menambahkan variabel konfigurasi rahasia `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET` pada backend dengan
   nilai kosong, tanpa mengubah alur Google OAuth terkelola maupun login email/password yang sedang berjalan.
 - Backend dimuat ulang dan kedua variabel terverifikasi tersedia untuk integrasi OAuth organisasi berikutnya.
+
+## 2026-09 — Migrasi Google OAuth organisasi
+- Tombol Google pada Masuk dan Daftar kini memulai OAuth organisasi melalui backend menggunakan
+  `GOOGLE_CLIENT_ID` dan `GOOGLE_CLIENT_SECRET`; login email/password tetap tidak berubah.
+- Callback backend membuat sesi aplikasi tujuh hari untuk akun Google baru maupun yang sudah ada, lalu
+  mengembalikan pengguna ke dashboard pada origin browser yang memulai proses.
+- Verifikasi: backend memuat ulang berhasil, login email/password tetap tersedia, dan endpoint OAuth mengarah
+  ke Google Authorization Endpoint. Callback produksi yang perlu didaftarkan adalah `/api/auth/google/callback`
+  pada domain aplikasi yang digunakan.
