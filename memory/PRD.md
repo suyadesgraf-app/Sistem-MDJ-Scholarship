@@ -568,3 +568,21 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   otomatis setiap 15 detik, validasi pesan, dan pembatasan akses berbasis peran.
 - Diuji testing agent: 10/10 backend dan seluruh pemeriksaan UI desktop/mobile lulus, termasuk urutan menu,
   ikon berbeda, sinkronisasi pesan Admin Provinsi ↔ Super Admin, RBAC, sesi tidak valid, dan pembersihan pesan uji.
+
+## 2026-09 — Live Chat mahasiswa dan AI RAG
+- Mahasiswa memiliki **Live Chat Admin** untuk berkirim pesan, gambar, dan PDF dengan Admin Provinsi maupun
+  Admin Wilayah yang wilayahnya sesuai. Pembatasan kepemilikan dan wilayah diterapkan pada daftar, balasan,
+  serta unduhan lampiran.
+- Super Admin mengelola **Referensi AI** (PDF, DOC/DOCX, XLS/XLSX, JPG/PNG, serta audio). Chat AI Gemini 3.8
+  Flash mahasiswa mengambang di kiri bawah, dapat dipindahkan, menggunakan RAG hanya dari referensi tersebut,
+  dan menjawab dengan pesan batas cakupan bila tidak menemukan dasar referensi.
+- Diuji testing agent: Live Chat mahasiswa 20/20 dan AI RAG 19/19 lulus; mencakup RBAC, isolasi sesi,
+  referensi sumber, unggahan, jawaban di luar cakupan, widget geser, dan pembersihan data uji.
+
+## 2026-09 — Lampiran dan voice note Live Chat Tim Admin
+- Tim Admin bersama (Admin Wilayah, Admin Provinsi, dan Super Admin) dapat mengirim lampiran dokumen/gambar
+  serta merekam dan memutar voice note langsung dari browser dalam Live Chat.
+- Lampiran dilindungi RBAC, metadata tidak mengekspos jalur penyimpanan, dan hanya peran manajemen yang dapat
+  mengunduhnya.
+- Diuji testing agent: 9/9 backend baru dan 20/20 regresi Live Chat mahasiswa lulus, termasuk unggah PDF,
+  audio WEBM, unduh terautentikasi, RBAC semua peran, dan pembersihan data uji.
