@@ -25,10 +25,12 @@ export default function LiveChat() {
   const [sending, setSending] = useState(false);
   const [attachment, setAttachment] = useState(null);
   const [recording, setRecording] = useState(false);
+  const [recordingLocked, setRecordingLocked] = useState(false);
   const messageListRef = useRef(null);
   const fileInputRef = useRef(null);
   const recorderRef = useRef(null);
   const audioPartsRef = useRef([]);
+  const recordStartYRef = useRef(0);
 
   const loadMessages = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
@@ -109,6 +111,60 @@ export default function LiveChat() {
     recorder.start();
     recorderRef.current = recorder;
     setRecording(true);
+  };
+
+  const sendVoiceNote = async (file) => {
+    setSending(true);
+    try {
+      const formData = new FormData();
+      formData.append("message", "");
+      formData.append("attachment", file);
+      const response = await api.post("/admin/live-chat/messages/attachment", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setMessages((previous) => [...previous, response.data.message]);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Voice note belum berhasil dikirim.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const startPressRecording = async (event) => {
+    if (sending || recording) return;
+    try {
+      recordStartYRef.current = event.clientY;
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      audioPartsRef.current = [];
+      recorder.ondataavailable = (item) => audioPartsRef.current.push(item.data);
+      recorder.onstop = () => {
+        const blob = new Blob(audioPartsRef.current, { type: recorder.mimeType || "audio/webm" });
+        stream.getTracks().forEach((track) => track.stop());
+        setRecording(false);
+        setRecordingLocked(false);
+        if (blob.size) sendVoiceNote(new File([blob], `voice-note-${Date.now()}.webm`, { type: blob.type }));
+      };
+      recorder.start();
+      recorderRef.current = recorder;
+      setRecording(true);
+    } catch {
+      toast.error("Izin mikrofon diperlukan untuk merekam voice note.");
+    }
+  };
+
+  const movePressRecording = (event) => {
+    if (recording && !recordingLocked && recordStartYRef.current - event.clientY > 48) {
+      setRecordingLocked(true);
+    }
+  };
+
+  const endPressRecording = () => {
+    if (recording && !recordingLocked) recorderRef.current?.stop();
+  };
+
+  const stopLockedRecording = () => {
+    if (recording && recordingLocked) recorderRef.current?.stop();
   };
 
   return (
@@ -236,7 +292,8 @@ export default function LiveChat() {
             />
             <div className="mt-2 flex flex-wrap items-center gap-3">
               <label className="inline-flex cursor-pointer items-center gap-1 text-xs font-bold text-[#0B6B3A]" data-testid="live-chat-attachment-label"><Paperclip className="h-4 w-4" />Lampirkan dokumen<input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.mp3,.wav,.ogg,.webm,.m4a" className="sr-only" data-testid="live-chat-attachment-input" onChange={(event) => setAttachment(event.target.files?.[0] || null)} /></label>
-              <button type="button" onClick={toggleRecording} data-testid="live-chat-record-button" className="inline-flex items-center gap-1 text-xs font-bold text-[#0B6B3A]">{recording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}{recording ? "Selesai rekam" : "Rekam suara"}</button>
+              <button type="button" onPointerDown={startPressRecording} onPointerMove={movePressRecording} onPointerUp={endPressRecording} onPointerCancel={endPressRecording} onClick={stopLockedRecording} data-testid="live-chat-record-button" className={`inline-flex h-11 w-11 items-center justify-center rounded-full text-white ${recording ? "bg-[#DC2626]" : "bg-[#0B6B3A]"}`} aria-label={recordingLocked ? "Kirim voice note" : "Tahan untuk rekam voice note"}>{recordingLocked ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}</button>
+              {recording && <span className="text-xs font-bold text-[#DC2626]" data-testid="live-chat-recording-status">{recordingLocked ? "Rekaman dikunci — tekan tombol untuk kirim" : "Merekam — lepas untuk kirim atau geser ke atas untuk kunci"}</span>}
               {attachment && <span className="max-w-full truncate text-xs text-[#4B5563]" data-testid="live-chat-selected-file">{attachment.name}</span>}
             </div>
             <button
