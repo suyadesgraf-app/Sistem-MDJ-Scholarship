@@ -548,3 +548,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Verifikasi: login akun demo HTTP 200, ringkasan menunjukkan 1 mahasiswa aktif/0 terarsip, dan jumlah
   registrasi maupun dokumen dengan `is_test_data: true` adalah 0. Sebanyak 36 registrasi lama tanpa penanda
   data uji dan tanpa akun pengguna tetap dipertahankan untuk mencegah penghapusan data yang tidak teridentifikasi.
+
+## 2026-09 — Pembersihan menyeluruh seluruh data mahasiswa
+- Setelah konfirmasi lanjutan Super Admin, 36 registrasi lama tanpa akun pengguna ikut dihapus permanen.
+  Pembersihan mencakup 35 profil, 37 metadata dokumen, 123 notifikasi, 4 sumber pencairan, 4 antrean
+  tinjauan, 20 agregat pencairan kampus, serta referensi yatim tanpa pemilik yang tersisa.
+- Endpoint pembersihan memiliki mode `include_orphaned_registrations` dengan frasa konfirmasi yang berbeda,
+  lalu menghapus hanya rekaman ber-`user_id` yang tidak memiliki akun pemilik. Data admin tidak tersentuh.
+- Verifikasi akhir: login akun demo HTTP 200, hanya 1 mahasiswa aktif/0 terarsip, total registrasi 0, dan
+  seluruh koleksi data mahasiswa non-demo yang diverifikasi bernilai 0.

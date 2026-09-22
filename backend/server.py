@@ -466,6 +466,7 @@ class ActiveLetterDecisionInput(BaseModel):
 
 class StudentDataPurgeInput(BaseModel):
     confirmation: str = Field(min_length=1, max_length=100)
+    include_orphaned_registrations: bool = False
 
 
 REG_STATUSES = ["draft", "submitted", "perlu_perbaikan", "verifikasi", "lolos_administrasi",
@@ -5640,7 +5641,12 @@ async def purge_non_demo_student_data(
     payload: StudentDataPurgeInput,
     user: dict = Depends(require_roles("super_admin")),
 ):
-    if payload.confirmation.strip() != "HAPUS SEMUA DATA MAHASISWA":
+    expected_confirmation = (
+        "HAPUS SEMUA DATA PENDAFTAR"
+        if payload.include_orphaned_registrations
+        else "HAPUS SEMUA DATA MAHASISWA"
+    )
+    if payload.confirmation.strip() != expected_confirmation:
         raise HTTPException(
             status_code=400,
             detail="Konfirmasi penghapusan permanen tidak sesuai.",
@@ -5660,8 +5666,11 @@ async def purge_non_demo_student_data(
         {"_id": 0, "user_id": 1, "email": 1},
     )
     students = [student async for student in student_cursor]
+    registration_scope = {"user_id": {"$ne": demo_user_id}}
+    if not payload.include_orphaned_registrations:
+        registration_scope["is_test_data"] = True
     test_registration_cursor = db.registrations.find(
-        {"is_test_data": True, "user_id": {"$ne": demo_user_id}},
+        registration_scope,
         {"_id": 0, "user_id": 1},
     )
     test_registration_user_ids = [
@@ -5673,7 +5682,7 @@ async def purge_non_demo_student_data(
         *test_registration_user_ids,
     })
     emails = [student["email"] for student in students]
-    if not user_ids:
+    if not user_ids and not payload.include_orphaned_registrations:
         await db.users.update_one(
             {"user_id": demo_user_id},
             {
@@ -5708,12 +5717,29 @@ async def purge_non_demo_student_data(
         "beneficiary_audit_events",
     ]
     for collection_name in direct_user_collections:
-        result = await db[collection_name].delete_many(user_scope)
-        deleted_records[collection_name] = result.deleted_count
+        deleted_records[collection_name] = 0
+    if user_ids:
+        for collection_name in direct_user_collections:
+            result = await db[collection_name].delete_many(user_scope)
+            deleted_records[collection_name] = result.deleted_count
+
+    if payload.include_orphaned_registrations:
+        known_user_ids = [
+            account["user_id"]
+            async for account in db.users.find({}, {"_id": 0, "user_id": 1})
+        ]
+        orphan_scope = {
+            "user_id": {"$exists": True, "$nin": known_user_ids},
+        }
+        for collection_name in direct_user_collections:
+            result = await db[collection_name].delete_many(orphan_scope)
+            deleted_records[collection_name] += result.deleted_count
 
     for collection_name in ["password_reset_tokens", "email_change_tokens"]:
-        result = await db[collection_name].delete_many({"email": {"$in": emails}})
-        deleted_records[collection_name] = result.deleted_count
+        deleted_records[collection_name] = 0
+        if emails:
+            result = await db[collection_name].delete_many({"email": {"$in": emails}})
+            deleted_records[collection_name] = result.deleted_count
 
     deleted_source_ids = []
     source_cursor = db.beneficiary_sources.find(
@@ -5788,6 +5814,7 @@ async def purge_non_demo_student_data(
         "detail": {
             "deleted_student_count": result.deleted_count,
             "deleted_test_registration_count": deleted_records["registrations"],
+            "included_orphaned_registrations": payload.include_orphaned_registrations,
             "deleted_records": deleted_records,
         },
         "created_at": datetime.now(timezone.utc).isoformat(),
@@ -5796,6 +5823,7 @@ async def purge_non_demo_student_data(
         "message": "Seluruh data mahasiswa non-demo berhasil dihapus permanen.",
         "deleted_student_count": result.deleted_count,
         "deleted_test_registration_count": deleted_records["registrations"],
+        "included_orphaned_registrations": payload.include_orphaned_registrations,
         "deleted_records": deleted_records,
         "preserved_demo_email": demo_email,
     }
