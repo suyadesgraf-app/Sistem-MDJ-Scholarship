@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useNavigate } from "react-router-dom";
 import { API } from "@/lib/api";
 import axios from "axios";
@@ -452,31 +453,31 @@ export default function Landing() {
             <p className="font-display text-sm font-bold text-white">Informasi Legal</p>
             <ul className="mt-5 space-y-3 text-sm">
               <li>
-                <a
-                  href="#kebijakan-privasi"
+                <Link
+                  to="/privacy-policy"
                   data-testid="footer-privacy-link"
                   className="transition-colors duration-200 hover:text-white"
                 >
                   Kebijakan Privasi
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#syarat-ketentuan"
+                <Link
+                  to="/syarat-ketentuan"
                   data-testid="footer-terms-link"
                   className="transition-colors duration-200 hover:text-white"
                 >
                   Syarat dan Ketentuan
-                </a>
+                </Link>
               </li>
               <li>
-                <a
-                  href="#pedoman-program"
+                <Link
+                  to="/pedoman-program"
                   data-testid="footer-guide-link"
                   className="transition-colors duration-200 hover:text-white"
                 >
                   Pedoman Program
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

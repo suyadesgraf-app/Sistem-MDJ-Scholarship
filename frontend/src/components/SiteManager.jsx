@@ -6,7 +6,7 @@ import { Loader2, Plus, Trash2, UploadCloud, Save, Image as ImageIcon } from "lu
 
 const TABS = [
   ["umum", "Umum & Banner"], ["alur", "Alur Pendaftaran"], ["pengumuman", "Pengumuman"],
-  ["statistik", "Statistik"], ["persyaratan", "Syarat Pendaftar"], ["berkas", "Kelengkapan Berkas"], ["faq", "FAQ"],
+  ["statistik", "Statistik"], ["persyaratan", "Syarat Pendaftar"], ["berkas", "Kelengkapan Berkas"], ["legal", "Informasi Legal"], ["faq", "FAQ"],
 ];
 
 export default function SiteManager() {
@@ -216,6 +216,8 @@ export default function SiteManager() {
         <StringListEditor items={c.required_documents || []} onChange={(v) => setField("required_documents", v)} onSave={() => save({ required_documents: c.required_documents })} saving={saving} testid="required-document" addLabel="Tambah Berkas" />
       )}
 
+      {tab === "legal" && <LegalEditor content={c.legal_information || {}} onSave={(legal_information) => save({ legal_information })} saving={saving} />}
+
       {tab === "faq" && (
         <ArrayEditor items={c.faqs || []} onChange={(v) => setField("faqs", v)} onSave={() => save({ faqs: c.faqs })} saving={saving}
           template={{ q: "", a: "" }} testid="faq"
@@ -226,6 +228,19 @@ export default function SiteManager() {
       )}
     </div>
   );
+}
+
+function LegalEditor({ content, onSave, saving }) {
+  const [legal, setLegal] = useState({
+    privacy: content.privacy || { title: "Kebijakan Privasi", content: "" },
+    terms: content.terms || { title: "Syarat dan Ketentuan", content: "" },
+    guide: content.guide || { title: "Pedoman Program", content: "" },
+  });
+  const update = (key, field, value) => setLegal((previous) => ({ ...previous, [key]: { ...previous[key], [field]: value } }));
+  return <div className="space-y-5">
+    {[['privacy', 'Kebijakan Privasi'], ['terms', 'Syarat dan Ketentuan'], ['guide', 'Pedoman Program']].map(([key, label]) => <div key={key} className="rounded-xl border border-gray-100 bg-white p-5"><p className="font-display font-extrabold text-[#1F2937]">{label}</p><input value={legal[key].title} onChange={(e) => update(key, 'title', e.target.value)} className={ic + " mt-3"} /><textarea value={legal[key].content} onChange={(e) => update(key, 'content', e.target.value)} rows={7} className={ic + " mt-3"} placeholder="Isi halaman..." /></div>)}
+    <button onClick={() => onSave(legal)} disabled={saving} data-testid="save-legal-information" className="rounded-lg bg-[#0B6B3A] px-5 py-3 text-sm font-bold text-white">{saving ? "Menyimpan..." : "Simpan Informasi Legal"}</button>
+  </div>;
 }
 
 function ArrayEditor({ items, onChange, onSave, saving, template, render, testid }) {

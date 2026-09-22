@@ -11,7 +11,7 @@ import AdminDashboard from "@/pages/admin/AdminDashboard";
 import SuperAdminDashboard from "@/pages/superadmin/SuperAdminDashboard";
 import VerifyEmail from "@/pages/VerifyEmail";
 import ResetPassword from "@/pages/ResetPassword";
-import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import LegalInformationPage from "@/pages/LegalInformationPage";
 
 function AppRoutes() {
   const location = useLocation();
@@ -23,7 +23,9 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+      <Route path="/privacy-policy" element={<LegalInformationPage pageKey="privacy" />} />
+      <Route path="/syarat-ketentuan" element={<LegalInformationPage pageKey="terms" />} />
+      <Route path="/pedoman-program" element={<LegalInformationPage pageKey="guide" />} />
       <Route path="/dashboard" element={<ProtectedRoute roles={["student"]}><StudentDashboard /></ProtectedRoute>} />
       <Route
         path="/admin"
