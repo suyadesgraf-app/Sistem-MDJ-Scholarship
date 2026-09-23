@@ -4387,11 +4387,15 @@ def normalize_footer_url(value: Any, field_name: str, allowed_schemes: set[str])
     if not url:
         return ""
     parsed = urlparse(url)
-    if parsed.scheme not in allowed_schemes:
-        raise HTTPException(status_code=422, detail=f"{field_name} menggunakan format tautan yang tidak didukung.")
-    if parsed.scheme in {"http", "https"} and not parsed.netloc:
+    scheme = parsed.scheme.lower()
+    if scheme not in allowed_schemes:
+        raise HTTPException(
+            status_code=422,
+            detail=f"{field_name} menggunakan format tautan yang tidak didukung.",
+        )
+    if scheme in {"http", "https"} and not parsed.netloc:
         raise HTTPException(status_code=422, detail=f"{field_name} harus berupa tautan lengkap.")
-    if parsed.scheme in {"mailto", "tel"} and not parsed.path:
+    if scheme in {"mailto", "tel"} and not parsed.path:
         raise HTTPException(status_code=422, detail=f"{field_name} tidak valid.")
     return url
 

@@ -70,7 +70,10 @@ export function FooterContactEditor({ content, onChange, onSave, saving }) {
         {footer.social_links.map((item, index) => (
           <div
             key={`${item.platform || "social"}-${index}`}
-            className="grid gap-2 border border-gray-100 bg-white p-4 sm:grid-cols-[0.8fr_1fr_1.7fr_auto]"
+            className={[
+              "grid gap-2 border border-gray-100 bg-white p-4",
+              "sm:grid-cols-[0.8fr_1fr_1.7fr_auto]",
+            ].join(" ")}
           >
             <select
               value={item.platform || "other"}
@@ -104,7 +107,10 @@ export function FooterContactEditor({ content, onChange, onSave, saving }) {
               })}
               data-testid={`delete-footer-social-${index}`}
               aria-label={`Hapus tautan sosial ${item.label || index + 1}`}
-              className="justify-self-end rounded-lg p-2.5 text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+              className={[
+                "justify-self-end rounded-lg p-2.5 text-[#DC2626]",
+                "transition-colors hover:bg-[#FEE2E2]",
+              ].join(" ")}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -120,7 +126,11 @@ export function FooterContactEditor({ content, onChange, onSave, saving }) {
             ],
           })}
           data-testid="add-footer-social"
-          className="inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-200 px-4 py-2.5 text-sm font-bold text-[#6B7280] transition-colors hover:border-[#27AE60] hover:text-[#27AE60]"
+          className={[
+            "inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-200",
+            "px-4 py-2.5 text-sm font-bold text-[#6B7280] transition-colors",
+            "hover:border-[#27AE60] hover:text-[#27AE60]",
+          ].join(" ")}
         >
           <Plus className="h-4 w-4" /> Tambah Tautan Sosial
         </button>
@@ -143,7 +153,10 @@ export function FooterContactEditor({ content, onChange, onSave, saving }) {
           </label>
         </div>
         {footer.contact.items.map((item, index) => (
-          <div key={`${item.type || "contact"}-${index}`} className="border border-gray-100 bg-white p-4">
+          <div
+            key={`${item.type || "contact"}-${index}`}
+            className="border border-gray-100 bg-white p-4"
+          >
             <div className="grid gap-2 sm:grid-cols-[0.8fr_1fr_auto]">
               <select
                 value={item.type || "other"}
@@ -173,7 +186,10 @@ export function FooterContactEditor({ content, onChange, onSave, saving }) {
                 })}
                 data-testid={`delete-footer-contact-${index}`}
                 aria-label={`Hapus kontak ${item.label || index + 1}`}
-                className="justify-self-end rounded-lg p-2.5 text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+                className={[
+                  "justify-self-end rounded-lg p-2.5 text-[#DC2626]",
+                  "transition-colors hover:bg-[#FEE2E2]",
+                ].join(" ")}
               >
                 <Trash2 className="h-4 w-4" />
               </button>
@@ -211,7 +227,11 @@ export function FooterContactEditor({ content, onChange, onSave, saving }) {
             },
           })}
           data-testid="add-footer-contact"
-          className="inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-200 px-4 py-2.5 text-sm font-bold text-[#6B7280] transition-colors hover:border-[#27AE60] hover:text-[#27AE60]"
+          className={[
+            "inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-200",
+            "px-4 py-2.5 text-sm font-bold text-[#6B7280] transition-colors",
+            "hover:border-[#27AE60] hover:text-[#27AE60]",
+          ].join(" ")}
         >
           <Plus className="h-4 w-4" /> Tambah Kontak
         </button>
@@ -222,7 +242,10 @@ export function FooterContactEditor({ content, onChange, onSave, saving }) {
         onClick={onSave}
         disabled={saving}
         data-testid="save-footer-contact-content"
-        className="inline-flex items-center gap-2 rounded-xl bg-[#27AE60] px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-[#0B6B3A] disabled:opacity-60"
+        className={[
+          "inline-flex items-center gap-2 rounded-xl bg-[#27AE60] px-5 py-3 text-sm",
+          "font-bold text-white transition-colors hover:bg-[#0B6B3A] disabled:opacity-60",
+        ].join(" ")}
       >
         <Save className="h-4 w-4" />
         {saving ? "Menyimpan..." : "Simpan Footer & Kontak"}

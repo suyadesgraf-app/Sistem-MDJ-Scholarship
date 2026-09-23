@@ -62,6 +62,9 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
 - Akun demo dikecualikan dari daftar, statistik, dan proses operasional Penerima Manfaat.
 - Data Peserta kini memuat profil, akun, dan jumlah dokumen secara batch untuk mempercepat
   pencarian dan tampilan daftar peserta.
+- Kelola Website kini memiliki tab **Footer & Kontak** untuk mengatur tautan Facebook, Instagram,
+  YouTube, tautan sosial tambahan, judul Hubungi Kami, serta daftar kontak dinamis beserta aksi
+  tautannya.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

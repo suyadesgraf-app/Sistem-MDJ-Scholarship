@@ -1,0 +1,26 @@
+{
+  "summary": "Verified Footer & Hubungi Kami CMS editor and public landing rendering. Backend pytest 5/5 passed in test_footer_contact_cms.py: GET /api/site/content returns footer shape with default facebook/instagram/youtube; PUT /api/site/content accepts temporary extra TikTok social link + phone contact and persists via GET; javascript: URL rejected with 422 on both social_links.url and contact.items.url (not saved); mailto: contact url accepted. Original footer restored via module teardown. Frontend: Super Admin > Kelola Website > Footer & Kontak tab renders footer-contact-editor with 3 default social rows (facebook/instagram/youtube) each with editable platform/label/url + delete controls, add-footer-social button, contact section with title 'Hubungi Kami' + 4 default items (address/whatsapp x2/email) each with type/label/value/optional-url + delete, add-footer-contact, and save button. Public Landing footer renders CMS-derived social_links (all target=_blank rel=noreferrer, testids footer-facebook-link/footer-instagram-link/footer-youtube-link) and contact list (footer-contact-title + footer-contact-0..3). WhatsApp/http contact links have target=_blank rel=noreferrer; mailto opens same tab (correct). Desktop 1920 CMS + landing and mobile 390 landing have no horizontal overflow.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_footer_contact_cms.py",
+    "/app/test_reports/pytest/iter67_footer_contact.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/server.py still exceeds 7800 lines; footer/site-content helpers (default_footer_content, normalize_footer_*, DEFAULT_SITE_CONTENT, GET/PUT /site/content) should be extracted into a site_content module for maintainability.",
+    "FooterContactEditor.jsx: social platform select uses only 4 options (facebook/instagram/youtube/other). Consider surfacing common platforms (tiktok/x/linkedin) as first-class icons in Landing socialIcon() — currently 'other' falls back to a generic ExternalLink icon which is acceptable per requirements but reduces polish.",
+    "Landing.jsx contactHref returns mailto:/tel: for those types; the link does not set target='_blank' which is correct behavior, but note requirement 'all social links open in a new tab' was interpreted as only social — contact links use per-scheme behavior which is fine.",
+    "normalize_footer_url uses urlparse().scheme but does not lowercase scheme before comparison; 'HTTPS://...' would be rejected. Low-priority hardening."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_footer_contact_cms.py"
+  ],
+  "success_rate": {"backend": "100% (5/5)", "frontend": "100% (CMS editor + landing footer + social new-tab + no overflow)"},
+  "test_credentials": "Super Admin supri@baznasbazisdki.id / MdjSuper2026! from /app/memory/test_credentials.md",
+  "seed_data_creation": "None permanent. Ephemeral TEST_TikTok social + TEST_Hotline Tambahan / TEST_Mail contact entries appended during PUT tests and reverted by the autouse module teardown which restores the exact original footer captured at test start.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: pytest backend/tests/test_footer_contact_cms.py -v -n 0 --junitxml=/app/test_reports/pytest/<name>.xml. Tests load /app/frontend/.env for REACT_APP_BACKEND_URL. Frontend selectors of interest: [data-testid='menu-website'], [data-testid='site-tab-footer'], [data-testid='footer-contact-editor'], [data-testid='footer-social-platform-{i}'], [data-testid='footer-social-label-{i}'], [data-testid='footer-social-url-{i}'], [data-testid='delete-footer-social-{i}'], [data-testid='add-footer-social'], [data-testid='footer-contact-title'], [data-testid='footer-contact-type/label/value/url-{i}'], [data-testid='add-footer-contact'], [data-testid='save-footer-contact-content']. Public: [data-testid='footer-social-links'], [data-testid='footer-facebook-link'|'footer-instagram-link'|'footer-youtube-link'|'footer-social-{i}'], [data-testid='footer-contact-title'|'footer-contact-list'|'footer-contact-{i}'].",
+  "rca of the issue": "N/A — all 6 review-request requirements are implemented correctly."
+}

@@ -7,6 +7,7 @@
   tujuan dan penyimpanan status tampil sekali.
 - Perlindungan akun demo mahasiswa dari penghapusan serta pengecualian dari seluruh rekap
   Penerima Manfaat.
+- CMS Footer & Kontak untuk tautan sosial serta informasi Hubungi Kami dinamis.
 
 ## P1 — Ditunda sesuai arahan pengguna
 - Refactor bertahap `/app/backend/server.py` yang sangat besar menjadi router/service

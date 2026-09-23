@@ -894,3 +894,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   sehingga daftar besar tidak lagi menjalankan kueri per baris.
 - Verifikasi testing agent lulus: backend 20/20; label dan tombol hapus terkunci teruji pada
   desktop serta mobile tanpa overflow. Tidak ada penghapusan massal pada basis data bersama.
+
+## 2026-09 — CMS Footer & Kontak
+- Tab **Footer & Kontak** di Kelola Website memungkinkan Super Admin mengatur Facebook, Instagram,
+  YouTube, tautan sosial tambahan, serta label dan URL setiap tautan.
+- Judul **Hubungi Kami** dan daftar kontak dinamis (alamat, WhatsApp, email, telepon, atau lainnya)
+  dapat ditambah, diubah, maupun dihapus dari CMS. URL aksi mendukung `https`, `mailto`, dan `tel`.
+- Footer Beranda merender seluruh data CMS; tautan sosial selalu membuka tab baru, sementara kontak
+  mengikuti skema tautannya. Format URL berbahaya ditolak server.
+- Verifikasi testing agent lulus backend 5/5 dan UI desktop/mobile; hardening tambahan diuji dengan
+  suite final 6/6 serta build frontend berhasil.
