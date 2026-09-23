@@ -184,7 +184,7 @@ export default function SiteManager() {
 
       {tab === "pengumuman" && (
         <ArrayEditor items={c.announcements || []} onChange={(v) => setField("announcements", v)} onSave={() => save({ announcements: c.announcements })} saving={saving}
-          template={{ date: "", category: "Informasi", title: "", summary: "", link: "" }} testid="announcement"
+          template={{ date: "", category: "Informasi", title: "", summary: "", content: "", link: "" }} testid="announcement"
           render={(it, upd, idx) => (<>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <input value={it.date} onChange={(e) => upd("date", e.target.value)} placeholder="Tanggal" data-testid={`announcement-date-${idx}`} className={ic} />
@@ -192,6 +192,7 @@ export default function SiteManager() {
             </div>
             <input value={it.title} onChange={(e) => upd("title", e.target.value)} placeholder="Judul" data-testid={`announcement-title-${idx}`} className={ic + " mb-2 font-semibold"} />
             <textarea value={it.summary} onChange={(e) => upd("summary", e.target.value)} placeholder="Ringkasan" rows={2} className={ic} />
+            <textarea value={it.content || ""} onChange={(e) => upd("content", e.target.value)} placeholder="Isi detail berita" rows={5} className={ic + " mt-2"} />
             <input value={it.link || ""} onChange={(e) => upd("link", e.target.value)} placeholder="Tautan pengumuman (opsional)" className={ic + " mt-2"} />
             <label className="mt-2 inline-flex cursor-pointer items-center gap-2 text-xs font-bold text-[#0B6B3A]">Unggah banner/dokumen<input type="file" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx" className="sr-only" onChange={async (e) => { const file = e.target.files?.[0]; if (!file) return; try { const data = new FormData(); data.append("file", file); const response = await api.post("/super-admin/site-announcements/upload", data, { headers: { "Content-Type": "multipart/form-data" } }); const attachment = response.data; upd(attachment.content_type.startsWith("image/") ? "banner" : "attachment", attachment); } catch (error) { toast.error(error.response?.data?.detail || "Lampiran gagal diunggah."); } }} data-testid={`announcement-upload-${idx}`} /></label>
             {it.banner && <p className="mt-2 text-xs text-[#0B6B3A]">Banner: {it.banner.name}</p>}

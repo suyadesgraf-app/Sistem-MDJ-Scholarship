@@ -12,6 +12,7 @@ import {
 
 const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?auto=format&fit=crop&w=1600&q=60";
 const ABOUT_IMG = "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBzbWlsaW5nJTIwc3R1ZHlpbmd8ZW58MHx8fHwxNzg5MTU2MTM5fDA&ixlib=rb-4.1.0&q=85";
+const newsSlug = (value = "") => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 const NAV_LINKS = [
   { name: "Beranda", href: "#beranda" },
@@ -326,10 +327,11 @@ export default function Landing() {
                 <span className="text-[10px] font-bold text-[#0B6B3A]">{a.category}</span>
                 <h3 className="mt-1 line-clamp-2 font-display text-base font-extrabold leading-snug text-[#1F2937]">{a.title}</h3>
                 <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#6B7280]">{a.summary}</p>
-                {(a.attachment?.url || a.link) && <div className="mt-3 flex flex-wrap gap-3 text-xs font-bold text-[#0B6B3A]">
+                <div className="mt-3 flex flex-wrap gap-3 text-xs font-bold text-[#0B6B3A]">
+                  <Link to={`/berita/${newsSlug(a.title)}`} data-testid={`read-latest-news-${i}`}>Baca Selengkapnya →</Link>
                   {a.attachment?.url && <a href={`${API.replace("/api", "")}${a.attachment.url}`} target="_blank" rel="noreferrer" data-testid={`announcement-attachment-${i}`}>Lihat Berkas</a>}
                   {a.link && <a href={a.link} target="_blank" rel="noreferrer" data-testid={`announcement-link-${i}`}>Baca Selengkapnya →</a>}
-                </div>}
+                </div>
               </div>
             </article>
           ))}

@@ -13,6 +13,7 @@ import VerifyEmail from "@/pages/VerifyEmail";
 import ResetPassword from "@/pages/ResetPassword";
 import LegalInformationPage from "@/pages/LegalInformationPage";
 import NewsPage from "@/pages/NewsPage";
+import NewsDetailPage from "@/pages/NewsDetailPage";
 
 function AppRoutes() {
   const location = useLocation();
@@ -28,6 +29,7 @@ function AppRoutes() {
       <Route path="/syarat-ketentuan" element={<LegalInformationPage pageKey="terms" />} />
       <Route path="/pedoman-program" element={<LegalInformationPage pageKey="guide" />} />
       <Route path="/berita" element={<NewsPage />} />
+      <Route path="/berita/:slug" element={<NewsDetailPage />} />
       <Route path="/dashboard" element={<ProtectedRoute roles={["student"]}><StudentDashboard /></ProtectedRoute>} />
       <Route
         path="/admin"
