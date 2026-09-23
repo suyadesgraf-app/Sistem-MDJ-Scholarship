@@ -30,6 +30,7 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   Kontrol tambah, ubah, dan hapus berada di bagian atas tab **Pengumuman**, tanpa tab terpisah.
 - Setiap pengumuman memiliki pilihan **Popup Akun Mahasiswa** dan **Popup Beranda**.
   Masing-masing tujuan dibatasi satu popup aktif dan popup hanya tampil sekali setelah ditutup.
+- Banner popup mengikuti rasio asli dan tampil penuh tanpa pemotongan gambar.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

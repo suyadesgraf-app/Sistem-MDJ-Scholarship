@@ -47,14 +47,14 @@ export default function SiteAnnouncementPopup({
     <Dialog open onOpenChange={(isOpen) => !isOpen && dismiss(false)}>
       <DialogContent
         data-testid={`${testIdPrefix}-popup`}
-        className="max-w-md rounded-xl border-0 bg-white p-7"
+        className="w-[calc(100vw-2rem)] max-w-xl rounded-xl border-0 bg-white p-7"
       >
         <DialogHeader className="text-left">
           {imageUrl && (
             <img
               src={imageUrl}
               alt={`Banner ${announcement.title}`}
-              className="mb-3 aspect-[1.8] w-full rounded-lg object-cover"
+              className="mb-5 h-auto max-h-[48vh] w-full rounded-lg bg-[#F5F5F2] object-contain"
               data-testid={`${testIdPrefix}-banner`}
             />
           )}

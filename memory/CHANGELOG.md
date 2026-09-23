@@ -751,3 +751,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   sama tidak tampil lagi pada browser tersebut. Tombol Baca Selengkapnya membuka detail berita.
 - Verifikasi testing agent lulus: backend 6/6, kontrol CMS, popup mahasiswa, popup Beranda,
   navigasi detail, dan layar ponsel 390px tanpa overflow. Konten pengujian dipulihkan.
+
+## 2026-09 — Banner Popup Proporsional
+- Banner pada popup Beranda dan akun Mahasiswa kini memenuhi lebar area popup sambil menjaga
+  rasio asli (`object-contain`), sehingga tidak ada bagian gambar yang terpotong.
+- Lebar popup ditingkatkan untuk tampilan banner yang lebih nyaman; poster vertikal otomatis
+  diskalakan agar seluruh gambar tetap terlihat dalam layar.
+- Verifikasi browser memakai banner MDJ asli: gambar 1080×1350 termuat, ditampilkan penuh pada
+  area 520×384, dan seluruh poster terlihat tanpa crop.
