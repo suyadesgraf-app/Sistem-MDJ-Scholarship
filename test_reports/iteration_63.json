@@ -1,0 +1,31 @@
+{
+  "summary": "Tested Family (Keluarga) tab on Student Profile end-to-end. Backend: created /app/backend/tests/test_family_profile.py with 11 pytest cases exercising PUT /api/profile family validation (missing family, empty object, invalid NIK length, invalid parent status, count mismatch with members array, count>15, empty electricityPower, deceased parent still requiring all detail fields) and acceptance (valid family with otherMemberCount='0' string normalized to int 0, GET returns normalized family after save, two-member payload persists and re-GET returns identical structure). Result: 11/11 PASSED. Frontend: Playwright against public preview URL — logged in as demo Mahasiswa, verified all 15 family testids (family-profile-section, family-father-*, family-mother-*, family-other-member-count, family-electricity-power) exist. Rupiah input: typing 1000000 renders as '1.000.000'. Dynamic count: 2->2 cards, 1->1 card, 0->0 cards. Meninggal status keeps phone/income/job inputs editable and marked required. Save button clicked with incomplete family shows sonner toast 'Lengkapi Data Keluarga: Nama Lengkap Ayah.' Profile-completion summary on Ringkasan and on Profil Saya (14% chip list) shows 'Data Keluarga' as ONE item — no exploded family field labels found. Mobile 390px viewport: horizontal overflow delta = 0 (scrollWidth == clientWidth == 390).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_family_profile.py",
+    "/app/test_reports/pytest/iter63_family.xml"
+  ],
+  "action_items": [
+    "Documentation nit: review request lists Test ID `save-profile-button`, but actual button uses data-testid=`save-profile-btn` (in /app/frontend/src/pages/student/StudentDashboard.jsx line ~314). Either update review docs or rename the testid for consistency."
+  ],
+  "critical_code_review_comments": [
+    "normalize_family_profile is strict and correctly rejects each invalid case (verified). Consider centralizing the max-length constants (160/40) alongside the frontend limits so both sides evolve together.",
+    "getMissingProfileFields (StudentProfile.jsx line 68) collapses ALL missing family fields into one summary chip {k:'family', l:'Data Keluarga'}, satisfying spec point 9; profileProgress still counts every individual family field for the percentage. Behaviour matches requirement.",
+    "FamilyProfileSection.parseFamilyCount clamps to 0..15 in the UI; server also enforces max 15. Consistent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_family_profile.py"
+  ],
+  "success_rate": {"backend": "100% (11/11)", "frontend": "100%"},
+  "test_credentials": "mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!",
+  "seed_data_creation": "Demo mahasiswa profile was mutated during backend tests. Restored via direct MongoDB access: db.users.update_one set name back to 'Mahasiswa Demo MDJ' and db.profiles.delete_one({user_id}) so GET /api/profile returns the fresh default (matches original state pre-testing — no family, minimal data). Verified restoration.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Family testids follow pattern family-father-{name|nik|status|phone|job|income}, family-mother-*, family-member-{index}-{name|nik|relationship|education|job|income}, plus family-other-member-count, family-electricity-power, family-profile-section, family-other-members-list, family-father-card, family-mother-card, family-member-{i}-card. Save button testid is `save-profile-btn` (NOT `save-profile-button`). PUT /api/profile requires body {\"data\": {...profile_fields..., \"family\": {...}}}; if role=student, family is validated by normalize_family_profile which raises 400 with Indonesian messages for each failure. Rupiah rendering: input stores digits-only, displays with '.' thousand separators via formatRupiah(). Demo mahasiswa cookie-based session persists across tests; if UI test fails to click 'Masuk', re-run — probably already logged in; safer path is to explicitly log in from /login using Mahasiswa demo pill.",
+  "rca of the issue": "N/A — feature works as specified."
+}

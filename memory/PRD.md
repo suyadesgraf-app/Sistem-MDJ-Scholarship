@@ -48,6 +48,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   dirender setelah data tersedia.
 - Kartu status pendaftaran Beranda menggunakan judul Masa Depan Jakarta Scholarship Tahun 2027
   serta keterangan ajakan pendaftaran terbaru.
+- Profil Mahasiswa memiliki tab Keluarga dengan data Ayah, Ibu, anggota keluarga lain dinamis,
+  daya listrik rumah, format Rupiah, dan validasi wajib di server.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

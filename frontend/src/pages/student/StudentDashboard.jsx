@@ -302,16 +302,33 @@ export default function StudentDashboard() {
   const currentIdx = statusOrder.indexOf(reg.status);
 
   return (
-    <DashboardShell menu={MENU} active={active} onSelect={selectDashboardMenu} brandLabel="Portal Pendaftar"
+    <DashboardShell
+      menu={MENU}
+      active={active}
+      onSelect={selectDashboardMenu}
+      brandLabel="Portal Pendaftar"
       displayName={data.namaLengkap || user?.name}
-      title={MENU.find((m) => m.id === active)?.label} subtitle="Program Masa Depan Jakarta 2026"
+      title={MENU.find((m) => m.id === active)?.label}
+      subtitle="Program Masa Depan Jakarta 2026"
       avatarUrl={avatarUrl}
       candidateId={reg.cpm_id}
       notifications={notifications}
       unreadNotificationCount={unreadNotificationCount}
       onNotificationClick={openNotification}
       onReadAllNotifications={markAllNotificationsRead}
-      actions={active === "profil" && <button onClick={saveProfile} disabled={saving} data-testid="save-profile-btn" className="px-4 py-2 bg-[#27AE60] hover:bg-[#0B6B3A] text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-colors">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />} Simpan</button>}>
+      actions={active === "profil" && (
+        <button
+          onClick={saveProfile}
+          disabled={saving}
+          data-testid="save-profile-button"
+          className="flex items-center gap-2 rounded-xl bg-[#27AE60] px-4 py-2 text-sm font-bold text-white
+            transition-colors hover:bg-[#0B6B3A]"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Simpan
+        </button>
+      )}
+    >
 
       {active === "ringkasan" && (
         <div className="space-y-6">

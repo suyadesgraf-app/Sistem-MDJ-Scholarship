@@ -837,3 +837,15 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Judul kartu Beranda diperbarui menjadi **Masa Depan Jakarta Scholarship Tahun 2027**.
 - Keterangan diperbarui menjadi: “Segera daftarkan diri anda sebelum tenggat waktu berakhir.”
 - Verifikasi browser mengonfirmasi kedua teks tampil persis sesuai permintaan.
+
+## 2026-09 — Data Keluarga pada Profil Mahasiswa
+- Menambahkan tab **Keluarga** pada Profil Mahasiswa untuk data Ayah, Ibu, anggota keluarga lain,
+  dan daya listrik rumah.
+- Semua data bertanda wajib divalidasi sebelum simpan, termasuk detail orang tua berstatus
+  Meninggal; NIK wajib 16 digit dan nominal penghasilan ditampilkan dalam format Rupiah.
+- Jumlah anggota keluarga lain otomatis mengatur jumlah formulir detail, maksimal 15 orang.
+- Backend menormalisasi dan memvalidasi struktur family agar tidak dapat dilewati melalui API.
+- Ringkasan profil menampilkan **Data Keluarga** sebagai satu item kekurangan, sementara progres
+  tetap menghitung seluruh field keluarga yang diperlukan.
+- Verifikasi testing agent lulus: backend 11/11, UI tab Keluarga, jumlah anggota 0–2, Rupiah,
+  validasi, penyimpanan, dan mobile 390px tanpa overflow. ID tombol Simpan juga diselaraskan.
