@@ -307,24 +307,31 @@ export default function Landing() {
       <RegistrationFlow steps={registrationFlow} />
 
       {/* ANNOUNCEMENTS */}
-      <section id="pengumuman" className="py-20 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <h2 className="font-display font-extrabold text-3xl lg:text-4xl tracking-tight text-[#1F2937] text-center mb-3">Pengumuman Terbaru</h2>
-        <p className="text-[#6B7280] text-center mb-12">Informasi dan berita terkini seputar MDJ Scholarship.</p>
-        <div className="grid md:grid-cols-3 gap-6">
+      <section id="pengumuman" className="max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="font-display text-3xl font-extrabold tracking-tight text-[#1F2937] lg:text-4xl">Berita Terbaru</h2>
+            <p className="mt-2 text-sm text-[#6B7280]">Informasi terkini seputar MDJ Scholarship dan kegiatan BAZNAS (BAZIS).</p>
+          </div>
+          <a href="#pengumuman" className="text-sm font-bold text-[#0B6B3A] hover:text-[#27AE60]">Lihat Selengkapnya →</a>
+        </div>
+        <div className="flex gap-4 overflow-x-auto pb-3 mdj-scrollbar" data-testid="latest-announcements-row">
           {announcements.map((a, i) => (
-            <div key={i} className="bg-white border border-gray-100 rounded-2xl p-6 shadow-[0_4px_20px_-2px_rgba(39,174,96,0.06)] hover:-translate-y-1 transition-transform">
-              <div className="flex items-center justify-between mb-3">
-                <span className="px-2.5 py-1 rounded-full bg-[#E8F6EE] text-[#0B6B3A] text-[11px] font-bold">{a.category}</span>
-                <span className="text-xs text-[#6B7280]">{a.date}</span>
+            <article key={i} className="w-56 shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-[0_4px_16px_-4px_rgba(31,41,55,0.18)] transition-transform hover:-translate-y-1" data-testid={`latest-announcement-${i}`}>
+              <div className="relative aspect-[1.35] overflow-hidden bg-[#E8F6EE]">
+                {a.banner?.url ? <img src={`${API.replace("/api", "")}${a.banner.url}`} alt={`Banner ${a.title}`} className="h-full w-full object-cover" data-testid={`announcement-banner-${i}`} /> : <div className="flex h-full items-center justify-center px-5 text-center text-xs font-extrabold text-[#0B6B3A]">{a.category || "Pengumuman MDJ"}</div>}
+                {a.date && <span className="absolute left-2 top-2 rounded bg-white/95 px-2 py-1 text-[10px] font-extrabold text-[#0B6B3A]">{a.date}</span>}
               </div>
-              <h3 className="font-display font-bold text-lg text-[#1F2937] mb-2">{a.title}</h3>
-              <p className="text-sm text-[#6B7280] leading-relaxed">{a.summary}</p>
-              {a.banner?.url && <img src={`${API.replace("/api", "")}${a.banner.url}`} alt={`Banner ${a.title}`} className="mt-4 w-full rounded-lg border border-gray-100 object-contain" data-testid={`announcement-banner-${i}`} />}
-              {(a.attachment?.url || a.link) && <div className="mt-4 flex flex-wrap gap-3 text-sm font-bold text-[#0B6B3A]">
-                {a.attachment?.url && <a href={`${API.replace("/api", "")}${a.attachment.url}`} target="_blank" rel="noreferrer" data-testid={`announcement-attachment-${i}`}>Lihat {a.attachment.name}</a>}
-                {a.link && <a href={a.link} target="_blank" rel="noreferrer" data-testid={`announcement-link-${i}`}>Buka Tautan</a>}
-              </div>}
-            </div>
+              <div className="p-4">
+                <span className="text-[10px] font-bold text-[#0B6B3A]">{a.category}</span>
+                <h3 className="mt-1 line-clamp-2 font-display text-base font-extrabold leading-snug text-[#1F2937]">{a.title}</h3>
+                <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-[#6B7280]">{a.summary}</p>
+                {(a.attachment?.url || a.link) && <div className="mt-3 flex flex-wrap gap-3 text-xs font-bold text-[#0B6B3A]">
+                  {a.attachment?.url && <a href={`${API.replace("/api", "")}${a.attachment.url}`} target="_blank" rel="noreferrer" data-testid={`announcement-attachment-${i}`}>Lihat Berkas</a>}
+                  {a.link && <a href={a.link} target="_blank" rel="noreferrer" data-testid={`announcement-link-${i}`}>Baca Selengkapnya →</a>}
+                </div>}
+              </div>
+            </article>
           ))}
         </div>
       </section>

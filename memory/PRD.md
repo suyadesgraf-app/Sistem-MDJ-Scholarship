@@ -703,6 +703,12 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Testing agent regresi lulus 6/6 backend dan 100% alur mobile: mic serta lampiran berdampingan, rekam/lepas,
   kunci, upload, dan pemutaran Admin berhasil tanpa overflow.
 
+## 2026-09 — Tampilan Berita Terbaru
+- Papan Pengumuman beranda diubah menjadi deretan kartu horizontal **Berita Terbaru** seperti referensi visual.
+- Setiap kartu menampilkan banner pengumuman sebagai gambar utama, tanggal overlay, kategori, judul, ringkasan,
+  serta aksi berkas/tautan bila tersedia. Kartu dapat digeser mendatar di perangkat sempit.
+- Verifikasi: build frontend lulus, enam kartu tampil pada halaman aktif, dan tampilan ponsel tidak overflow.
+
 ## 2026-09 — Pembaruan slogan MDJ
 - Slogan beranda dan footer diubah dari “Muda dengan Zakat, Bahagia dengan Manfaat.” menjadi
   **MDJ Scholarship Circle of Ummah**.

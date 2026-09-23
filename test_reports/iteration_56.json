@@ -1,0 +1,44 @@
+{
+  "summary": "Validated user-requested TEST batch PDF-JB-TAHAP1-2026. 12/13 pytest checks + UI probe green. Batch persistence confirmed: 459 users (test_jb_* / role=student / is_active=false / is_test_data=true), 459 registrations (status=lolos), 459 profiles (data.kota=Jakarta Barat, data.nim='' blank), and 84 campus_disbursements rows all region=Jakarta Barat / stage=1 / status=sudah_dicairkan. No stage-2 records exist for the batch. Demo accounts (supri, admin.mdj, mahasiswa.mdj) untouched; no batch profile leaked outside Jakarta Barat. GET /api/admin/disbursements/campuses?region=Jakarta%20Barat returns 84 campuses / 459 recipients (matches user-supplied summary). Temporary admin_wilayah confirmed regional scoping (all campuses regions=[Jakarta Barat], PUT stage returns 403 -> read-only). One CRITICAL data-integrity bug found: 15 campus_disbursements rows have a stored campus_key that does NOT match campus_disbursement_key(cd.campus). As a result those 15 rows fail the join against final_beneficiary_rows and the Super Admin Pencairan Dana UI shows them as 'Belum ditransfer' for 79 recipients instead of 'Sudah Dicairkan'. Secondary observation: UI summary tile 'Kampus Tahap I Cair' shows 0 even though 69 campuses join correctly with sudah_dicairkan (possibly this metric counts only campuses with uploaded proof; worth confirming).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "campus_disbursements collection / GET /api/admin/disbursements/campuses?region=Jakarta Barat", "issue": "15 rows for batch PDF-JB-TAHAP1-2026 store a campus_key that no longer matches campus_disbursement_key(cd.campus). Because visible_campus_groups() computes campus_key from profile.institusi (which matches campus_disbursement_key(cd.campus) for these rows), the stored row cannot be joined and its Stage-I 'sudah_dicairkan' status is lost. Affected campuses (recipients): IAI Al-Aqidah Al-Hasyimiyyah (10), Institut Ilmu Al-Qur'an IIQ (8), IISIP (1), PNJ (1), Polimedia (1), STAIINDO (3), STIEBI (1), STAI DI Al-Hikmah (4), BINUS (2), BSI (11), UNINDRA (10), UHAMKA (6), UNUSIA 'Nadhlatul' (17), UNUSIA 'Nahdlatul' (3), UNAS (1) = 79 recipients. Example: BINUS row has campus_key=campus_9f0afa1780a547de15ca but campus_disbursement_key('Universitas Bina Nusantara (BINUS)')=campus_1df8c9eee9eec3d58490.", "priority": "CRITICAL"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/admin/disbursements/campuses", "issue": "sum(campus_disbursements.recipient_count) for the batch is 334 while API-computed sum(recipient_count)=459. recipient_user_ids on the stored rows are stale/partial for many campuses. Not user-visible today but could break future stage-2 sync."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "DisbursementManager - Rekapitulasi Tahap I row", "issue": "15 campus rows display 'Belum ditransfer' / 'Belum a...' for 79 recipients although the underlying campus_disbursement is stored with status='sudah_dicairkan'. Caused by the backend key mismatch above.", "selector": "table row for IAI Al-Aqidah Al-Hasyimiyyah, BINUS, BSI, UNINDRA, UHAMKA, UNUSIA (both spellings), STAIINDO, STIEBI, STAI DI Al-Hikmah, IISIP, PNJ, Polimedia, UNAS, Institut Ilmu Al-Qur'an", "priority": "HIGH"},
+      {"component": "DisbursementManager summary tiles", "issue": "'Kampus Tahap I Cair' shows 0 even though 69 campuses have Stage-I sudah_dicairkan. Metric likely counts only proof-uploaded campuses; needs clarification or copy update.", "selector": "summary tile Kampus Tahap I Cair", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_pdf_jb_tahap1_batch.py",
+    "/app/test_reports/pytest/iter56_pdf_jb.xml"
+  ],
+  "action_items": [
+    "Recompute campus_key for the 15 mismatched campus_disbursements rows in batch PDF-JB-TAHAP1-2026 so cd.campus_key == campus_disbursement_key(cd.campus). Suggested one-shot: for cd in db.campus_disbursements.find({'test_batch_id':'PDF-JB-TAHAP1-2026'}): correct=campus_disbursement_key(cd['campus']); if cd['campus_key']!=correct: update. After the fix, GET /api/admin/disbursements/campuses?region=Jakarta%20Barat should report 84/84 Stage-I sudah_dicairkan and the Super Admin UI will render the 15 rows as 'Sudah Dicairkan' rather than 'Belum ditransfer'.",
+    "Investigate the import script that produced this batch and re-align its campus_key computation with campus_disbursement_key() so future imports don't drift.",
+    "(Optional) Backfill campus_disbursements.recipient_user_ids/recipient_count so they equal the beneficiary rows joined by campus_key (currently 334 vs 459).",
+    "(Optional) Clarify 'Kampus Tahap I Cair' summary tile - currently 0 despite 69 sudah_dicairkan campuses."
+  ],
+  "critical_code_review_comments": [
+    "campus_disbursements has no schema-level invariant enforcing campus_key = campus_disbursement_key(campus). Add either (a) a MongoDB validator, (b) a startup self-heal that recomputes campus_key when it drifts, or (c) drop the stored campus_key entirely and compute on read - single source of truth.",
+    "final_beneficiary_rows() joins campus_disbursements strictly by (campus_key, region, stage). A silent mismatch produces zero-error data loss. Consider logging a warning when a batch record fails to join.",
+    "ensure_campus_disbursement() upserts by (campus_key, region, stage). If a caller passes a stale campus name (different casing/whitespace) it creates orphan documents rather than updating - suggest normalising campus and recomputing key inside the function."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_pdf_jb_tahap1_batch.py"
+  ],
+  "success_rate": {"backend": "92% (12/13 pytest)", "frontend": "verified via Pencairan Dana screenshot - 84 campuses + 459 recipients tiles correct; 15 campus rows visibly wrong"},
+  "test_credentials": "Super Admin: supri@baznasbazisdki.id / MdjSuper2026! - used for API + UI. Admin Wilayah JB (bbjb@baznasbazisdki.id) exists in DB but no password is documented; test seeded a temporary admin_wilayah (test_aw_jb_*@example.invalid / AdminWilayahJB2026!) and removed it in fixture teardown.",
+  "seed_data_creation": "NONE persistent. test_pdf_jb_tahap1_batch.py only reads the batch; the admin_wilayah fixture creates a temporary user and deletes it in teardown. The user-requested TEST batch PDF-JB-TAHAP1-2026 (459 users/profiles/registrations + 84 campus_disbursements) was left fully untouched as instructed.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Reusable regression tests at /app/backend/tests/test_pdf_jb_tahap1_batch.py cover the whole batch. Run: pytest backend/tests/test_pdf_jb_tahap1_batch.py -v -o addopts=''. Test file loads env from /app/frontend/.env + /app/backend/.env. The failing test test_every_stage_one_is_sudah_dicairkan is the key regression marker for the campus_key bug; after main-agent fix it should turn green (and Super Admin UI rows for the 15 campuses should switch to 'Sudah Dicairkan' with the June 2026 date). Do NOT delete the batch - user asked to keep it. The admin_wilayah fixture uses password_hash field + lowercase email + auth_provider='password'.",
+  "rca of the issue": "ROOT CAUSE: 15 of 84 campus_disbursements rows created for batch PDF-JB-TAHAP1-2026 stored an incorrect campus_key. The stored key does not match campus_disbursement_key(cd.campus) - e.g. BINUS row campus_key=campus_9f0afa1780a547de15ca vs computed campus_1df8c9eee9eec3d58490 for the exact same campus string. Because visible_campus_groups() (server.py L2326-2352) joins campus_disbursements to profile-derived beneficiary rows strictly on campus_key, these 15 rows never attach to their campus group, so list_campus_disbursements() falls back to the default 'belum_diproses' stage_one for them. REPRODUCE: (1) super_admin login, (2) GET /api/admin/disbursements/campuses?region=Jakarta%20Barat, (3) filter c.stage_one.status != 'sudah_dicairkan' -> 15 items. Or open Super Admin -> Pencairan Dana and inspect rows 2, 5, 7, etc. MITIGATION: run a one-off doc update - for each campus_disbursement doc, set campus_key = campus_disbursement_key(campus). Verify by re-running the pytest file; test_every_stage_one_is_sudah_dicairkan should pass. Also add a warning log in visible_campus_groups when a campus_disbursements row is fetched but its campus_key can't be joined."
+}
