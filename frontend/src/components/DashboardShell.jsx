@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { Menu, X, LogOut, ChevronDown } from "lucide-react";
+import {
+  Menu,
+  X,
+  LogOut,
+  ChevronDown,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import HeaderNotifications from "@/components/HeaderNotifications";
 import api, { API } from "@/lib/api";
 
@@ -19,9 +26,32 @@ const STATUS_META = {
 
 export function StatusBadge({ status }) {
   const m = STATUS_META[status] || STATUS_META.draft;
-  return <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${m.cls}`} data-testid={`status-badge-${status}`}>{m.label}</span>;
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${m.cls}`}
+      data-testid={`status-badge-${status}`}
+    >
+      {m.label}
+    </span>
+  );
 }
 export { STATUS_META };
+
+function SidebarTooltip({ children }) {
+  return (
+    <span
+      role="tooltip"
+      className={[
+        "pointer-events-none absolute left-[calc(100%+10px)] top-1/2 z-[60]",
+        "-translate-y-1/2 whitespace-nowrap rounded-lg bg-[#1F2937] px-3 py-2",
+        "text-xs font-bold text-white opacity-0 shadow-lg transition-opacity",
+        "group-hover:opacity-100 group-focus-within:opacity-100",
+      ].join(" ")}
+    >
+      {children}
+    </span>
+  );
+}
 
 export default function DashboardShell({
   menu,
@@ -43,6 +73,7 @@ export default function DashboardShell({
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [logoUrl, setLogoUrl] = useState(null);
   const identityUser = displayName?.trim() ? { ...user, name: displayName.trim() } : user;
 
@@ -58,8 +89,13 @@ export default function DashboardShell({
   const doLogout = async () => { await logout(); navigate("/", { replace: true }); };
 
   const Sidebar = ({ mobile = false }) => (
-    <div className="flex flex-col h-full">
-      <div className="h-16 flex items-center gap-2.5 px-5 border-b border-gray-100">
+    <div className="flex h-full flex-col" data-testid={mobile ? "mobile-sidebar" : "sidebar"}>
+      <div
+        className={[
+          "flex h-16 items-center border-b border-gray-100",
+          collapsed ? "justify-center px-3" : "gap-2.5 px-5",
+        ].join(" ")}
+      >
         <div className="h-9 w-9 overflow-hidden rounded-lg bg-[#27AE60]">
           {logoUrl ? (
             <img
@@ -69,62 +105,155 @@ export default function DashboardShell({
               data-testid={mobile ? "mobile-sidebar-brand-logo" : "sidebar-brand-logo"}
             />
           ) : (
-            <span className="flex h-full w-full items-center justify-center text-xs font-black text-white">
+            <span
+              className="flex h-full w-full items-center justify-center text-xs font-black text-white"
+            >
               MDJ
             </span>
           )}
         </div>
-        <div className="leading-tight">
-          <p className="font-display font-extrabold text-sm text-[#1F2937]">MDJ Scholarship</p>
-          <p className="text-[10px] font-semibold text-[#6B7280]">{brandLabel}</p>
-        </div>
+        {!collapsed && (
+          <div className="min-w-0 leading-tight">
+            <p className="truncate font-display text-sm font-extrabold text-[#1F2937]">
+              MDJ Scholarship
+            </p>
+            <p className="truncate text-[10px] font-semibold text-[#6B7280]">{brandLabel}</p>
+          </div>
+        )}
       </div>
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto mdj-scrollbar">
+      <nav
+        className={[
+          "mdj-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto",
+          collapsed ? "px-2 py-3" : "p-3",
+        ].join(" ")}
+      >
         {menu.map((m) => {
           const isActive = active === m.id;
           return (
-            <button
-              key={m.id}
-              onClick={() => {
-                onSelect(m.id);
-                setOpen(false);
-              }}
-              data-testid={mobile ? `mobile-menu-${m.id}` : `menu-${m.id}`}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left text-sm font-semibold transition-colors ${isActive ? "bg-[#E8F6EE] text-[#0B6B3A] border-l-4 border-[#27AE60]" : "text-[#6B7280] hover:bg-gray-50 hover:text-[#1F2937] border-l-4 border-transparent"}`}>
-              <m.icon className="w-5 h-5 shrink-0" /> <span className="whitespace-nowrap">{m.label}</span>
-            </button>
+            <div key={m.id} className="group relative">
+              <button
+                onClick={() => {
+                  onSelect(m.id);
+                  setOpen(false);
+                }}
+                data-testid={mobile ? `mobile-menu-${m.id}` : `menu-${m.id}`}
+                aria-label={collapsed ? m.label : undefined}
+                className={[
+                  "flex w-full items-center rounded-lg py-2.5 text-left text-sm font-semibold",
+                  "transition-colors",
+                  collapsed ? "justify-center px-2" : "gap-3 px-3",
+                  isActive
+                    ? "border-l-4 border-[#27AE60] bg-[#E8F6EE] text-[#0B6B3A]"
+                    : "border-l-4 border-transparent text-[#6B7280] hover:bg-gray-50",
+                ].join(" ")}
+              >
+                <m.icon className="h-5 w-5 shrink-0" />
+                {collapsed ? <span className="sr-only">{m.label}</span> : (
+                  <span className="whitespace-nowrap">{m.label}</span>
+                )}
+              </button>
+              {collapsed && <SidebarTooltip>{m.label}</SidebarTooltip>}
+            </div>
           );
         })}
       </nav>
-      <div className="p-3 border-t border-gray-100">
-        <button
-          onClick={doLogout}
-          data-testid={mobile ? "mobile-logout-btn" : "logout-btn"}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-[#DC2626] hover:bg-[#FEE2E2] transition-colors"
-        >
-          <LogOut className="w-5 h-5" />
-          Keluar
-        </button>
+      <div
+        className={collapsed ? "border-t border-gray-100 p-2" : "border-t border-gray-100 p-3"}
+      >
+        <div className="group relative">
+          <button
+            type="button"
+            onClick={() => setCollapsed((isCollapsed) => !isCollapsed)}
+            data-testid={mobile ? "mobile-sidebar-collapse-toggle" : "sidebar-collapse-toggle"}
+            aria-label={collapsed ? "Buka sidebar" : "Tutup sidebar"}
+            className={[
+              "flex w-full items-center rounded-lg py-2.5 text-sm font-semibold text-[#374151]",
+              "transition-colors hover:bg-gray-100",
+              collapsed ? "justify-center px-2" : "justify-center px-3",
+            ].join(" ")}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-5 w-5" />
+            ) : (
+              <PanelLeftClose className="h-5 w-5" />
+            )}
+            <span className="sr-only">{collapsed ? "Buka sidebar" : "Tutup sidebar"}</span>
+          </button>
+          <SidebarTooltip>{collapsed ? "Buka sidebar" : "Tutup sidebar"}</SidebarTooltip>
+        </div>
+        <div className="group relative mt-1">
+          <button
+            onClick={doLogout}
+            data-testid={mobile ? "mobile-logout-btn" : "logout-btn"}
+            aria-label={collapsed ? "Keluar" : undefined}
+            className={[
+              "flex w-full items-center rounded-lg py-2.5 text-sm font-semibold text-[#DC2626]",
+              "transition-colors hover:bg-[#FEE2E2]",
+              collapsed ? "justify-center px-2" : "gap-3 px-3",
+            ].join(" ")}
+          >
+            <LogOut className="h-5 w-5 shrink-0" />
+            {collapsed ? <span className="sr-only">Keluar</span> : <span>Keluar</span>}
+          </button>
+          {collapsed && <SidebarTooltip>Keluar</SidebarTooltip>}
+        </div>
       </div>
     </div>
   );
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex">
-      <aside className="hidden lg:flex w-64 bg-white border-r border-gray-100 fixed inset-y-0 left-0 z-30">
+      <aside
+        data-testid="desktop-sidebar-container"
+        className={[
+          "fixed inset-y-0 left-0 z-30 hidden border-r border-gray-100 bg-white",
+          "transition-[width] duration-300 lg:flex",
+          collapsed ? "w-20" : "w-64",
+        ].join(" ")}
+      >
         <Sidebar />
       </aside>
-      {open && <div className="lg:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setOpen(false)} />}
+      {open && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+          data-testid="mobile-sidebar-overlay"
+          onClick={() => setOpen(false)}
+        />
+      )}
       <aside
-        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-white transform transition-transform ${open ? "translate-x-0" : "-translate-x-full"}`}
+        data-testid="mobile-sidebar-container"
+        className={[
+          "fixed inset-y-0 left-0 z-50 bg-white transition-[transform,width] duration-300",
+          "lg:hidden",
+          collapsed ? "w-20" : "w-64",
+          open ? "translate-x-0" : "-translate-x-full",
+        ].join(" ")}
       >
         <Sidebar mobile />
       </aside>
 
-      <div className="flex-1 lg:ml-64 min-w-0">
-        <header className="h-16 bg-white/90 backdrop-blur-xl border-b border-gray-100 sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6">
+      <div
+        className={[
+          "min-w-0 flex-1 transition-[margin] duration-300",
+          collapsed ? "lg:ml-20" : "lg:ml-64",
+        ].join(" ")}
+      >
+        <header
+          className={[
+            "sticky top-0 z-20 flex h-16 items-center justify-between border-b",
+            "border-gray-100 bg-white/90 px-4 backdrop-blur-xl sm:px-6",
+          ].join(" ")}
+        >
           <div className="flex items-center gap-3 min-w-0">
-            <button className="lg:hidden p-2 -ml-2" onClick={() => setOpen(true)} data-testid="sidebar-toggle" aria-label="Buka menu"><Menu className="w-6 h-6 text-[#1F2937]" /></button>
+            <button
+              type="button"
+              className="-ml-2 p-2 lg:hidden"
+              onClick={() => setOpen(true)}
+              data-testid="sidebar-toggle"
+              aria-label="Buka menu"
+            >
+              <Menu className="h-6 w-6 text-[#1F2937]" />
+            </button>
             <div className="min-w-0">
               <h1 className="font-display font-bold text-lg text-[#1F2937] truncate">{title}</h1>
               {subtitle && <p className="text-xs text-[#6B7280] truncate">{subtitle}</p>}
@@ -198,8 +327,15 @@ function CandidateIdentity({
         onReadAll={onReadAllNotifications}
       />
       <div className="hidden min-w-0 border-l border-gray-200 pl-4 sm:block">
-        <p className="max-w-[160px] truncate text-sm font-bold text-[#1F2937]" data-testid="candidate-display-name">{user?.name}</p>
-        <p className="text-xs font-semibold text-[#6B7280]" data-testid="candidate-role-label">Calon Penerima Manfaat</p>
+        <p
+          className="max-w-[160px] truncate text-sm font-bold text-[#1F2937]"
+          data-testid="candidate-display-name"
+        >
+          {user?.name}
+        </p>
+        <p className="text-xs font-semibold text-[#6B7280]" data-testid="candidate-role-label">
+          Calon Penerima Manfaat
+        </p>
         <p className="text-xs text-[#6B7280]" data-testid="candidate-id-value">
           ID: {candidateId}
         </p>
