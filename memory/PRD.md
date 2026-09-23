@@ -35,6 +35,7 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
 - Tanggal pengumuman dibuat otomatis dalam format Indonesia dan tidak dapat diedit dari CMS.
 - Super Admin dapat mengatur kuota penerima; kartu status Beranda menampilkan kuota serta
   tanggal bulan penuh atau singkat sesuai ruang yang tersedia.
+- Tombol Kembali ke Beranda pada login berada di kanan atas panel formulir.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

@@ -176,14 +176,16 @@ export default function Login() {
         <AuthSide />
         <div className="flex items-center justify-center px-6 py-12 sm:px-12 lg:p-16">
           <div className="w-full max-w-md">
-            <Link
-              to="/"
-              data-testid="login-home-link"
-              className="mb-7 inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#6B7280] transition-colors hover:border-[#8FE2B4] hover:bg-[#F0FBF5] hover:text-[#0B6B3A]"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Kembali ke Beranda
-            </Link>
+            <div className="mb-7 flex justify-end">
+              <Link
+                to="/"
+                data-testid="login-home-link"
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-[#6B7280] transition-colors hover:border-[#8FE2B4] hover:bg-[#F0FBF5] hover:text-[#0B6B3A]"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Kembali ke Beranda
+              </Link>
+            </div>
             <h1 className="font-display text-3xl font-extrabold tracking-tight text-[#1F2937]">
               Masuk ke Akun Anda
             </h1>

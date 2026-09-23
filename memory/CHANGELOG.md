@@ -783,3 +783,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   `25 September 2026`.
 - Verifikasi browser mengonfirmasi format tanggal dan angka kuota `3.600 Mahasiswa`; pengaturan
   kuota uji telah dikembalikan ke nilai asli.
+
+## 2026-09 — Posisi Kembali ke Beranda di Login
+- Tombol **Kembali ke Beranda** dipindahkan ke kanan atas panel formulir login sesuai referensi.
+- Gaya tombol, rute, dan perilaku navigasi tidak diubah.
+- Verifikasi browser mengonfirmasi tombol berada di atas dan di kanan judul formulir.
