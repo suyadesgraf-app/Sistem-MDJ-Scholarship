@@ -259,8 +259,81 @@ class TestPreview:
         assert r.status_code == 200, r.text
         data = r.json()
         assert data["count"] >= 2
+        demo_user = mongo_db.users.find_one({"email": DEMO_STUDENT["email"]})
+        assert demo_user, "demo student should exist"
+        expected_count = mongo_db.registrations.count_documents(
+            {"user_id": {"$ne": demo_user["user_id"]}}
+        )
+        assert data["count"] == expected_count
         post_count = mongo_db.registrations.count_documents({})
         assert pre_count == post_count, "preview must not delete"
+
+
+class TestDemoStudentProtection:
+    def test_demo_account_is_excluded_from_delete_preview(self, super_token, mongo_db):
+        demo_user = mongo_db.users.find_one({"email": DEMO_STUDENT["email"]})
+        assert demo_user, "demo student should exist"
+        r = requests.post(
+            f"{API}/admin/participants/delete-preview",
+            json={"scope": "single", "user_id": demo_user["user_id"]},
+            headers=_h(super_token),
+            timeout=30,
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["count"] == 0
+
+    def test_demo_account_cannot_be_deleted(self, super_token, mongo_db):
+        demo_user = mongo_db.users.find_one({"email": DEMO_STUDENT["email"]})
+        assert demo_user, "demo student should exist"
+        r = requests.delete(
+            f"{API}/admin/participants",
+            json={"scope": "single", "user_id": demo_user["user_id"], "confirmed": True},
+            headers=_h(super_token),
+            timeout=30,
+        )
+        assert r.status_code == 404, r.text
+        assert mongo_db.users.find_one({"user_id": demo_user["user_id"]}) is not None
+
+    def test_demo_account_is_excluded_from_beneficiary_recaps(self, super_token, mongo_db):
+        demo_user = mongo_db.users.find_one({"email": DEMO_STUDENT["email"]})
+        assert demo_user, "demo student should exist"
+        expected_beneficiaries = mongo_db.registrations.count_documents(
+            {
+                "status": "lolos",
+                "user_id": {"$ne": demo_user["user_id"]},
+            }
+        )
+        stats_response = requests.get(
+            f"{API}/admin/stats",
+            headers=_h(super_token),
+            timeout=30,
+        )
+        assert stats_response.status_code == 200, stats_response.text
+        assert stats_response.json()["verified"] == expected_beneficiaries
+
+        beneficiaries_response = requests.get(
+            f"{API}/admin/beneficiaries",
+            headers=_h(super_token),
+            timeout=30,
+        )
+        assert beneficiaries_response.status_code == 200, beneficiaries_response.text
+        beneficiary_emails = {
+            item.get("email", "").lower()
+            for item in beneficiaries_response.json()
+        }
+        assert DEMO_STUDENT["email"] not in beneficiary_emails
+
+    def test_demo_account_can_be_found_in_participant_list(self, super_token):
+        response = requests.get(
+            f"{API}/admin/participants",
+            params={"search": DEMO_STUDENT["email"]},
+            headers=_h(super_token),
+            timeout=30,
+        )
+        assert response.status_code == 200, response.text
+        participants = response.json()
+        assert len(participants) == 1
+        assert participants[0]["email"] == DEMO_STUDENT["email"]
 
 
 # ---------------- Delete guard ----------------

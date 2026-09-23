@@ -68,6 +68,33 @@ DEMO_ADMIN_PASSWORD = os.environ['DEMO_ADMIN_PASSWORD']
 DEMO_STUDENT_EMAIL = os.environ['DEMO_STUDENT_EMAIL']
 DEMO_STUDENT_PASSWORD = os.environ['DEMO_STUDENT_PASSWORD']
 
+
+def is_demo_student_email(email: Any) -> bool:
+    return str(email or "").strip().lower() == DEMO_STUDENT_EMAIL.strip().lower()
+
+
+async def demo_student_user_id() -> Optional[str]:
+    demo_user = await db.users.find_one(
+        {"email": DEMO_STUDENT_EMAIL, "role": "student"},
+        {"_id": 0, "user_id": 1},
+    )
+    return (demo_user or {}).get("user_id")
+
+
+def is_demo_student_registration(registration: dict, demo_user_id: Optional[str]) -> bool:
+    return (
+        registration.get("user_id") == demo_user_id
+        or is_demo_student_email(registration.get("email"))
+    )
+
+
+async def demo_beneficiary_exclusion_query() -> dict:
+    demo_user_id = await demo_student_user_id()
+    if demo_user_id:
+        return {"user_id": {"$ne": demo_user_id}}
+    return {"email": {"$ne": DEMO_STUDENT_EMAIL}}
+
+
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
 EMERGENT_KEY = os.environ.get("EMERGENT_LLM_KEY")
@@ -2164,6 +2191,7 @@ async def extract_pm_payload(
 
 async def final_beneficiary_index(user: Optional[dict] = None) -> Dict[str, List[dict]]:
     query = {"status": "lolos"}
+    query.update(await demo_beneficiary_exclusion_query())
     if user:
         query.update(await participant_scope_query(user))
     registrations = await db.registrations.find(query, {"_id": 0}).to_list(5000)
@@ -2201,6 +2229,7 @@ def campus_disbursement_key(campus: str) -> str:
 
 async def final_beneficiary_rows(user: Optional[dict] = None) -> List[dict]:
     query = {"status": "lolos"}
+    query.update(await demo_beneficiary_exclusion_query())
     if user:
         query.update(await participant_scope_query(user))
     registrations = await db.registrations.find(query, {"_id": 0}).to_list(5000)
@@ -3080,6 +3109,7 @@ async def list_beneficiaries(
 ):
     scope_region = regional_admin_region(user)
     query = {"status": "lolos"}
+    query.update(await demo_beneficiary_exclusion_query())
     query.update(await participant_scope_query(user))
     registrations = await db.registrations.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
     user_ids = [registration["user_id"] for registration in registrations]
@@ -3413,8 +3443,10 @@ async def upload_active_letters(
 
 async def active_letter_candidate_index(workflow: str) -> Dict[str, List[dict]]:
     statuses = ["wawancara", "verifikasi_faktual"] if workflow == "factual_verification" else ["lolos"]
+    query = {"status": {"$in": statuses}}
+    query.update(await demo_beneficiary_exclusion_query())
     registrations = await db.registrations.find(
-        {"status": {"$in": statuses}},
+        query,
         {"_id": 0},
     ).to_list(5000)
     user_ids = [item["user_id"] for item in registrations]
@@ -5391,8 +5423,15 @@ async def admin_stats(
             if region_name(registration) == selected_region
         ]
     total = len(regs)
+    demo_user_id = await demo_student_user_id()
+    recap_regs = [
+        registration
+        for registration in regs
+        if registration.get("status") != "lolos"
+        or not is_demo_student_registration(registration, demo_user_id)
+    ]
     by_status = {}
-    for r in regs:
+    for r in recap_regs:
         by_status[r.get("status", "draft")] = by_status.get(r.get("status", "draft"), 0) + 1
     if scope_region:
         total_students = len({registration["user_id"] for registration in regs})
@@ -5413,7 +5452,7 @@ async def admin_stats(
             trend[month] = trend.get(month, 0) + 1
     trend_list = [{"month": k, "count": v} for k, v in sorted(trend.items())]
     passed_by_region = {}
-    for registration in regs:
+    for registration in recap_regs:
         if registration.get("status") != "lolos":
             continue
         passed_region = region_name(registration)
@@ -5447,14 +5486,45 @@ async def list_participants(
     query["is_archived"] = {"$ne": True}
     if status and status != "all":
         query["status"] = status
-    regs = await db.registrations.find(query, {"_id": 0}).sort("created_at", -1).to_list(2000)
+    regs = await db.registrations.find(query, {"_id": 0}).sort("created_at", -1).to_list(5000)
+    user_ids = [registration["user_id"] for registration in regs]
+    profiles = await db.profiles.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "data": 1},
+    ).to_list(5000)
+    accounts = await db.users.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+    ).to_list(5000)
+    document_counts = {}
+    document_count_cursor = db.documents.aggregate([
+        {
+            "$match": {
+                "user_id": {"$in": user_ids},
+                "is_deleted": False,
+            }
+        },
+        {"$group": {"_id": "$user_id", "count": {"$sum": 1}}},
+    ])
+    async for document_count in document_count_cursor:
+        document_counts[document_count["_id"]] = document_count["count"]
+    profiles_by_user = {
+        profile["user_id"]: profile.get("data", {})
+        for profile in profiles
+    }
+    accounts_by_user = {
+        account["user_id"]: account
+        for account in accounts
+    }
     result = []
     for r in regs:
-        profile = await db.profiles.find_one({"user_id": r["user_id"]}, {"_id": 0})
-        pdata = (profile or {}).get("data", {})
-        doc_count = await db.documents.count_documents({"user_id": r["user_id"], "is_deleted": False})
+        pdata = profiles_by_user.get(r["user_id"], {})
+        account = accounts_by_user.get(r["user_id"], {})
+        doc_count = document_counts.get(r["user_id"], 0)
         item = {
             **r,
+            "name": r.get("name") or account.get("name", "-"),
+            "email": r.get("email") or account.get("email", "-"),
             "institusi": pdata.get("institusi", "-"),
             "jenjang": pdata.get("jenjang", "-"),
             "nim": pdata.get("nim", "-"),
@@ -5472,7 +5542,12 @@ async def list_participants(
             continue
         if search:
             s = search.lower()
-            if s not in (r.get("name", "").lower() + r.get("email", "").lower() + pdata.get("institusi", "").lower()):
+            searchable = " ".join([
+                item["name"],
+                item["email"],
+                pdata.get("institusi", ""),
+            ]).lower()
+            if s not in searchable:
                 continue
         result.append(item)
     return result
@@ -5987,7 +6062,12 @@ async def participant_deletion_targets(payload: ParticipantDeletionInput) -> Lis
         ).to_list(10000)
     else:
         raise HTTPException(status_code=400, detail="Cakupan penghapusan tidak valid.")
-    return registrations
+    demo_user_id = await demo_student_user_id()
+    return [
+        registration
+        for registration in registrations
+        if not is_demo_student_registration(registration, demo_user_id)
+    ]
 
 
 def participant_deletion_label(payload: ParticipantDeletionInput, count: int) -> str:

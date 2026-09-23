@@ -21,6 +21,7 @@ const STATUS_FILTERS = [
   ["verifikasi_faktual", "Verif. Faktual"], ["lolos", "Penerima"], ["ditolak", "Tidak Lolos"],
 ];
 const STATUS_OPTS = ["submitted", "verifikasi", "lolos_administrasi", "wawancara", "verifikasi_faktual", "lolos", "ditolak"];
+const DEMO_STUDENT_EMAIL = "mahasiswa.mdj@baznasbazisdki.id";
 
 export default function ParticipantsPanel() {
   const { user } = useAuth();
@@ -197,49 +198,61 @@ export default function ParticipantsPanel() {
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400"><Loader2 className="w-5 h-5 animate-spin inline" /></td></tr>
               ) : items.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-12 text-center text-gray-400">Belum ada pendaftar.</td></tr>
-              ) : items.map((p, index) => (
-                <tr key={p.user_id} className="border-b border-gray-50 hover:bg-[#F9FAFB] transition-colors">
-                  <td className="px-4 py-3 text-sm font-semibold text-[#6B7280]" data-testid={`participant-sequence-${p.user_id}`}>
-                    {index + 1}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-[#1F2937]">{p.name}</p>
-                      {p.is_test_data && (
-                        <span
-                          className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#92400E]"
-                          data-testid={`test-data-badge-${p.user_id}`}
-                        >
-                          Data Uji MDJ
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-[#6B7280]">{p.email}</p>
-                  </td>
-                  <td className="px-4 py-3 text-[#6B7280]">{p.institusi} <span className="block text-xs">{p.jenjang}</span></td>
-                  <td className="px-4 py-3 text-[#6B7280]" data-testid={`participant-region-${p.user_id}`}>
-                    {p.wilayah}
-                  </td>
-                  <td className="px-4 py-3 text-[#6B7280]">{p.doc_count}</td>
-                  <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button onClick={() => setDetail(p.user_id)} data-testid={`view-participant-${p.user_id}`} className="px-3 py-1.5 bg-[#E8F6EE] text-[#0B6B3A] text-xs font-bold rounded-lg hover:bg-[#d3efdf] inline-flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" /> Detail</button>
-                      {user?.role === "super_admin" && (
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget({ type: "single", participant: p })}
-                          data-testid={`delete-participant-${p.user_id}`}
-                          className="rounded-lg border border-[#FECACA] p-1.5 text-[#DC2626] transition-colors hover:bg-[#FEF2F2]"
-                          title={`Hapus ${p.name}`}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              ) : items.map((p, index) => {
+                const isDemoStudent = p.email?.trim().toLowerCase() === DEMO_STUDENT_EMAIL;
+                return (
+                  <tr key={p.user_id} className="border-b border-gray-50 hover:bg-[#F9FAFB] transition-colors">
+                    <td className="px-4 py-3 text-sm font-semibold text-[#6B7280]" data-testid={`participant-sequence-${p.user_id}`}>
+                      {index + 1}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-[#1F2937]">{p.name}</p>
+                        {isDemoStudent && (
+                          <span
+                            className="rounded-full bg-[#DBEAFE] px-2 py-0.5 text-[10px] font-bold text-[#1D4ED8]"
+                            data-testid={`demo-account-badge-${p.user_id}`}
+                          >
+                            Akun Demo
+                          </span>
+                        )}
+                        {p.is_test_data && (
+                          <span
+                            className="rounded-full bg-[#FEF3C7] px-2 py-0.5 text-[10px] font-bold text-[#92400E]"
+                            data-testid={`test-data-badge-${p.user_id}`}
+                          >
+                            Data Uji MDJ
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#6B7280]">{p.email}</p>
+                    </td>
+                    <td className="px-4 py-3 text-[#6B7280]">{p.institusi} <span className="block text-xs">{p.jenjang}</span></td>
+                    <td className="px-4 py-3 text-[#6B7280]" data-testid={`participant-region-${p.user_id}`}>
+                      {p.wilayah}
+                    </td>
+                    <td className="px-4 py-3 text-[#6B7280]">{p.doc_count}</td>
+                    <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button onClick={() => setDetail(p.user_id)} data-testid={`view-participant-${p.user_id}`} className="px-3 py-1.5 bg-[#E8F6EE] text-[#0B6B3A] text-xs font-bold rounded-lg hover:bg-[#d3efdf] inline-flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" /> Detail</button>
+                        {user?.role === "super_admin" && (
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget({ type: "single", participant: p })}
+                            disabled={isDemoStudent}
+                            data-testid={`delete-participant-${p.user_id}`}
+                            className="rounded-lg border border-[#FECACA] p-1.5 text-[#DC2626] transition-colors hover:bg-[#FEF2F2] disabled:cursor-not-allowed disabled:border-gray-200 disabled:text-gray-300 disabled:hover:bg-transparent"
+                            title={isDemoStudent ? "Akun demo tidak dapat dihapus" : `Hapus ${p.name}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
