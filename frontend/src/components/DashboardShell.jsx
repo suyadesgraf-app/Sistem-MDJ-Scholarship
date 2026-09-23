@@ -53,43 +53,22 @@ function SidebarTooltip({ children }) {
   );
 }
 
-export default function DashboardShell({
-  menu,
+function DashboardSidebar({
   active,
-  onSelect,
-  title,
-  subtitle,
-  actions,
-  children,
   brandLabel,
-  avatarUrl,
-  candidateId,
-  notifications = [],
-  unreadNotificationCount = 0,
-  onNotificationClick,
-  onReadAllNotifications,
-  displayName,
+  collapsed,
+  logoUrl,
+  menu,
+  mobile = false,
+  onLogout,
+  onMenuSelect,
+  onToggleCollapse,
 }) {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
-  const [logoUrl, setLogoUrl] = useState(null);
-  const identityUser = displayName?.trim() ? { ...user, name: displayName.trim() } : user;
-
-  useEffect(() => {
-    api.get("/site/content")
-      .then((response) => {
-        const path = response.data.logo_url;
-        setLogoUrl(path ? `${API.replace("/api", "")}${path}` : null);
-      })
-      .catch(() => setLogoUrl(null));
-  }, []);
-
-  const doLogout = async () => { await logout(); navigate("/", { replace: true }); };
-
-  const Sidebar = ({ mobile = false }) => (
-    <div className="flex h-full flex-col" data-testid={mobile ? "mobile-sidebar" : "sidebar"}>
+  return (
+    <div
+      className="flex h-full flex-col"
+      data-testid={mobile ? "mobile-sidebar" : "sidebar"}
+    >
       <div
         className={[
           "flex h-16 items-center border-b border-gray-100",
@@ -127,17 +106,15 @@ export default function DashboardShell({
           collapsed ? "px-2 py-3" : "p-3",
         ].join(" ")}
       >
-        {menu.map((m) => {
-          const isActive = active === m.id;
+        {menu.map((item) => {
+          const isActive = active === item.id;
           return (
-            <div key={m.id} className="group relative">
+            <div key={item.id} className="group relative">
               <button
-                onClick={() => {
-                  onSelect(m.id);
-                  setOpen(false);
-                }}
-                data-testid={mobile ? `mobile-menu-${m.id}` : `menu-${m.id}`}
-                aria-label={collapsed ? m.label : undefined}
+                type="button"
+                onClick={() => onMenuSelect(item.id)}
+                data-testid={mobile ? `mobile-menu-${item.id}` : `menu-${item.id}`}
+                aria-label={collapsed ? item.label : undefined}
                 className={[
                   "flex w-full items-center rounded-lg py-2.5 text-left text-sm font-semibold",
                   "transition-colors",
@@ -147,12 +124,12 @@ export default function DashboardShell({
                     : "border-l-4 border-transparent text-[#6B7280] hover:bg-gray-50",
                 ].join(" ")}
               >
-                <m.icon className="h-5 w-5 shrink-0" />
-                {collapsed ? <span className="sr-only">{m.label}</span> : (
-                  <span className="whitespace-nowrap">{m.label}</span>
+                <item.icon className="h-5 w-5 shrink-0" />
+                {collapsed ? <span className="sr-only">{item.label}</span> : (
+                  <span className="whitespace-nowrap">{item.label}</span>
                 )}
               </button>
-              {collapsed && <SidebarTooltip>{m.label}</SidebarTooltip>}
+              {collapsed && <SidebarTooltip>{item.label}</SidebarTooltip>}
             </div>
           );
         })}
@@ -163,7 +140,7 @@ export default function DashboardShell({
         <div className="group relative">
           <button
             type="button"
-            onClick={() => setCollapsed((isCollapsed) => !isCollapsed)}
+            onClick={onToggleCollapse}
             data-testid={mobile ? "mobile-sidebar-collapse-toggle" : "sidebar-collapse-toggle"}
             aria-label={collapsed ? "Buka sidebar" : "Tutup sidebar"}
             className={[
@@ -183,7 +160,8 @@ export default function DashboardShell({
         </div>
         <div className="group relative mt-1">
           <button
-            onClick={doLogout}
+            type="button"
+            onClick={onLogout}
             data-testid={mobile ? "mobile-logout-btn" : "logout-btn"}
             aria-label={collapsed ? "Keluar" : undefined}
             className={[
@@ -200,6 +178,47 @@ export default function DashboardShell({
       </div>
     </div>
   );
+}
+
+export default function DashboardShell({
+  menu,
+  active,
+  onSelect,
+  title,
+  subtitle,
+  actions,
+  children,
+  brandLabel,
+  avatarUrl,
+  candidateId,
+  notifications = [],
+  unreadNotificationCount = 0,
+  onNotificationClick,
+  onReadAllNotifications,
+  displayName,
+}) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(null);
+  const identityUser = displayName?.trim() ? { ...user, name: displayName.trim() } : user;
+
+  useEffect(() => {
+    api.get("/site/content")
+      .then((response) => {
+        const path = response.data.logo_url;
+        setLogoUrl(path ? `${API.replace("/api", "")}${path}` : null);
+      })
+      .catch(() => setLogoUrl(null));
+  }, []);
+
+  const doLogout = async () => { await logout(); navigate("/", { replace: true }); };
+  const handleMenuSelect = (menuId) => {
+    onSelect(menuId);
+    setOpen(false);
+  };
+  const toggleSidebar = () => setCollapsed((isCollapsed) => !isCollapsed);
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] flex">
@@ -211,7 +230,16 @@ export default function DashboardShell({
           collapsed ? "w-20" : "w-64",
         ].join(" ")}
       >
-        <Sidebar />
+        <DashboardSidebar
+          active={active}
+          brandLabel={brandLabel}
+          collapsed={collapsed}
+          logoUrl={logoUrl}
+          menu={menu}
+          onLogout={doLogout}
+          onMenuSelect={handleMenuSelect}
+          onToggleCollapse={toggleSidebar}
+        />
       </aside>
       {open && (
         <div
@@ -229,7 +257,17 @@ export default function DashboardShell({
           open ? "translate-x-0" : "-translate-x-full",
         ].join(" ")}
       >
-        <Sidebar mobile />
+        <DashboardSidebar
+          active={active}
+          brandLabel={brandLabel}
+          collapsed={collapsed}
+          logoUrl={logoUrl}
+          menu={menu}
+          mobile
+          onLogout={doLogout}
+          onMenuSelect={handleMenuSelect}
+          onToggleCollapse={toggleSidebar}
+        />
       </aside>
 
       <div

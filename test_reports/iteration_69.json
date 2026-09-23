@@ -1,0 +1,22 @@
+{
+  "summary": "Frontend-only verification of new collapse-sidebar feature across Super Admin, Admin Provinsi, and Mahasiswa dashboards on desktop (1920x1080) plus mobile (390x844). All six acceptance criteria pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "DashboardShell.jsx defines the inner Sidebar component inside the render function. Every parent re-render creates a NEW component type, forcing React to unmount/remount the entire sidebar subtree on each state change. This works today but (a) throws away focus/scroll state inside the drawer, (b) is wasteful, and (c) makes cached element handles stale for automated tests. Move Sidebar to a top-level component and pass props (menu, active, onSelect, collapsed, setCollapsed, mobile, logoUrl, brandLabel, doLogout) instead of relying on closure."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "Used credentials from /app/memory/test_credentials.md (Super Admin, Admin Provinsi, Mahasiswa demo accounts).",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Verified per-role: (1) desktop sidebar starts expanded (width 256) after login/refresh for all 3 roles; (2) sidebar-collapse-toggle has aria-label 'Tutup sidebar' and hover tooltip 'Tutup sidebar' when expanded; clicking collapses to width 80, hides brand text, updates aria-label + hover tooltip to 'Buka sidebar', and shifts main content margin-left to 80px; (3) clicking again re-expands to 256; (4) after refresh from a collapsed state, sidebar returns to expanded (no persistence, matches spec); (5) at 390px mobile, sidebar-toggle opens the drawer, mobile-sidebar-collapse-toggle collapses it to 80 with no horizontal overflow and the bottom control stays within viewport (bottom=792 of 844); (6) collapsed menu icons carry aria-labels equal to their menu names and clicking one still switches the active view. Note: the inner Sidebar component is redefined every render, so playwright element handles become stale after state changes — always re-query by data-testid instead of caching handles.",
+  "rca of the issue": "N/A - no bugs found."
+}

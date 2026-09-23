@@ -914,3 +914,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   dan seluruh kampus tetap tersedia.
 - Verifikasi testing agent lulus backend 21/21, UI desktop/mobile, dan tidak ada penghapusan
   terhadap data peserta nyata.
+
+## 2026-09 — Sidebar Ringkas Seluruh Akun
+- Dashboard Mahasiswa, Admin Provinsi, dan Super Admin kini memakai sidebar bersama yang dapat
+  ditutup hingga hanya menampilkan ikon menu.
+- Kontrol di area bawah menampilkan tooltip **Tutup sidebar** atau **Buka sidebar** saat diarahkan;
+  ikon menu ringkas juga tetap memiliki label aksesibel serta tooltip.
+- Mode ini tersedia pada sidebar desktop dan drawer ponsel, tetap dapat digulir pada menu panjang,
+  dan tidak disimpan setelah refresh atau login baru.
+- Verifikasi testing agent lulus seluruh 6 kriteria lintas peran; build dan smoke test pasca-refactor
+  juga berhasil.

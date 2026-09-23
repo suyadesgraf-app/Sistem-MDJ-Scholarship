@@ -9,6 +9,7 @@
   Penerima Manfaat.
 - CMS Footer & Kontak untuk tautan sosial serta informasi Hubungi Kami dinamis.
 - Pencarian satu peserta pada dialog Hapus Data, dengan pratinjau sebelum hapus permanen.
+- Sidebar ringkas berbasis ikon untuk Mahasiswa, Admin Provinsi, dan Super Admin.
 
 ## P1 — Ditunda sesuai arahan pengguna
 - Refactor bertahap `/app/backend/server.py` yang sangat besar menjadi router/service
