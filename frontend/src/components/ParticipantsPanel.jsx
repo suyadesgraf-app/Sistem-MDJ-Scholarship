@@ -3,8 +3,9 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { StatusBadge, STATUS_META } from "@/components/DashboardShell";
 import { useAuth } from "@/context/AuthContext";
-import { Search, Eye, X, FileText, Download, Loader2, Building2, Phone, Mail, GraduationCap } from "lucide-react";
+import { Search, Eye, X, FileText, Download, Loader2, Building2, Phone, Mail, GraduationCap, Upload } from "lucide-react";
 import { DocPreview } from "@/components/DocPreview";
+import ParticipantExcelImportDialog from "@/components/ParticipantExcelImportDialog";
 
 const STATUS_FILTERS = [
   ["all", "Semua"],
@@ -26,6 +27,7 @@ export default function ParticipantsPanel() {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [detail, setDetail] = useState(null);
+  const [showImport, setShowImport] = useState(false);
   const lockedRegion = user?.role === "admin_wilayah" ? user.region : "";
 
   const load = async () => {
@@ -114,6 +116,16 @@ export default function ParticipantsPanel() {
                 </select>
               </label>
             )}
+            {user?.role === "super_admin" && (
+              <button
+                type="button"
+                onClick={() => setShowImport(true)}
+                data-testid="open-participant-import"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#27AE60] bg-white px-4 py-2.5 text-sm font-bold text-[#0B6B3A] transition-colors hover:bg-[#F0FBF5]"
+              >
+                <Upload className="h-4 w-4" /> Import Data
+              </button>
+            )}
             <button
               type="button"
               onClick={exportExcel}
@@ -199,6 +211,12 @@ export default function ParticipantsPanel() {
           onClose={() => setDetail(null)}
           onUpdated={load}
           canManageDocuments={user?.role !== "admin_wilayah"}
+        />
+      )}
+      {showImport && (
+        <ParticipantExcelImportDialog
+          onClose={() => setShowImport(false)}
+          onImported={load}
         />
       )}
     </div>

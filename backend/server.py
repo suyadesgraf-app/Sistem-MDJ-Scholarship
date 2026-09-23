@@ -12,7 +12,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timezone, timedelta
+from datetime import date, datetime, timezone, timedelta
 import logging
 import uuid
 import jwt
@@ -5455,6 +5455,350 @@ async def list_participants(
                 continue
         result.append(item)
     return result
+
+
+PARTICIPANT_IMPORT_FIELDS = [
+    {"key": "name", "label": "Nama Lengkap", "required": True},
+    {"key": "nik", "label": "NIK", "required": False},
+    {"key": "email", "label": "Email", "required": False},
+    {"key": "phone", "label": "Nomor HP", "required": False},
+    {"key": "campus", "label": "Perguruan Tinggi", "required": False},
+    {"key": "nim", "label": "NIM", "required": False},
+    {"key": "education_level", "label": "Jenjang", "required": False},
+    {"key": "major", "label": "Program Studi", "required": False},
+    {"key": "semester", "label": "Semester", "required": False},
+    {"key": "gpa", "label": "IPK", "required": False},
+    {"key": "region", "label": "Wilayah / Kota", "required": False},
+    {"key": "province", "label": "Provinsi", "required": False},
+    {"key": "address", "label": "Alamat", "required": False},
+    {"key": "gender", "label": "Jenis Kelamin", "required": False},
+    {"key": "cpm_id", "label": "ID CPM", "required": False},
+]
+
+PARTICIPANT_IMPORT_ALIASES = {
+    "name": {"nama", "namalengkap", "namamahasiswa", "peserta", "name"},
+    "nik": {"nik", "nomorindukkependudukan"},
+    "email": {"email", "emailmahasiswa", "alamatemail"},
+    "phone": {"nohp", "nomorhp", "telepon", "notelp", "phone"},
+    "campus": {"kampus", "namakampus", "perguruantinggi", "universitas", "institusi"},
+    "nim": {"nim", "nomorindukmahasiswa"},
+    "education_level": {"jenjang", "pendidikan", "jenjangpendidikan"},
+    "major": {"jurusan", "programstudi", "prodi"},
+    "semester": {"semester"},
+    "gpa": {"ipk", "gpa", "indeksprestasikumulatif"},
+    "region": {"wilayah", "kota", "kotakabupaten", "domisili", "kabupaten"},
+    "province": {"provinsi"},
+    "address": {"alamat", "alamatlengkap"},
+    "gender": {"jeniskelamin", "gender", "kelamin"},
+    "cpm_id": {"idcpm", "cpmid", "nomorcpm", "idcalonpenerimamanfaat"},
+}
+
+PARTICIPANT_IMPORT_PROFILE_KEYS = {
+    "name": "namaLengkap",
+    "email": "email",
+    "phone": "noTelp",
+    "campus": "institusi",
+    "nim": "nim",
+    "education_level": "jenjang",
+    "major": "jurusan",
+    "semester": "semester",
+    "gpa": "ipk",
+    "region": "kota",
+    "province": "provinsi",
+    "address": "alamatLengkap",
+    "gender": "jenisKelamin",
+    "nik": "nik",
+}
+
+
+def participant_import_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, (datetime, date)):
+        return value.strftime("%Y-%m-%d")
+    return str(value).strip()
+
+
+def find_participant_import_header_row(rows: List[tuple]) -> int:
+    best_index = 0
+    best_score = -1
+    aliases = set().union(*PARTICIPANT_IMPORT_ALIASES.values())
+    for index, row in enumerate(rows[:10]):
+        score = sum(normalized_import_value(value) in aliases for value in row)
+        if score > best_score:
+            best_index = index
+            best_score = score
+    return best_index
+
+
+def participant_import_headers(row: tuple) -> List[str]:
+    used_headers = set()
+    headers = []
+    for index, value in enumerate(row):
+        base_header = participant_import_cell(value) or f"Kolom {index + 1}"
+        header = base_header
+        suffix = 2
+        while header in used_headers:
+            header = f"{base_header} ({suffix})"
+            suffix += 1
+        used_headers.add(header)
+        headers.append(header)
+    return headers
+
+
+def participant_import_mapping(headers: List[str]) -> Dict[str, str]:
+    mapping = {}
+    for field in PARTICIPANT_IMPORT_FIELDS:
+        aliases = PARTICIPANT_IMPORT_ALIASES[field["key"]]
+        mapping[field["key"]] = next(
+            (header for header in headers if normalized_import_value(header) in aliases),
+            "",
+        )
+    return mapping
+
+
+def parse_participant_import_workbook(file_data: bytes) -> dict:
+    try:
+        workbook = load_workbook(io.BytesIO(file_data), read_only=True, data_only=True)
+        worksheet = workbook.active
+        rows = list(worksheet.iter_rows(values_only=True))
+        workbook.close()
+    except Exception as error:
+        raise HTTPException(status_code=400, detail="File XLSX tidak dapat dibaca.") from error
+    if len(rows) < 2:
+        raise HTTPException(status_code=400, detail="File XLSX belum memiliki data peserta.")
+
+    header_index = find_participant_import_header_row(rows)
+    headers = participant_import_headers(rows[header_index])
+    if not any(header and not header.startswith("Kolom ") for header in headers):
+        raise HTTPException(status_code=400, detail="Header kolom XLSX tidak ditemukan.")
+    raw_rows = rows[header_index + 1:header_index + 1001]
+    return {
+        "headers": headers,
+        "header_index": header_index,
+        "rows": raw_rows,
+    }
+
+
+def participant_import_row(row: tuple, headers: List[str], mapping: Dict[str, str]) -> dict:
+    positions = {header: index for index, header in enumerate(headers)}
+    return {
+        field: participant_import_cell(row[positions[header]])
+        for field, header in mapping.items()
+        if header in positions and positions[header] < len(row)
+    }
+
+
+def validate_participant_import_mapping(mapping_value: Any, headers: List[str]) -> Dict[str, str]:
+    if not isinstance(mapping_value, dict):
+        raise HTTPException(status_code=400, detail="Pemetaan kolom import tidak valid.")
+    allowed_fields = {field["key"] for field in PARTICIPANT_IMPORT_FIELDS}
+    mapping = {
+        field: str(header).strip()
+        for field, header in mapping_value.items()
+        if field in allowed_fields and str(header or "").strip() in headers
+    }
+    if not mapping.get("name"):
+        raise HTTPException(status_code=400, detail="Kolom Nama Lengkap wajib dipetakan.")
+    return mapping
+
+
+async def participant_import_match_user_id(imported: dict) -> tuple:
+    matched_ids = set()
+    raw_cpm_id = str(imported.get("cpm_id") or "").strip()
+    nik = re.sub(r"\D", "", str(imported.get("nik") or ""))
+    email = normalized_name(imported.get("email"))
+    if raw_cpm_id:
+        registration = await db.registrations.find_one(
+            {"cpm_id": raw_cpm_id},
+            {"_id": 0, "user_id": 1},
+        )
+        if registration:
+            matched_ids.add(registration["user_id"])
+    if nik:
+        profile = await db.profiles.find_one({"data.nik": nik}, {"_id": 0, "user_id": 1})
+        if profile:
+            matched_ids.add(profile["user_id"])
+    if email:
+        account = await db.users.find_one({"email": email}, {"_id": 0, "user_id": 1})
+        if account:
+            matched_ids.add(account["user_id"])
+    if len(matched_ids) > 1:
+        return None, "NIK, email, atau ID CPM mengarah ke peserta yang berbeda."
+    return (next(iter(matched_ids)) if matched_ids else None), ""
+
+
+async def upsert_imported_participant(imported: dict, actor: dict, now: str) -> tuple:
+    name = str(imported.get("name") or "").strip()
+    if not name:
+        return "failed", "Nama Lengkap wajib diisi."
+
+    user_id, matching_error = await participant_import_match_user_id(imported)
+    if matching_error:
+        return "failed", matching_error
+
+    created = user_id is None
+    if created:
+        user_id = str(uuid.uuid4())
+    account = await db.users.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    imported_email = normalized_name(imported.get("email"))
+    email = imported_email or account.get("email") or f"import-{user_id}@mdj.invalid"
+    email_owner = await db.users.find_one({"email": email}, {"_id": 0, "user_id": 1})
+    if email_owner and email_owner["user_id"] != user_id:
+        return "failed", "Email sudah digunakan oleh peserta lain."
+
+    if created:
+        await db.users.insert_one({
+            "user_id": user_id,
+            "email": email,
+            "password_hash": hash_password(secrets.token_urlsafe(32)),
+            "name": name,
+            "role": "student",
+            "auth_provider": "participant_import",
+            "is_active": True,
+            "created_at": now,
+        })
+    else:
+        await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": {"name": name, "email": email, "updated_at": now}},
+        )
+
+    existing_profile = await db.profiles.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    profile_data = dict(existing_profile.get("data") or {})
+    for field, profile_key in PARTICIPANT_IMPORT_PROFILE_KEYS.items():
+        if imported.get(field):
+            profile_data[profile_key] = imported[field]
+    profile_data["namaLengkap"] = name
+    profile_data["email"] = email
+    await db.profiles.update_one(
+        {"user_id": user_id},
+        {
+            "$set": {
+                "data": profile_data,
+                "updated_at": now,
+                "imported_without_documents": True,
+            },
+        },
+        upsert=True,
+    )
+
+    registration = await db.registrations.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    cpm_id = str(imported.get("cpm_id") or "").strip() or registration.get("cpm_id")
+    if not cpm_id:
+        cpm_id = await create_cpm_id(now)
+    category = registration.get("category") or f"Mahasiswa {imported.get('education_level') or ''}".strip()
+    history_entry = {
+        "status": "lolos",
+        "note": "Data peserta diimpor tanpa berkas oleh Super Admin.",
+        "at": now,
+        "by": actor.get("name") or actor.get("email"),
+    }
+    registration_data = {
+        "id": registration.get("id") or str(uuid.uuid4()),
+        "user_id": user_id,
+        "name": name,
+        "email": email,
+        "category": category or "Mahasiswa",
+        "status": "lolos",
+        "cpm_id": cpm_id,
+        "updated_at": now,
+        "submitted_at": registration.get("submitted_at") or now,
+        "created_at": registration.get("created_at") or now,
+        "imported_without_documents": True,
+    }
+    if registration:
+        await db.registrations.update_one(
+            {"user_id": user_id},
+            {"$set": registration_data, "$push": {"history": history_entry}},
+        )
+    else:
+        registration_data["history"] = [history_entry]
+        await db.registrations.insert_one(registration_data)
+    return ("created" if created or not registration else "updated"), ""
+
+
+@api_router.post("/admin/participants/import/preview")
+async def preview_participant_import(
+    file: UploadFile = File(...),
+    user: dict = Depends(require_roles("super_admin")),
+):
+    if not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="File data peserta harus berformat XLSX.")
+    file_data = await file.read()
+    if len(file_data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran file XLSX maksimal 10MB.")
+    workbook_data = parse_participant_import_workbook(file_data)
+    headers = workbook_data["headers"]
+    mapping = participant_import_mapping(headers)
+    sample_rows = [
+        {
+            header: participant_import_cell(row[index]) if index < len(row) else ""
+            for index, header in enumerate(headers)
+        }
+        for row in workbook_data["rows"][:5]
+        if any(value not in (None, "") for value in row)
+    ]
+    row_count = sum(any(value not in (None, "") for value in row) for row in workbook_data["rows"])
+    return {
+        "headers": headers,
+        "fields": PARTICIPANT_IMPORT_FIELDS,
+        "mapping": mapping,
+        "samples": sample_rows,
+        "row_count": row_count,
+        "has_identity_column": any(mapping.get(key) for key in ("nik", "email", "cpm_id")),
+    }
+
+
+@api_router.post("/admin/participants/import")
+async def import_participants_without_documents(
+    mapping_json: str = Form(...),
+    file: UploadFile = File(...),
+    user: dict = Depends(require_roles("super_admin")),
+):
+    if not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="File data peserta harus berformat XLSX.")
+    try:
+        mapping_value = json.loads(mapping_json)
+    except json.JSONDecodeError as error:
+        raise HTTPException(status_code=400, detail="Pemetaan kolom tidak dapat dibaca.") from error
+    file_data = await file.read()
+    if len(file_data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Ukuran file XLSX maksimal 10MB.")
+    workbook_data = parse_participant_import_workbook(file_data)
+    headers = workbook_data["headers"]
+    mapping = validate_participant_import_mapping(mapping_value, headers)
+    now = datetime.now(timezone.utc).isoformat()
+    summary = {"processed": 0, "created": 0, "updated": 0, "failed": 0}
+    errors = []
+
+    for row_number, row in enumerate(workbook_data["rows"], start=workbook_data["header_index"] + 2):
+        if not any(value not in (None, "") for value in row):
+            continue
+        summary["processed"] += 1
+        imported = participant_import_row(row, headers, mapping)
+        outcome, error_message = await upsert_imported_participant(imported, user, now)
+        if outcome == "failed":
+            summary["failed"] += 1
+            if len(errors) < 100:
+                errors.append({"row_number": row_number, "message": error_message})
+        else:
+            summary[outcome] += 1
+
+    import_record = {
+        "id": str(uuid.uuid4()),
+        "original_filename": file.filename,
+        "mapping": mapping,
+        "summary": summary,
+        "imported_by": user["user_id"],
+        "created_at": now,
+        "without_documents": True,
+        "target_status": "lolos",
+    }
+    await db.participant_imports.insert_one(import_record)
+    return {"summary": summary, "errors": errors, "mapping": mapping}
 
 
 @api_router.get("/admin/participants/export.xlsx")
