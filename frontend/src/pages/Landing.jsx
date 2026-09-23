@@ -548,7 +548,7 @@ export default function Landing() {
             </p>
             <div className="mt-6 flex items-center gap-3">
               <a
-                href="https://www.facebook.com/baznasbazisdki"
+                href="https://www.facebook.com/baznasbazis"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Facebook BAZNAS BAZIS DKI Jakarta"
@@ -558,7 +558,7 @@ export default function Landing() {
                 <Facebook className="h-5 w-5" />
               </a>
               <a
-                href="https://www.instagram.com/baznasbazisdki/"
+                href="https://www.instagram.com/mdj.baznasbazisdki?stkn=bXc2NjVkcWY2dHZz"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram BAZNAS BAZIS DKI Jakarta"
@@ -568,7 +568,7 @@ export default function Landing() {
                 <Instagram className="h-5 w-5" />
               </a>
               <a
-                href="https://www.youtube.com/@baznasbazisdki"
+                href="https://www.youtube.com/@BAZNASBAZIST"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="YouTube BAZNAS BAZIS DKI Jakarta"

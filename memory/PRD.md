@@ -40,6 +40,10 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
 - Footer menyediakan tautan WhatsApp langsung untuk Hotline Kampus dan Hotline Mahasiswa.
 - Footer desktop memakai kolom kontak yang lebih lebar; hotline dan email tampil satu baris dalam
   ukuran teks normal, tanpa nomor telepon BAZNAS.
+- Alur Pendaftaran kini dikelola penuh dari CMS dan ditampilkan sebagai pola zig-zag adaptif untuk
+  jumlah tahap berapa pun.
+- Ikon sosial footer mengarah ke akun Instagram MDJ, YouTube BAZNAS BAZIS, dan Facebook BAZNAS
+  BAZIS resmi.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

@@ -809,3 +809,19 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Hotline Kampus, Hotline Mahasiswa, dan email kini memakai ukuran teks normal yang sama serta
   tetap satu baris tanpa overflow.
 - Verifikasi browser: seluruh kontak berukuran 14px, `nowrap`, dan tidak melampaui kolom.
+
+## 2026-09 — Alur Pendaftaran Dinamis dan Zig-Zag
+- Submenu Alur sekarang mendukung tambah tahap, edit judul/keterangan, urutkan dengan tombol
+  naik/turun, hapus tahap, serta daftar kosong.
+- Backend menerima 0–30 tahap, memvalidasi judul wajib, duplikat, panjang judul/keterangan, dan
+  bentuk data.
+- Tampilan Beranda menghitung posisi zig-zag dan arah panah otomatis: baris ganjil kiri→kanan,
+  baris genap kanan→kiri, termasuk saat baris terakhir tidak penuh.
+- Verifikasi testing agent: backend 9/9 serta desktop/mobile untuk 0, 1, 2, 3, 4, 5, 10, 11, dan
+  12 tahap lulus; alur produksi 11 tahap dipulihkan.
+
+## 2026-09 — Tautan Sosial Footer Resmi
+- Instagram mengarah ke `instagram.com/mdj.baznasbazisdki`, YouTube ke `@BAZNASBAZIST`, dan
+  Facebook ke `facebook.com/baznasbazis`.
+- Ketiga ikon membuka tautan pada tab baru.
+- Verifikasi browser mengonfirmasi URL serta atribut tab baru untuk seluruh ikon sosial.
