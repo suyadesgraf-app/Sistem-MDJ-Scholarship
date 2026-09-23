@@ -765,3 +765,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Tautan detail utama tetap tersedia, sedangkan tautan berkas tetap muncul bila pengumuman
   memiliki lampiran.
 - Verifikasi browser mengonfirmasi setiap kartu memiliki tepat satu tautan detail berita.
+
+## 2026-09 — Tanggal Pengumuman Otomatis
+- Kolom input tanggal manual di editor Pengumuman dihapus.
+- Berita baru langsung menerima tanggal otomatis berzona Jakarta dengan format Indonesia, misalnya
+  `23 September 2026`; tanggal tersebut ditampilkan sebagai informasi read-only.
+- Saat disimpan, pengumuman lama yang tidak memiliki tanggal juga otomatis diisi tanpa mengubah
+  tanggal pengumuman yang sudah ada.
+- Verifikasi browser: input manual tidak tersedia dan berita baru memperoleh label tanggal otomatis.

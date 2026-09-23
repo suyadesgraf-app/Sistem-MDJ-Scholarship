@@ -17,6 +17,13 @@ const TABS = [
 
 let newsCategoryItemSequence = 0;
 
+const automaticAnnouncementDate = () => new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Asia/Jakarta",
+}).format(new Date());
+
 export default function SiteManager() {
   const [c, setC] = useState(null);
   const [tab, setTab] = useState("umum");
@@ -94,6 +101,14 @@ export default function SiteManager() {
         return enabled ? { ...announcement, [field]: false } : announcement;
       }),
     }));
+  };
+  const saveAnnouncements = () => {
+    const announcements = (c.announcements || []).map((announcement) => ({
+      ...announcement,
+      date: announcement.date || automaticAnnouncementDate(),
+    }));
+    setField("announcements", announcements);
+    save({ announcements });
   };
 
   const bannerSrc = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : null;
@@ -214,10 +229,10 @@ export default function SiteManager() {
           <ArrayEditor
             items={c.announcements || []}
             onChange={(value) => setField("announcements", value)}
-            onSave={() => save({ announcements: c.announcements })}
+            onSave={saveAnnouncements}
             saving={saving}
             template={{
-              date: "",
+              date: automaticAnnouncementDate(),
               category: c.news_categories?.[0] || "Informasi",
               title: "",
               summary: "",
@@ -228,13 +243,13 @@ export default function SiteManager() {
             render={(item, update, index) => (
               <>
                 <div className="mb-2 grid grid-cols-2 gap-2">
-                  <input
-                    value={item.date}
-                    onChange={(event) => update("date", event.target.value)}
-                    placeholder="Tanggal"
-                    data-testid={`announcement-date-${index}`}
-                    className={ic}
-                  />
+                  <div
+                    data-testid={`announcement-created-date-${index}`}
+                    className="flex min-h-11 items-center rounded-xl border border-gray-200 bg-[#F9FAFB]
+                      px-3 text-sm text-[#4B5563]"
+                  >
+                    Dibuat: {item.date || automaticAnnouncementDate()}
+                  </div>
                   <select
                     value={item.category || c.news_categories?.[0] || ""}
                     onChange={(event) => update("category", event.target.value)}
