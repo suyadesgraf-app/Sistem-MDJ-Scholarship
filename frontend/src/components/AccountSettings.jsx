@@ -61,7 +61,7 @@ export default function AccountSettings() {
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#E8F6EE] flex items-center justify-center shrink-0"><Phone className="w-5 h-5 text-[#27AE60]" /></div>
               <div>
-                <p className="text-sm font-semibold text-[#1F2937]">Nomor Telepon</p>
+                <p className="text-sm font-semibold text-[#1F2937]">Nomor Telepon / WhatsApp</p>
                 <p className="text-sm text-[#6B7280] flex items-center gap-2 mt-0.5" data-testid="account-phone-value">
                   {user?.phone || "Belum diatur"}
                   {user?.phone_verified

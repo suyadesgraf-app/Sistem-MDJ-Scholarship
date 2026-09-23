@@ -930,3 +930,7 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Tombol **Keluar** ditempatkan di sisi kiri dan ikon **Tutup sidebar** di sisi kanan.
 - Scrollbar horizontal pada area menu ringkas dihilangkan tanpa mengganggu scroll vertikal menu
   yang panjang atau tooltip kontrol sidebar.
+
+## 2026-09 — Navigasi Super Admin
+- Menu dan tampilan aktif **Referensi AI** sementara dihapus dari dashboard Super Admin tanpa
+  mengubah fitur navigasi lain.

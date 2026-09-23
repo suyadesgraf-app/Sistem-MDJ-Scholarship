@@ -320,6 +320,22 @@ def set_auth_cookie(response: Response, token: str):
                         samesite="none", max_age=604800, path="/")
 
 
+def normalize_registration_phone(value: Optional[str]) -> Optional[str]:
+    phone = str(value or "").strip()
+    if not phone:
+        return None
+    normalized = re.sub(r"[^0-9+]", "", phone)
+    digits = re.sub(r"\D", "", normalized)
+    if not 8 <= len(digits) <= 15:
+        raise HTTPException(
+            status_code=422,
+            detail="Nomor Telepon / WhatsApp harus berisi 8 sampai 15 angka.",
+        )
+    if normalized.count("+") > 1 or ("+" in normalized and not normalized.startswith("+")):
+        raise HTTPException(status_code=422, detail="Format nomor Telepon / WhatsApp tidak valid.")
+    return normalized
+
+
 async def resolve_user_from_token(token: str) -> Optional[dict]:
     # Try JWT first
     try:
@@ -701,11 +717,12 @@ async def register(payload: RegisterInput, response: Response):
     email = payload.email.lower().strip()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+    phone = normalize_registration_phone(payload.phone)
     user_id = f"user_{uuid.uuid4().hex[:12]}"
     doc = {
         "user_id": user_id, "email": email, "password_hash": hash_password(payload.password),
         "name": payload.name, "role": "student", "auth_provider": "password",
-        "nik": payload.nik, "phone": payload.phone, "picture": None,
+        "nik": payload.nik, "phone": phone, "phone_verified": False, "picture": None,
         "is_active": True, "auth_version": 0, "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.users.insert_one(doc)

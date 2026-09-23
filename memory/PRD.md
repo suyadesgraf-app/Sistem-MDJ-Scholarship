@@ -69,6 +69,7 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   halaman dimuat ulang atau pengguna login lagi. Saat melebar, kontrol tutup dan keluar tersusun
   berdampingan tanpa scrollbar horizontal di atas kontrol buka, dengan tombol Keluar di kiri dan
   ikon Tutup Sidebar di kanan.
+- Menu **Referensi AI** sementara disembunyikan dari navigasi Super Admin.
 - Kelola Website kini memiliki tab **Footer & Kontak** untuk mengatur tautan Facebook, Instagram,
   YouTube, tautan sosial tambahan, judul Hubungi Kami, serta daftar kontak dinamis beserta aksi
   tautannya.

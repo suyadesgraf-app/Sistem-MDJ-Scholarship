@@ -59,12 +59,15 @@ export default function Register() {
           <form onSubmit={submit} className="space-y-4">
             <Field label="Nama Lengkap" icon={User} required><input value={form.name} onChange={set("name")} required data-testid="reg-name-input" placeholder="Nama sesuai KTP" className={inputCls} /></Field>
             <Field label="Email" icon={Mail} required><input type="email" value={form.email} onChange={set("email")} required data-testid="reg-email-input" placeholder="email@contoh.com" className={inputCls} /></Field>
-            <Field label="No. Telepon" icon={Phone}>
+            <Field label="No. Telepon / WhatsApp" icon={Phone}>
               <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 value={form.phone}
                 onChange={set("phone")}
                 data-testid="reg-phone-input"
-                placeholder="08xxxx"
+                placeholder="08xxxxxxxxxx"
                 className={inputCls}
               />
             </Field>
