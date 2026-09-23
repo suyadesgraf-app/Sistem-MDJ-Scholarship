@@ -924,3 +924,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   dan tidak disimpan setelah refresh atau login baru.
 - Verifikasi testing agent lulus seluruh 6 kriteria lintas peran; build dan smoke test pasca-refactor
   juga berhasil.
+
+### Penyempurnaan Kontrol Bawah
+- Pada sidebar melebar, ikon **Tutup sidebar** dan tombol **Keluar** kini berada dalam satu baris.
+- Tombol **Keluar** ditempatkan di sisi kiri dan ikon **Tutup sidebar** di sisi kanan.
+- Scrollbar horizontal pada area menu ringkas dihilangkan tanpa mengganggu scroll vertikal menu
+  yang panjang atau tooltip kontrol sidebar.

@@ -102,7 +102,7 @@ function DashboardSidebar({
       </div>
       <nav
         className={[
-          "mdj-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto",
+          "mdj-scrollbar min-h-0 flex-1 space-y-1 overflow-x-hidden overflow-y-auto",
           collapsed ? "px-2 py-3" : "p-3",
         ].join(" ")}
       >
@@ -115,6 +115,7 @@ function DashboardSidebar({
                 onClick={() => onMenuSelect(item.id)}
                 data-testid={mobile ? `mobile-menu-${item.id}` : `menu-${item.id}`}
                 aria-label={collapsed ? item.label : undefined}
+                title={collapsed ? item.label : undefined}
                 className={[
                   "flex w-full items-center rounded-lg py-2.5 text-left text-sm font-semibold",
                   "transition-colors",
@@ -129,7 +130,6 @@ function DashboardSidebar({
                   <span className="whitespace-nowrap">{item.label}</span>
                 )}
               </button>
-              {collapsed && <SidebarTooltip>{item.label}</SidebarTooltip>}
             </div>
           );
         })}
@@ -137,43 +137,49 @@ function DashboardSidebar({
       <div
         className={collapsed ? "border-t border-gray-100 p-2" : "border-t border-gray-100 p-3"}
       >
-        <div className="group relative">
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            data-testid={mobile ? "mobile-sidebar-collapse-toggle" : "sidebar-collapse-toggle"}
-            aria-label={collapsed ? "Buka sidebar" : "Tutup sidebar"}
+        <div className={collapsed ? "space-y-1" : "flex items-center gap-2"}>
+          <div className={collapsed ? "group relative" : "group relative order-2 shrink-0"}>
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              data-testid={mobile ? "mobile-sidebar-collapse-toggle" : "sidebar-collapse-toggle"}
+              aria-label={collapsed ? "Buka sidebar" : "Tutup sidebar"}
+              className={[
+                "flex items-center rounded-lg text-sm font-semibold text-[#374151]",
+                "transition-colors hover:bg-gray-100",
+                collapsed ? "w-full justify-center px-2 py-2.5" : "h-10 w-10 justify-center",
+              ].join(" ")}
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="h-5 w-5" />
+              ) : (
+                <PanelLeftClose className="h-5 w-5" />
+              )}
+              <span className="sr-only">{collapsed ? "Buka sidebar" : "Tutup sidebar"}</span>
+            </button>
+            <SidebarTooltip>{collapsed ? "Buka sidebar" : "Tutup sidebar"}</SidebarTooltip>
+          </div>
+          <div
             className={[
-              "flex w-full items-center rounded-lg py-2.5 text-sm font-semibold text-[#374151]",
-              "transition-colors hover:bg-gray-100",
-              collapsed ? "justify-center px-2" : "justify-center px-3",
+              collapsed ? "group relative mt-1" : "group relative order-1 min-w-0 flex-1",
             ].join(" ")}
           >
-            {collapsed ? (
-              <PanelLeftOpen className="h-5 w-5" />
-            ) : (
-              <PanelLeftClose className="h-5 w-5" />
-            )}
-            <span className="sr-only">{collapsed ? "Buka sidebar" : "Tutup sidebar"}</span>
-          </button>
-          <SidebarTooltip>{collapsed ? "Buka sidebar" : "Tutup sidebar"}</SidebarTooltip>
-        </div>
-        <div className="group relative mt-1">
-          <button
-            type="button"
-            onClick={onLogout}
-            data-testid={mobile ? "mobile-logout-btn" : "logout-btn"}
-            aria-label={collapsed ? "Keluar" : undefined}
-            className={[
-              "flex w-full items-center rounded-lg py-2.5 text-sm font-semibold text-[#DC2626]",
-              "transition-colors hover:bg-[#FEE2E2]",
-              collapsed ? "justify-center px-2" : "gap-3 px-3",
-            ].join(" ")}
-          >
-            <LogOut className="h-5 w-5 shrink-0" />
-            {collapsed ? <span className="sr-only">Keluar</span> : <span>Keluar</span>}
-          </button>
-          {collapsed && <SidebarTooltip>Keluar</SidebarTooltip>}
+            <button
+              type="button"
+              onClick={onLogout}
+              data-testid={mobile ? "mobile-logout-btn" : "logout-btn"}
+              aria-label={collapsed ? "Keluar" : undefined}
+              className={[
+                "flex w-full items-center rounded-lg py-2.5 text-sm font-semibold text-[#DC2626]",
+                "transition-colors hover:bg-[#FEE2E2]",
+                collapsed ? "justify-center px-2" : "justify-center gap-2 px-3",
+              ].join(" ")}
+            >
+              <LogOut className="h-5 w-5 shrink-0" />
+              {collapsed ? <span className="sr-only">Keluar</span> : <span>Keluar</span>}
+            </button>
+            {collapsed && <SidebarTooltip>Keluar</SidebarTooltip>}
+          </div>
         </div>
       </div>
     </div>

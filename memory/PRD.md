@@ -66,7 +66,9 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   nama, email, atau kampus, memilih tepat satu hasil, lalu meninjau data sebelum hapus permanen.
 - Seluruh dashboard akun memiliki kontrol **Tutup sidebar** berbasis ikon. Mode ringkas hanya
   menampilkan ikon dengan tooltip, tersedia di desktop maupun ponsel, dan kembali terbuka saat
-  halaman dimuat ulang atau pengguna login lagi.
+  halaman dimuat ulang atau pengguna login lagi. Saat melebar, kontrol tutup dan keluar tersusun
+  berdampingan tanpa scrollbar horizontal di atas kontrol buka, dengan tombol Keluar di kiri dan
+  ikon Tutup Sidebar di kanan.
 - Kelola Website kini memiliki tab **Footer & Kontak** untuk mengatur tautan Facebook, Instagram,
   YouTube, tautan sosial tambahan, judul Hubungi Kami, serta daftar kontak dinamis beserta aksi
   tautannya.
