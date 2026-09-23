@@ -4127,6 +4127,52 @@ def normalize_registration_flow(value: Any) -> List[dict]:
     ]
 
 
+DEFAULT_NEWS_CATEGORIES = [
+    "Pengumuman",
+    "Informasi",
+    "Jadwal",
+    "Kegiatan Program",
+    "Prestasi Awardee",
+    "Kerja Sama",
+    "Liputan Media",
+    "Inspirasi Alumni",
+    "Artikel",
+]
+
+
+def normalize_news_categories(value: Any) -> List[str]:
+    if not isinstance(value, list):
+        raise HTTPException(status_code=400, detail="Kategori berita harus berupa daftar.")
+
+    categories = [str(item or "").strip() for item in value]
+    if not categories or any(not category for category in categories):
+        raise HTTPException(status_code=400, detail="Setiap kategori berita wajib diisi.")
+    if len(categories) > 20:
+        raise HTTPException(status_code=400, detail="Kategori berita maksimal 20 item.")
+    if any(len(category) > 60 for category in categories):
+        raise HTTPException(status_code=400, detail="Nama kategori maksimal 60 karakter.")
+
+    normalized_names = [category.casefold() for category in categories]
+    if len(set(normalized_names)) != len(categories):
+        raise HTTPException(status_code=400, detail="Nama kategori berita tidak boleh duplikat.")
+    return categories
+
+
+def normalize_news_category_renames(value: Any, categories: List[str]) -> Dict[str, str]:
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise HTTPException(status_code=400, detail="Perubahan kategori berita tidak valid.")
+
+    names_by_folded_value = {category.casefold(): category for category in categories}
+    return {
+        str(old_name).strip(): names_by_folded_value[str(new_name).strip().casefold()]
+        for old_name, new_name in value.items()
+        if str(old_name).strip()
+        and str(new_name).strip().casefold() in names_by_folded_value
+    }
+
+
 DEFAULT_SITE_CONTENT = {
     "settings": {
         "registration_open": True,
@@ -4158,6 +4204,7 @@ DEFAULT_SITE_CONTENT = {
         {"title": "Pengukuhan / Inagurasi", "desc": "Acara peresmian dan penyambutan resmi penerima manfaat baru."},
     ],
     "registration_flow": default_registration_flow(),
+    "news_categories": DEFAULT_NEWS_CATEGORIES,
     "announcements": [
         {"date": "12 Jan 2026", "category": "Informasi", "title": "Pengukuhan Kader Akademia MDJ", "summary": "Peserta yang lolos seleksi akhir wajib mengikuti kegiatan pengukuhan dan orientasi program pembinaan."},
         {"date": "22 Des 2025", "category": "Pengumuman", "title": "Pengumuman Awardee MDJ Scholarship", "summary": "Daftar nama 3.049 penerima manfaat yang lolos tahap wawancara dan verifikasi faktual telah diterbitkan."},
@@ -4224,6 +4271,7 @@ async def get_site_content():
         for key, value in {
             "eligibility_requirements": DEFAULT_SITE_CONTENT["eligibility_requirements"],
             "required_documents": DEFAULT_SITE_CONTENT["required_documents"],
+            "news_categories": DEFAULT_NEWS_CATEGORIES,
         }.items()
         if key not in content
     }
@@ -4314,13 +4362,54 @@ async def import_legal_information_file(
 
 
 @api_router.put("/site/content")
-async def update_site_content(payload: SiteContentInput, user: dict = Depends(require_roles("super_admin"))):
+async def update_site_content(
+    payload: SiteContentInput,
+    user: dict = Depends(require_roles("super_admin")),
+):
     current = await db.site_content.find_one({"key": "main"}, {"_id": 0}) or {}
     content_update = dict(payload.content)
     if "registration_flow" in content_update:
         content_update["registration_flow"] = normalize_registration_flow(
             content_update["registration_flow"]
         )
+    requested_categories = content_update.get("news_categories")
+    current_categories = current.get("news_categories") or DEFAULT_NEWS_CATEGORIES
+    category_renames = content_update.pop("news_category_renames", None)
+    effective_categories = normalize_news_categories(
+        requested_categories if requested_categories is not None else current_categories
+    )
+    if requested_categories is not None:
+        content_update["news_categories"] = effective_categories
+        category_rename_map = normalize_news_category_renames(
+            category_renames,
+            effective_categories,
+        )
+        fallback_category = effective_categories[0]
+        normalized_announcements = []
+        for announcement in current.get("announcements", []):
+            normalized_announcement = dict(announcement)
+            current_category = str(normalized_announcement.get("category") or "").strip()
+            normalized_announcement["category"] = category_rename_map.get(
+                current_category,
+                current_category if current_category in effective_categories else fallback_category,
+            )
+            normalized_announcements.append(normalized_announcement)
+        if normalized_announcements != current.get("announcements", []):
+            content_update["announcements"] = normalized_announcements
+    elif category_renames is not None:
+        raise HTTPException(status_code=400, detail="Daftar kategori berita wajib disertakan.")
+
+    if isinstance(content_update.get("announcements"), list):
+        fallback_category = effective_categories[0]
+        normalized_announcements = []
+        for announcement in content_update["announcements"]:
+            normalized_announcement = dict(announcement) if isinstance(announcement, dict) else {}
+            category = str(normalized_announcement.get("category") or "").strip()
+            normalized_announcement["category"] = (
+                category if category in effective_categories else fallback_category
+            )
+            normalized_announcements.append(normalized_announcement)
+        content_update["announcements"] = normalized_announcements
     incoming_announcements = content_update.get("announcements")
     new_announcements = []
     if isinstance(incoming_announcements, list):
