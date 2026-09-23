@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Search } from "lucide-react";
 import api from "@/lib/api";
 
-const categories = ["Semua Berita", "Pengumuman", "Kegiatan Program", "Prestasi Awardee", "Kerja Sama", "Liputan Media", "Inspirasi Alumni", "Artikel"];
+const categories = ["Semua Berita", "Pengumuman", "Informasi", "Kegiatan Program", "Prestasi Awardee", "Kerja Sama", "Liputan Media", "Inspirasi Alumni", "Artikel"];
 
 export default function NewsPage() {
   const [announcements, setAnnouncements] = useState([]);
