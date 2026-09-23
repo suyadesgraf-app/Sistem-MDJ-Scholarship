@@ -1,0 +1,36 @@
+{
+  "summary": "Full E2E test of Super Admin Participant Excel Import (no-documents). 14 pytest tests + Playwright UI test on desktop and mobile 390 all passed. Cleanup of all TEST_ prefixed users/profiles/registrations/documents and participant_imports completed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_participant_import.py",
+    "/app/test_reports/pytest/participant_import.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Import endpoint returns 200 with per-row errors — acceptable, but consider surfacing summary.failed > 0 as toast warning on the FE.",
+    "participant_import_match_user_id also matches to registrations without user_id in the imported row for cpm_id, so re-importing the same cpm_id updates correctly. Verified.",
+    "In upsert_imported_participant, when created=False and no existing registration, outcome falls into the 'created' branch (`created or not registration`) — semantically OK but the summary term 'created' is used for both new users and new registrations attached to matched users; documented for clarity."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_participant_import.py"
+  ],
+  "success_rate": {"backend": "100% (14/14)", "frontend": "100% (all critical UI flows)"},
+  "test_credentials": "Super Admin supri@baznasbazisdki.id / MdjSuper2026!; Mahasiswa mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026!",
+  "seed_data_creation": "Only ephemeral TEST_IMPORT_ prefixed rows (email @test-import.invalid, NIK prefix 9999911). All deleted after tests + explicit post-run cleanup verified 0 remaining.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend tests file /app/backend/tests/test_participant_import.py can be re-run: pytest -n 0. Uses openpyxl + pymongo. Cleanup fixture is autouse module-scoped; safe to re-run. UI XLSX at /tmp/test_ui_import.xlsx if needed.",
+  "verified_behaviors": [
+    "Role gating: student receives 403 for both /api/admin/participants/import/preview and /api/admin/participants/import; unauthenticated returns 401/403.",
+    "Preview reads user-owned XLSX headers, suggests correct mapping for Nama Mahasiswa/NIK/Email Mahasiswa/Perguruan Tinggi/NIM/Program Studi/Wilayah/ID CPM/Jenjang/Semester/IPK/Kota/Provinsi/Alamat/Jenis Kelamin/No HP; returns fields, samples, row_count, has_identity_column.",
+    "Preview rejects non-.xlsx and empty XLSX (no data rows) with 400.",
+    "Import rejects invalid mapping_json (bad JSON) and missing required 'name' mapping with 400; rejects non-.xlsx with 400.",
+    "Import creates user (role=student, auth_provider=participant_import), profile (imported_without_documents=true, mapped fields: namaLengkap, nik, email, noTelp, institusi, nim, jurusan, jenjang, semester, ipk, kota, provinsi, alamatLengkap, jenisKelamin), registration (status='lolos', imported_without_documents=true, cpm_id assigned), zero documents.",
+    "Re-import with same NIK updates the existing participant (updated=1, no duplicate row).",
+    "Row with NIK belonging to user A + email belonging to user B fails with 'berbeda' error and is counted in summary.failed.",
+    "Without any of email/NIK/CPM mapped, participant is still created with internal identity email @mdj.invalid.",
+    "UI: open-participant-import visible only for super_admin (hidden for student); dialog opens, file input works, row-count shown, mapping selects prefilled from suggestions, sample table renders, confirm triggers import and shows result summary (2 processed / 2 created / 0 failed), close works.",
+    "Mobile 390px: dialog opens, body.scrollWidth == clientWidth (390) — no horizontal overflow."
+  ]
+}

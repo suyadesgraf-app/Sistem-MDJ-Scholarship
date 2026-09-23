@@ -50,6 +50,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   serta keterangan ajakan pendaftaran terbaru.
 - Profil Mahasiswa memiliki tab Keluarga dengan data Ayah, Ibu, anggota keluarga lain dinamis,
   daya listrik rumah, format Rupiah, dan validasi wajib di server.
+- Super Admin dapat mengimpor peserta dari XLSX berformat sendiri melalui pemetaan kolom, dengan
+  status Lolos / Penerima tanpa berkas dan pembaruan otomatis untuk duplikat.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

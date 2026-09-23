@@ -66,7 +66,13 @@ export default function ParticipantExcelImportDialog({ onClose, onImported }) {
       });
       setResult(response.data);
       onImported();
-      toast.success("Import data peserta selesai diproses.");
+      if (response.data.summary?.failed > 0) {
+        toast.warning(
+          `Import selesai dengan ${response.data.summary.failed} baris yang perlu diperiksa.`,
+        );
+      } else {
+        toast.success("Import data peserta selesai diproses.");
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || "Import data peserta gagal.");
     } finally {

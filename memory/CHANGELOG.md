@@ -849,3 +849,15 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   tetap menghitung seluruh field keluarga yang diperlukan.
 - Verifikasi testing agent lulus: backend 11/11, UI tab Keluarga, jumlah anggota 0–2, Rupiah,
   validasi, penyimpanan, dan mobile 390px tanpa overflow. ID tombol Simpan juga diselaraskan.
+
+## 2026-09 — Import Excel Data Peserta Tanpa Berkas
+- Menambahkan tombol **Import Data** khusus Super Admin di Data Peserta.
+- Dialog impor menerima XLSX berformat sendiri, membaca header, memberi saran pemetaan kolom,
+  menyediakan pratinjau data, dan membiarkan Super Admin menyesuaikan mapping sebelum impor.
+- Peserta baru dibuat sebagai Lolos / Penerima tanpa dokumen; NIK, email, atau ID CPM yang sama
+  memperbarui peserta yang ada tanpa membuat duplikat.
+- Profil dan registrasi impor diberi penanda `imported_without_documents`; hasil impor menampilkan
+  jumlah dibuat, diperbarui, dan baris gagal beserta alasan. Toast peringatan muncul bila ada
+  kegagalan parsial.
+- Verifikasi testing agent lulus backend 14/14, alur UI desktop/mobile, mapping XLSX, duplikat,
+  konflik identifier, tanpa dokumen, dan pembersihan seluruh data uji.
