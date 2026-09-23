@@ -62,6 +62,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
 - Akun demo dikecualikan dari daftar, statistik, dan proses operasional Penerima Manfaat.
 - Data Peserta kini memuat profil, akun, dan jumlah dokumen secara batch untuk mempercepat
   pencarian dan tampilan daftar peserta.
+- Dialog Hapus Data membuka pencarian satu peserta secara default; Super Admin dapat mencari
+  nama, email, atau kampus, memilih tepat satu hasil, lalu meninjau data sebelum hapus permanen.
 - Kelola Website kini memiliki tab **Footer & Kontak** untuk mengatur tautan Facebook, Instagram,
   YouTube, tautan sosial tambahan, judul Hubungi Kami, serta daftar kontak dinamis beserta aksi
   tautannya.

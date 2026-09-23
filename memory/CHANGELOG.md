@@ -904,3 +904,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   mengikuti skema tautannya. Format URL berbahaya ditolak server.
 - Verifikasi testing agent lulus backend 5/5 dan UI desktop/mobile; hardening tambahan diuji dengan
   suite final 6/6 serta build frontend berhasil.
+
+## 2026-09 — Pencarian Peserta untuk Hapus Data
+- Dialog **Hapus Data** kini membuka opsi **Hapus satu pendaftar berdasarkan pencarian** secara
+  default. Pencarian menerima nama, email, maupun kampus.
+- Super Admin memilih satu hasil terlebih dahulu, melihat pratinjau cakupan hapus, lalu tombol
+  hapus permanen baru aktif. Pilihan dapat dibatalkan atau diganti sebelum menghapus.
+- Akun demo tetap tampil sebagai **Akun Demo** yang tidak dapat dipilih; penghapusan satu kampus
+  dan seluruh kampus tetap tersedia.
+- Verifikasi testing agent lulus backend 21/21, UI desktop/mobile, dan tidak ada penghapusan
+  terhadap data peserta nyata.

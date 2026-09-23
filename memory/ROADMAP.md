@@ -8,6 +8,7 @@
 - Perlindungan akun demo mahasiswa dari penghapusan serta pengecualian dari seluruh rekap
   Penerima Manfaat.
 - CMS Footer & Kontak untuk tautan sosial serta informasi Hubungi Kami dinamis.
+- Pencarian satu peserta pada dialog Hapus Data, dengan pratinjau sebelum hapus permanen.
 
 ## P1 — Ditunda sesuai arahan pengguna
 - Refactor bertahap `/app/backend/server.py` yang sangat besar menjadi router/service

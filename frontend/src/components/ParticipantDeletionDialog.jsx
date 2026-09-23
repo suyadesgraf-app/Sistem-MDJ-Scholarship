@@ -6,7 +6,7 @@ import api from "@/lib/api";
 const DEMO_STUDENT_EMAIL = process.env.REACT_APP_DEMO_STUDENT_EMAIL;
 
 export default function ParticipantDeletionDialog({ participant, onClose, onDeleted }) {
-  const [scope, setScope] = useState(participant ? "single" : "campus");
+  const [scope, setScope] = useState("single");
   const [campus, setCampus] = useState("");
   const [campuses, setCampuses] = useState([]);
   const [participantQuery, setParticipantQuery] = useState("");
