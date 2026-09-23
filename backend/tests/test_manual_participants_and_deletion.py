@@ -230,6 +230,18 @@ class TestManualCreate:
 
 # ---------------- Preview ----------------
 class TestPreview:
+    def test_search_finds_manual_participant(self, super_token):
+        r = requests.get(
+            f"{API}/admin/participants",
+            params={"search": TEST_EMAIL_1},
+            headers=_h(super_token),
+            timeout=30,
+        )
+        assert r.status_code == 200, r.text
+        participants = r.json()
+        assert len(participants) == 1
+        assert participants[0]["email"] == TEST_EMAIL_1
+
     def test_preview_single(self, super_token, mongo_db):
         user = mongo_db.users.find_one({"email": TEST_EMAIL_1})
         assert user

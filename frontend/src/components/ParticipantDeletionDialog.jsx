@@ -1,15 +1,22 @@
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Loader2, Trash2, X } from "lucide-react";
+import { AlertTriangle, Loader2, Search, ShieldCheck, Trash2, X } from "lucide-react";
 import api from "@/lib/api";
+
+const DEMO_STUDENT_EMAIL = process.env.REACT_APP_DEMO_STUDENT_EMAIL;
 
 export default function ParticipantDeletionDialog({ participant, onClose, onDeleted }) {
   const [scope, setScope] = useState(participant ? "single" : "campus");
   const [campus, setCampus] = useState("");
   const [campuses, setCampuses] = useState([]);
+  const [participantQuery, setParticipantQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedParticipant, setSelectedParticipant] = useState(participant || null);
+  const [searchingParticipants, setSearchingParticipants] = useState(false);
   const [preview, setPreview] = useState(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const selectedUserId = participant?.user_id || selectedParticipant?.user_id;
 
   useEffect(() => {
     if (!participant) {
@@ -20,12 +27,34 @@ export default function ParticipantDeletionDialog({ participant, onClose, onDele
   }, [participant]);
 
   useEffect(() => {
+    if (participant || scope !== "single" || participantQuery.trim().length < 2) {
+      setSearchResults([]);
+      return undefined;
+    }
+    const timeoutId = window.setTimeout(() => {
+      setSearchingParticipants(true);
+      api.get("/admin/participants", { params: { search: participantQuery.trim() } })
+        .then((response) => setSearchResults(response.data || []))
+        .catch(() => {
+          setSearchResults([]);
+          toast.error("Pencarian pendaftar tidak dapat dimuat.");
+        })
+        .finally(() => setSearchingParticipants(false));
+    }, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [participant, participantQuery, scope]);
+
+  useEffect(() => {
     const payload = {
       scope,
-      user_id: participant?.user_id,
+      user_id: selectedUserId,
       campus,
     };
     if (scope === "campus" && !campus) {
+      setPreview(null);
+      return;
+    }
+    if (scope === "single" && !selectedUserId) {
       setPreview(null);
       return;
     }
@@ -37,7 +66,7 @@ export default function ParticipantDeletionDialog({ participant, onClose, onDele
         toast.error(error.response?.data?.detail || "Pratinjau data tidak dapat dimuat.");
       })
       .finally(() => setLoadingPreview(false));
-  }, [scope, campus, participant]);
+  }, [scope, campus, selectedUserId]);
 
   const deleteParticipants = async () => {
     if (!preview?.count) return;
@@ -46,7 +75,7 @@ export default function ParticipantDeletionDialog({ participant, onClose, onDele
       const response = await api.delete("/admin/participants", {
         data: {
           scope,
-          user_id: participant?.user_id,
+          user_id: selectedUserId,
           campus,
           confirmed: true,
         },
@@ -68,7 +97,7 @@ export default function ParticipantDeletionDialog({ participant, onClose, onDele
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl rounded-xl bg-white shadow-2xl"
+        className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white shadow-2xl"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b px-6 py-5">
@@ -94,6 +123,22 @@ export default function ParticipantDeletionDialog({ participant, onClose, onDele
         <div className="space-y-5 p-6">
           {!participant && (
             <div className="space-y-3" data-testid="participant-deletion-scope">
+              <label
+                className={[
+                  "flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm",
+                  "font-semibold",
+                ].join(" ")}
+              >
+                <input
+                  type="radio"
+                  value="single"
+                  checked={scope === "single"}
+                  onChange={(event) => setScope(event.target.value)}
+                  data-testid="participant-delete-scope-single"
+                  className="accent-[#DC2626]"
+                />
+                Hapus satu pendaftar berdasarkan pencarian
+              </label>
               <label
                 className={[
                   "flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm",
@@ -141,6 +186,91 @@ export default function ParticipantDeletionDialog({ participant, onClose, onDele
                     <option key={item.id} value={item.name}>{item.name}</option>
                   ))}
                 </select>
+              )}
+              {scope === "single" && (
+                <div className="space-y-3" data-testid="participant-delete-search-panel">
+                  <label className="block text-xs font-bold uppercase tracking-wide text-[#6B7280]">
+                    Cari nama, email, atau kampus
+                    <div className="relative mt-1.5">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9CA3AF]" />
+                      <input
+                        value={participantQuery}
+                        onChange={(event) => setParticipantQuery(event.target.value)}
+                        data-testid="participant-delete-search-input"
+                        placeholder="Ketik minimal 2 karakter..."
+                        className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-3 text-sm outline-none focus:border-[#DC2626]"
+                      />
+                    </div>
+                  </label>
+                  {selectedParticipant && (
+                    <div
+                      data-testid="selected-participant-delete-target"
+                      className="flex items-start justify-between gap-3 border border-[#FECACA] bg-[#FEF2F2] p-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-[#991B1B]">{selectedParticipant.name}</p>
+                        <p className="truncate text-xs text-[#991B1B]">
+                          {selectedParticipant.email} · {selectedParticipant.institusi || "-"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedParticipant(null)}
+                        data-testid="clear-delete-participant-selection"
+                        aria-label="Ganti peserta yang dipilih"
+                        className="shrink-0 rounded-lg p-1.5 text-[#991B1B] transition-colors hover:bg-[#FECACA]"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  {searchingParticipants && (
+                    <p className="flex items-center gap-2 text-xs text-[#6B7280]" data-testid="participant-delete-search-loading">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Mencari pendaftar...
+                    </p>
+                  )}
+                  {!searchingParticipants && participantQuery.trim().length >= 2 && (
+                    <div className="max-h-44 space-y-1 overflow-y-auto rounded-lg border border-gray-200 p-1" data-testid="participant-delete-search-results">
+                      {searchResults.length ? searchResults.map((item) => {
+                        const isDemoAccount = (
+                          item.email?.toLowerCase() === DEMO_STUDENT_EMAIL?.toLowerCase()
+                        );
+                        return (
+                          <button
+                            key={item.user_id}
+                            type="button"
+                            disabled={isDemoAccount}
+                            onClick={() => setSelectedParticipant(item)}
+                            data-testid={`participant-delete-search-result-${item.user_id}`}
+                            className={[
+                              "flex w-full items-center justify-between gap-3 p-3 text-left",
+                              "transition-colors hover:bg-[#F9FAFB] disabled:cursor-not-allowed",
+                              "disabled:bg-[#F9FAFB] disabled:opacity-60",
+                            ].join(" ")}
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-[#1F2937]">{item.name}</span>
+                              <span className="block truncate text-xs text-[#6B7280]">
+                                {item.email} · {item.institusi || "-"}
+                              </span>
+                            </span>
+                            {isDemoAccount ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-bold text-[#92400E]" data-testid={`protected-demo-search-result-${item.user_id}`}>
+                                <ShieldCheck className="h-3.5 w-3.5" /> Akun Demo
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-[#0B6B3A]">Pilih</span>
+                            )}
+                          </button>
+                        );
+                      }) : (
+                        <p className="p-3 text-center text-xs text-[#6B7280]" data-testid="participant-delete-search-empty">
+                          Tidak ada pendaftar yang cocok.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
