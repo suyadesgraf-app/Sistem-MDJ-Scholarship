@@ -788,3 +788,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Tombol **Kembali ke Beranda** dipindahkan ke kanan atas panel formulir login sesuai referensi.
 - Gaya tombol, rute, dan perilaku navigasi tidak diubah.
 - Verifikasi browser mengonfirmasi tombol berada di atas dan di kanan judul formulir.
+
+## 2026-09 — Email Footer Satu Baris
+- Menghapus aturan pemenggalan email pada bagian Hubungi Kami.
+- Ukuran email kini responsif antara 10–12px agar alamat tampil utuh dalam satu baris tanpa
+  menimbulkan overflow.
+- Verifikasi browser: `white-space: nowrap` aktif dan lebar teks sama dengan lebar kolom footer.

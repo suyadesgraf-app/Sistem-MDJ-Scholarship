@@ -648,10 +648,11 @@ export default function Landing() {
               <a
                 href="mailto:pendaftaranmdj@baznasbazisdki.id"
                 data-testid="footer-email-link"
-                className="flex items-center gap-3 break-all transition-colors duration-200 hover:text-white"
+                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-[clamp(10px,3.1vw,12px)]
+                  leading-none transition-colors duration-200 hover:text-white"
               >
                 <Mail className="h-4 w-4 shrink-0 text-[#27AE60]" />
-                <span>pendaftaranmdj@baznasbazisdki.id</span>
+                <span className="whitespace-nowrap">pendaftaranmdj@baznasbazisdki.id</span>
               </a>
             </div>
           </div>
