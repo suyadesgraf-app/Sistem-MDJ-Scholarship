@@ -759,3 +759,9 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   diskalakan agar seluruh gambar tetap terlihat dalam layar.
 - Verifikasi browser memakai banner MDJ asli: gambar 1080×1350 termuat, ditampilkan penuh pada
   area 520×384, dan seluruh poster terlihat tanpa crop.
+
+## 2026-09 — Tautan Detail Kartu Berita
+- Menghapus tautan **Baca Selengkapnya** kedua pada bagian bawah kartu berita Beranda.
+- Tautan detail utama tetap tersedia, sedangkan tautan berkas tetap muncul bila pengumuman
+  memiliki lampiran.
+- Verifikasi browser mengonfirmasi setiap kartu memiliki tepat satu tautan detail berita.
