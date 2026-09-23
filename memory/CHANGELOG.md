@@ -801,3 +801,11 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Setiap nomor membuka chat WhatsApp langsung melalui tautan `wa.me` dengan format internasional.
 - Ukuran teks responsif menjaga kedua hotline tetap satu baris tanpa melampaui kolom footer.
 - Verifikasi browser mengonfirmasi label, tautan WhatsApp, dan tata letak kedua hotline.
+
+## 2026-09 — Tata Letak Kontak Footer
+- Menghapus baris Nomor Telepon BAZNAS dari Hubungi Kami.
+- Merapatkan jarak antar kolom footer dan memperlebar kolom Hubungi Kami agar posisinya lebih
+  dekat dengan Informasi Legal.
+- Hotline Kampus, Hotline Mahasiswa, dan email kini memakai ukuran teks normal yang sama serta
+  tetap satu baris tanpa overflow.
+- Verifikasi browser: seluruh kontak berukuran 14px, `nowrap`, dan tidak melampaui kolom.

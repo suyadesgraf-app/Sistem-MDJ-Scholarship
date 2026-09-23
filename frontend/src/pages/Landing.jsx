@@ -8,7 +8,7 @@ import SiteAnnouncementPopup from "@/components/SiteAnnouncementPopup";
 import {
   GraduationCap, User, Award, Shield, Menu, X, CheckCircle2, ArrowRight,
   School, BookOpen, Star, Calendar, ChevronDown, Sparkles, ShieldCheck,
-  Download, MapPin, Megaphone, Facebook, Instagram, Youtube, Phone, Mail, MessageCircle,
+  Download, MapPin, Megaphone, Facebook, Instagram, Youtube, Mail, MessageCircle,
 } from "lucide-react";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?auto=format&fit=crop&w=1600&q=60";
@@ -531,7 +531,10 @@ export default function Landing() {
 
       {/* FOOTER */}
       <footer className="bg-[#111827] py-14 text-white/65 sm:py-16">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 md:grid-cols-2 lg:grid-cols-4 lg:gap-12">
+        <div
+          className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 md:grid-cols-2 lg:grid-cols-[1.45fr_0.9fr_1fr_1.4fr]
+            lg:gap-x-6"
+        >
           <div>
             <p className="font-display text-base font-extrabold uppercase text-white">
               Masa Depan Jakarta Scholarship
@@ -638,20 +641,12 @@ export default function Landing() {
                 </span>
               </p>
               <a
-                href="tel:+62213199456"
-                data-testid="footer-phone-link"
-                className="flex items-center gap-3 transition-colors duration-200 hover:text-white"
-              >
-                <Phone className="h-4 w-4 shrink-0 text-[#27AE60]" />
-                <span>[Nomor Telepon BAZNAS]</span>
-              </a>
-              <a
                 href="https://wa.me/6285353187574"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Chat WhatsApp Hotline Kampus"
                 data-testid="footer-whatsapp-campus-link"
-                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-[clamp(10px,2.8vw,11px)]
+                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-sm
                   leading-none transition-colors duration-200 hover:text-white"
               >
                 <MessageCircle className="h-4 w-4 shrink-0 text-[#27AE60]" />
@@ -663,7 +658,7 @@ export default function Landing() {
                 rel="noreferrer"
                 aria-label="Chat WhatsApp Hotline Mahasiswa"
                 data-testid="footer-whatsapp-student-link"
-                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-[clamp(10px,2.8vw,11px)]
+                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-sm
                   leading-none transition-colors duration-200 hover:text-white"
               >
                 <MessageCircle className="h-4 w-4 shrink-0 text-[#27AE60]" />
@@ -672,7 +667,7 @@ export default function Landing() {
               <a
                 href="mailto:pendaftaranmdj@baznasbazisdki.id"
                 data-testid="footer-email-link"
-                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-[clamp(10px,3.1vw,12px)]
+                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-sm
                   leading-none transition-colors duration-200 hover:text-white"
               >
                 <Mail className="h-4 w-4 shrink-0 text-[#27AE60]" />

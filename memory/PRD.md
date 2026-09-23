@@ -38,6 +38,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
 - Tombol Kembali ke Beranda pada login berada di kanan atas panel formulir.
 - Alamat email Hubungi Kami pada footer tampil satu baris dengan ukuran responsif tanpa overflow.
 - Footer menyediakan tautan WhatsApp langsung untuk Hotline Kampus dan Hotline Mahasiswa.
+- Footer desktop memakai kolom kontak yang lebih lebar; hotline dan email tampil satu baris dalam
+  ukuran teks normal, tanpa nomor telepon BAZNAS.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 
