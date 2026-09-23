@@ -1,6 +1,35 @@
 import React, { useEffect, useState } from "react";
 import { ArrowDown, ArrowRight } from "lucide-react";
 
+const getDesktopPosition = (index) => {
+  const row = Math.floor(index / 3);
+  const positionInRow = index % 3;
+  const column = row % 2 === 0 ? positionInRow : 2 - positionInRow;
+  return {
+    row,
+    column,
+    order: row * 3 + column + 1,
+  };
+};
+
+const getDesktopDirection = (index) => {
+  const current = getDesktopPosition(index);
+  const next = getDesktopPosition(index + 1);
+  if (next.row > current.row) return "down";
+  return next.column > current.column ? "right" : "left";
+};
+
+const getTrailingPlaceholderOrders = (stepCount) => {
+  if (!stepCount || stepCount % 3 === 0) return [];
+  const row = Math.floor((stepCount - 1) / 3);
+  if (row % 2 === 0) return [];
+  const usedColumns = stepCount % 3;
+  return Array.from(
+    { length: 3 - usedColumns },
+    (_, index) => row * 3 + index + 1,
+  );
+};
+
 export default function RegistrationFlow({ steps = [] }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [activeIndex, setActiveIndex] = useState(() => (
@@ -24,6 +53,8 @@ export default function RegistrationFlow({ steps = [] }) {
 
   if (!steps.length) return null;
 
+  const trailingPlaceholderOrders = getTrailingPlaceholderOrders(steps.length);
+
   return (
     <section id="alur" className="overflow-hidden bg-[#08743D] py-20 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -43,11 +74,13 @@ export default function RegistrationFlow({ steps = [] }) {
           {steps.map((step, index) => {
             const isLast = index === steps.length - 1;
             const isActive = activeIndex === index;
-            const direction = index % 3 === 2 ? "down" : "right";
+            const direction = isLast ? null : getDesktopDirection(index);
+            const desktopPosition = getDesktopPosition(index);
             return (
               <div
                 key={`${step.title}-${index}`}
-                className="relative"
+                style={{ "--desktop-order": desktopPosition.order }}
+                className="relative lg:order-[var(--desktop-order)]"
                 onMouseLeave={() => {
                   if (!isMobile) setActiveIndex(null);
                 }}
@@ -82,11 +115,11 @@ export default function RegistrationFlow({ steps = [] }) {
 
                   {!isLast && direction !== "down" && (
                     <span
-                      className="absolute -right-10 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#F2C94C]/60 bg-[#08743D] text-[#F2C94C] lg:flex"
+                      className={`absolute top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#F2C94C]/60 bg-[#08743D] text-[#F2C94C] lg:flex ${direction === "left" ? "-left-10" : "-right-10"}`}
                       aria-hidden="true"
                       data-testid={`registration-flow-arrow-${index + 1}`}
                     >
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className={`h-4 w-4 ${direction === "left" ? "rotate-180" : ""}`} />
                     </span>
                   )}
                 </div>
@@ -112,6 +145,14 @@ export default function RegistrationFlow({ steps = [] }) {
               </div>
             );
           })}
+          {trailingPlaceholderOrders.map((order) => (
+            <div
+              key={`registration-flow-placeholder-${order}`}
+              aria-hidden="true"
+              style={{ "--desktop-order": order }}
+              className="hidden lg:block lg:order-[var(--desktop-order)]"
+            />
+          ))}
         </div>
       </div>
     </section>
