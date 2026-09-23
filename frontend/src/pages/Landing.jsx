@@ -313,7 +313,7 @@ export default function Landing() {
             <h2 className="font-display text-3xl font-extrabold tracking-tight text-[#1F2937] lg:text-4xl">Berita Terbaru</h2>
             <p className="mt-2 text-sm text-[#6B7280]">Informasi terkini seputar MDJ Scholarship dan kegiatan BAZNAS (BAZIS).</p>
           </div>
-          <a href="#pengumuman" className="text-sm font-bold text-[#0B6B3A] hover:text-[#27AE60]">Lihat Selengkapnya →</a>
+          <Link to="/berita" data-testid="view-all-news-link" className="text-sm font-bold text-[#0B6B3A] hover:text-[#27AE60]">Lihat Selengkapnya →</Link>
         </div>
         <div className="flex gap-4 overflow-x-auto pb-3 mdj-scrollbar" data-testid="latest-announcements-row">
           {announcements.map((a, i) => (
