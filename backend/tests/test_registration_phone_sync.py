@@ -8,6 +8,7 @@ from pymongo import MongoClient
 
 
 load_dotenv("/app/backend/.env")
+load_dotenv("/app/frontend/.env")
 
 BACKEND_URL = os.environ["REACT_APP_BACKEND_URL"].rstrip("/")
 API = BACKEND_URL if BACKEND_URL.endswith("/api") else f"{BACKEND_URL}/api"

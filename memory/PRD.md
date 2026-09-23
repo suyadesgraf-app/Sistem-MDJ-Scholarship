@@ -70,6 +70,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   berdampingan tanpa scrollbar horizontal di atas kontrol buka, dengan tombol Keluar di kiri dan
   ikon Tutup Sidebar di kanan.
 - Menu **Referensi AI** sementara disembunyikan dari navigasi Super Admin.
+- Nomor Telepon / WhatsApp yang diisi saat pendaftaran mahasiswa dinormalisasi, langsung tersedia
+  pada Informasi Akun, dan tetap berstatus belum terverifikasi sampai alur OTP yang ada diselesaikan.
 - Kelola Website kini memiliki tab **Footer & Kontak** untuk mengatur tautan Facebook, Instagram,
   YouTube, tautan sosial tambahan, judul Hubungi Kami, serta daftar kontak dinamis beserta aksi
   tautannya.

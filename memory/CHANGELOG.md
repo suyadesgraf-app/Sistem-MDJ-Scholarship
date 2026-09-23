@@ -934,3 +934,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 ## 2026-09 — Navigasi Super Admin
 - Menu dan tampilan aktif **Referensi AI** sementara dihapus dari dashboard Super Admin tanpa
   mengubah fitur navigasi lain.
+
+## 2026-09 — Sinkronisasi Nomor WhatsApp Pendaftaran
+- Field pendaftaran diperjelas menjadi **No. Telepon / WhatsApp** dan menyesuaikan keyboard telepon.
+- Nomor yang diisi mahasiswa dinormalisasi di server, disimpan pada akun, lalu langsung tersedia
+  di Informasi Akun serta fallback profil. Statusnya tetap belum terverifikasi hingga OTP berhasil.
+- Validasi menolak nomor yang terlalu pendek atau berformat tidak valid. Pengujian independen
+  berhasil untuk register, login ulang, `/auth/me`, profil, dan tampilan Pengaturan mahasiswa.
