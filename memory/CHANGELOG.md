@@ -832,3 +832,8 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Gambar Tentang kini hanya dirender bila Super Admin telah menyediakan URL gambar melalui CMS.
 - Verifikasi browser mensimulasikan respons CMS kosong saat pemuatan awal: tidak ada gambar stok;
   setelah data CMS tersedia, gambar Tentang MDJ termuat dari penyimpanan aplikasi.
+
+## 2026-09 — Teks Kartu Status Pendaftaran
+- Judul kartu Beranda diperbarui menjadi **Masa Depan Jakarta Scholarship Tahun 2027**.
+- Keterangan diperbarui menjadi: “Segera daftarkan diri anda sebelum tenggat waktu berakhir.”
+- Verifikasi browser mengonfirmasi kedua teks tampil persis sesuai permintaan.

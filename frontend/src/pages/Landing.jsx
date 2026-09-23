@@ -285,8 +285,18 @@ export default function Landing() {
           </div>
           <div className="hidden lg:flex justify-end animate-fade-up" style={{ animationDelay: "0.15s" }}>
             <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-white/50">
-              <p className="font-display font-extrabold text-lg text-[#1F2937]">Masa Depan Jakarta {settings.year || "2026"}</p>
-              <p className="text-sm text-[#6B7280] mt-1 mb-5">Mewujudkan SDM Jakarta yang Terdidik, Unggul, dan Berakhlak Mulia.</p>
+              <p
+                className="font-display font-extrabold text-lg text-[#1F2937]"
+                data-testid="registration-summary-title"
+              >
+                Masa Depan Jakarta Scholarship Tahun {settings.year || "2027"}
+              </p>
+              <p
+                className="mb-5 mt-1 text-sm text-[#6B7280]"
+                data-testid="registration-summary-description"
+              >
+                Segera daftarkan diri anda sebelum tenggat waktu berakhir.
+              </p>
               <div className="rounded-xl bg-[#E8F6EE] p-4 flex items-center gap-3">
                 <div className={`w-2.5 h-2.5 rounded-full ${registrationIsOpen ? "bg-[#27AE60] animate-pulse" : "bg-[#DC2626]"}`} />
                 <div>

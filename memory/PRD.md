@@ -46,6 +46,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   BAZIS resmi.
 - Bagian Tentang tidak lagi menampilkan gambar stok saat refresh; hanya gambar dari CMS yang
   dirender setelah data tersedia.
+- Kartu status pendaftaran Beranda menggunakan judul Masa Depan Jakarta Scholarship Tahun 2027
+  serta keterangan ajakan pendaftaran terbaru.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 
