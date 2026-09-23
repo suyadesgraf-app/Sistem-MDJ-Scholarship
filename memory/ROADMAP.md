@@ -3,6 +3,8 @@
 ## P0 — Selesai
 - Kategori Berita dinamis: CMS Super Admin, dropdown kategori pada editor berita, dan
   filter kategori publik pada `/berita`; kontrol CMS menyatu di tab Pengumuman.
+- Popup pengumuman terkendali untuk akun Mahasiswa dan Beranda, dengan satu popup aktif per
+  tujuan dan penyimpanan status tampil sekali.
 
 ## P1 — Prioritas Berikutnya
 - Refactor bertahap `/app/backend/server.py` yang sangat besar menjadi router/service

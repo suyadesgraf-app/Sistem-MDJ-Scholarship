@@ -1,0 +1,24 @@
+{
+  "summary": "Verified announcement popup flags (student + landing) end-to-end. Backend pytest 6/6 passed against public preview URL: (a) PUT /api/site/content rejects 400 when >1 show_student_popup, (b) rejects 400 when >1 show_landing_popup, (c) accepts exactly one of each, (d) GET /student/site-announcements/pending returns {announcement: null} when no show_student_popup active, (e) returns matching announcement when active and /seen makes it disappear, (f) regular announcements (flag off) never trigger student popup. Frontend Playwright verified: SiteManager Pengumuman tab shows two checkboxes per news; enabling one row's student/landing checkbox auto-clears the same field on the other row (client-side mutual exclusion). Landing modal renders with title, ringkasan, Tutup + Baca Selengkapnya; after Tutup + reload popup does NOT reappear (localStorage-based). Baca Selengkapnya navigates to /berita/pengumuman-awardee-mdj-scholarship. Mobile 390px landing: horizontal overflow = 0px. Site content fully restored (all popup flags off) after tests.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_site_announcement_popups.py",
+    "/app/test_reports/pytest/iter60_popups.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "get_pending_site_announcement inserts announcement notifications lazily on every GET (side-effect on read). Consider centralizing announcement->notification fan-out on PUT via notify_new_announcements so read endpoints are pure. Current design still meets spec but adds write-on-read cost.",
+    "The pending endpoint matches previously seen notifications by source_id OR (title,message). If a super admin re-toggles show_student_popup on an announcement whose text is unchanged, the student will not see it again because the earlier notification is still is_popup_seen=true. This matches 'sekali per pengumuman' spec, but is worth documenting for CMS editors.",
+    "In update_site_content, when payload includes announcements without news_categories, the announcement normalization pass still uses effective_categories fallback to reset unknown categories — behavior looks correct but the double normalization branch (rename-block + generic block) remains cognitively heavy (previously flagged in iter59).",
+    "Landing popup 'seen' state is stored only in browser localStorage; clearing browser storage or using another device shows the popup again. Acceptable per spec ('tidak muncul lagi pada browser yang sama') but worth flagging."
+  ],
+  "updated_files": ["/app/backend/tests/test_site_announcement_popups.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "supri@baznasbazisdki.id / MdjSuper2026!, mahasiswa.mdj@baznasbazisdki.id / MahasiswaMDJ2026! (from /app/memory/test_credentials.md).",
+  "seed_data_creation": "None persisted. Original announcements preserved; both popup flags set back to False on both announcements via PUT /api/site/content after all tests. Verified via GET.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Popup feature verified. Backend test file: /app/backend/tests/test_site_announcement_popups.py (run with pytest -o addopts=\"\" to disable xdist parallelism; xdist causes race conditions since tests mutate shared site_content). Key test IDs: announcement-student-popup-{index}, announcement-landing-popup-{index}, save-site-content-btn, landing-announcement-popup, site-announcement-popup, dismiss-landing-announcement-popup, view-landing-announcement-button, dismiss-site-announcement-popup, site-announcement-popup-title, site-announcement-popup-message. Student popup won't re-appear in Playwright for a student user that already saw the same announcement in a prior run (is_popup_seen=true persisted in db.notifications) — that's per-spec 'sekali per pengumuman'. To force a fresh test, either use a different student account or delete the matching notification for that user & source_id.",
+  "rca of the issue": "N/A — no defects detected."
+}

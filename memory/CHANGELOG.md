@@ -739,3 +739,15 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   dropdown kategori seperti format yang diminta pengguna.
 - Verifikasi: build frontend lulus dan browser mengonfirmasi tab terpisah tidak tampil, editor
   kategori tampil di Pengumuman, serta dropdown kategori berita berfungsi.
+
+## 2026-09 — Popup Pengumuman Terkendali
+- Pada setiap editor Pengumuman, Super Admin dapat memilih **Popup Akun Mahasiswa** dan/atau
+  **Popup Beranda**.
+- CMS serta server membatasi hanya satu popup aktif untuk masing-masing tujuan. Mengaktifkan
+  satu pilihan di UI otomatis mematikan pilihan sejenis pada berita lain.
+- Pengumuman biasa tetap dapat menjadi notifikasi mahasiswa, tetapi hanya pengumuman yang dipilih
+  dapat membuka popup akun mahasiswa.
+- Popup Beranda tampil untuk pengunjung publik dan disimpan di browser setelah ditutup; popup yang
+  sama tidak tampil lagi pada browser tersebut. Tombol Baca Selengkapnya membuka detail berita.
+- Verifikasi testing agent lulus: backend 6/6, kontrol CMS, popup mahasiswa, popup Beranda,
+  navigasi detail, dan layar ponsel 390px tanpa overflow. Konten pengujian dipulihkan.

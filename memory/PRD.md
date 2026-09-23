@@ -28,6 +28,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
 ## Current Status (2026-09)
 - **P0 selesai**: kategori Berita sekarang dikelola Super Admin melalui Kelola Website.
   Kontrol tambah, ubah, dan hapus berada di bagian atas tab **Pengumuman**, tanpa tab terpisah.
+- Setiap pengumuman memiliki pilihan **Popup Akun Mahasiswa** dan **Popup Beranda**.
+  Masing-masing tujuan dibatasi satu popup aktif dan popup hanya tampil sekali setelah ditutup.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 
