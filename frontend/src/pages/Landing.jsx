@@ -22,6 +22,33 @@ const landingPopupKey = (announcement) => [
   announcement.title || "",
 ].join(":");
 
+const formatLandingDate = (value, abbreviated = false) => {
+  if (!value) {
+    return "—";
+  }
+  const normalizedValue = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? `${value}T12:00:00+07:00`
+    : value;
+  const date = new Date(normalizedValue);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  const formatted = new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: abbreviated ? "short" : "long",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(date);
+  return abbreviated ? formatted.replace(/\bSep\b/, "Sept") : formatted;
+};
+
+const ResponsiveDate = ({ value }) => (
+  <>
+    <span className="hidden xl:inline">{formatLandingDate(value)}</span>
+    <span className="xl:hidden">{formatLandingDate(value, true)}</span>
+  </>
+);
+
 const NAV_LINKS = [
   { name: "Beranda", href: "#beranda" },
   { name: "Tentang", href: "#tentang" },
@@ -163,6 +190,11 @@ export default function Landing() {
   const bannerBg = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : HERO_IMG;
   const aboutBg = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : ABOUT_IMG;
   const logoUrl = c.logo_url ? `${API}/site/logo` : null;
+  const recipientQuota = Number.parseInt(
+    String(settings.recipient_quota || "").replace(/\D/g, ""),
+    10,
+  );
+  const hasRecipientQuota = Number.isFinite(recipientQuota) && recipientQuota > 0;
   const registrationIsOpen = settings.registration_open && (!settings.registration_start_at || Date.now() >= new Date(settings.registration_start_at).getTime()) && (!settings.registration_end_at || Date.now() < new Date(settings.registration_end_at).getTime());
 
   useEffect(() => {
@@ -264,8 +296,49 @@ export default function Landing() {
                 </div>
               </div>
               <div className="mt-4 space-y-2.5 text-sm">
-                <div className="flex items-center justify-between"><span className="text-[#6B7280] flex items-center gap-2"><Calendar className="w-4 h-4" /> Periode</span><span className="font-semibold text-[#1F2937]">{settings.registration_start_at ? new Date(settings.registration_start_at).toLocaleDateString("id-ID") : settings.period_start} - {settings.registration_end_at ? new Date(settings.registration_end_at).toLocaleDateString("id-ID") : settings.period_end}</span></div>
-                <div className="flex items-center justify-between"><span className="text-[#6B7280] flex items-center gap-2"><Megaphone className="w-4 h-4" /> Pengumuman</span><span className="font-semibold text-[#1F2937]">{settings.announcement_date}</span></div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex shrink-0 items-center gap-2 text-[#6B7280]">
+                    <Calendar className="h-4 w-4" /> Periode
+                  </span>
+                  <span
+                    className="text-right font-semibold text-[#1F2937]"
+                    data-testid="registration-period-value"
+                  >
+                    {formatLandingDate(
+                      settings.registration_start_at || settings.period_start,
+                      true,
+                    )}
+                    {" – "}
+                    {formatLandingDate(
+                      settings.registration_end_at || settings.period_end,
+                      true,
+                    )}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="flex shrink-0 items-center gap-2 text-[#6B7280]">
+                    <Megaphone className="h-4 w-4" /> Pengumuman
+                  </span>
+                  <span
+                    className="text-right font-semibold text-[#1F2937]"
+                    data-testid="registration-announcement-date-value"
+                  >
+                    <ResponsiveDate value={settings.announcement_date} />
+                  </span>
+                </div>
+                {hasRecipientQuota && (
+                  <div
+                    className="flex items-center justify-between gap-3"
+                    data-testid="recipient-quota-display"
+                  >
+                    <span className="flex shrink-0 items-center gap-2 text-[#6B7280]">
+                      <User className="h-4 w-4" /> Kuota Penerima
+                    </span>
+                    <span className="text-right font-semibold text-[#1F2937]">
+                      {new Intl.NumberFormat("id-ID").format(recipientQuota)} Mahasiswa
+                    </span>
+                  </div>
+                )}
               </div>
               {registrationIsOpen && settings.registration_end_at && remainingTime && (
                 <div className="mt-5 border-t border-gray-100 pt-4" data-testid="registration-countdown">

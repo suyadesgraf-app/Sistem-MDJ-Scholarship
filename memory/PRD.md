@@ -33,6 +33,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
 - Banner popup mengikuti rasio asli dan tampil penuh tanpa pemotongan gambar.
 - Kartu berita pada Beranda hanya menampilkan satu tautan detail **Baca Selengkapnya**.
 - Tanggal pengumuman dibuat otomatis dalam format Indonesia dan tidak dapat diedit dari CMS.
+- Super Admin dapat mengatur kuota penerima; kartu status Beranda menampilkan kuota serta
+  tanggal bulan penuh atau singkat sesuai ruang yang tersedia.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

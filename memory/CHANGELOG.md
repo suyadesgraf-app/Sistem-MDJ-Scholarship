@@ -773,3 +773,13 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Saat disimpan, pengumuman lama yang tidak memiliki tanggal juga otomatis diisi tanpa mengubah
   tanggal pengumuman yang sudah ada.
 - Verifikasi browser: input manual tidak tersedia dan berita baru memperoleh label tanggal otomatis.
+
+## 2026-09 — Kuota Penerima dan Format Tanggal Beranda
+- Menambahkan input **Kuota Penerima** pada Kelola Website untuk Super Admin.
+- Kartu status pendaftaran di Beranda menampilkan `Kuota Penerima: [angka] Mahasiswa` setelah
+  kuota diisi.
+- Rentang periode memakai bulan singkat agar tidak melipat, contohnya `23 Sept 2026 – 25 Sept
+  2026`; tanggal pengumuman tunggal menampilkan bulan penuh bila ruang memadai, misalnya
+  `25 September 2026`.
+- Verifikasi browser mengonfirmasi format tanggal dan angka kuota `3.600 Mahasiswa`; pengaturan
+  kuota uji telah dikembalikan ke nilai asli.

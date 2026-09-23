@@ -197,6 +197,18 @@ export default function SiteManager() {
               <Fld label="Tanggal & Jam Selesai"><input type="datetime-local" disabled={!c.settings?.registration_open} value={c.settings?.registration_end_at || ""} onChange={(e) => setSetting("registration_end_at", e.target.value)} data-testid="period-end-input" className={ic} /></Fld>
               <Fld label="Tanggal Pengumuman"><input type="date" disabled={!c.settings?.registration_open} value={c.settings?.announcement_date || ""} onChange={(e) => setSetting("announcement_date", e.target.value)} data-testid="announcement-date-input" className={ic} /></Fld>
               <Fld label="Tahun Program"><input type="number" disabled={!c.settings?.registration_open} value={c.settings?.year || ""} onChange={(e) => setSetting("year", e.target.value)} className={ic} /></Fld>
+              <Fld label="Kuota Penerima">
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={c.settings?.recipient_quota || ""}
+                  onChange={(event) => setSetting("recipient_quota", event.target.value)}
+                  data-testid="recipient-quota-input"
+                  placeholder="Contoh: 3600"
+                  className={ic}
+                />
+              </Fld>
             </div>
           </Panel>
           <Panel title="Teks Hero">
