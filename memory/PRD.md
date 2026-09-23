@@ -37,6 +37,7 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   tanggal bulan penuh atau singkat sesuai ruang yang tersedia.
 - Tombol Kembali ke Beranda pada login berada di kanan atas panel formulir.
 - Alamat email Hubungi Kami pada footer tampil satu baris dengan ukuran responsif tanpa overflow.
+- Footer menyediakan tautan WhatsApp langsung untuk Hotline Kampus dan Hotline Mahasiswa.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

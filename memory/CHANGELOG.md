@@ -794,3 +794,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Ukuran email kini responsif antara 10–12px agar alamat tampil utuh dalam satu baris tanpa
   menimbulkan overflow.
 - Verifikasi browser: `white-space: nowrap` aktif dan lebar teks sama dengan lebar kolom footer.
+
+## 2026-09 — Hotline WhatsApp Footer
+- Menambahkan **Hotline Kampus: 0853-5318-7574** dan **Hotline Mahasiswa: 0822-2869-2697** pada
+  bagian Hubungi Kami.
+- Setiap nomor membuka chat WhatsApp langsung melalui tautan `wa.me` dengan format internasional.
+- Ukuran teks responsif menjaga kedua hotline tetap satu baris tanpa melampaui kolom footer.
+- Verifikasi browser mengonfirmasi label, tautan WhatsApp, dan tata letak kedua hotline.

@@ -8,7 +8,7 @@ import SiteAnnouncementPopup from "@/components/SiteAnnouncementPopup";
 import {
   GraduationCap, User, Award, Shield, Menu, X, CheckCircle2, ArrowRight,
   School, BookOpen, Star, Calendar, ChevronDown, Sparkles, ShieldCheck,
-  Download, MapPin, Megaphone, Facebook, Instagram, Youtube, Phone, Mail,
+  Download, MapPin, Megaphone, Facebook, Instagram, Youtube, Phone, Mail, MessageCircle,
 } from "lucide-react";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?auto=format&fit=crop&w=1600&q=60";
@@ -644,6 +644,30 @@ export default function Landing() {
               >
                 <Phone className="h-4 w-4 shrink-0 text-[#27AE60]" />
                 <span>[Nomor Telepon BAZNAS]</span>
+              </a>
+              <a
+                href="https://wa.me/6285353187574"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Chat WhatsApp Hotline Kampus"
+                data-testid="footer-whatsapp-campus-link"
+                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-[clamp(10px,2.8vw,11px)]
+                  leading-none transition-colors duration-200 hover:text-white"
+              >
+                <MessageCircle className="h-4 w-4 shrink-0 text-[#27AE60]" />
+                <span>Hotline Kampus: 0853-5318-7574</span>
+              </a>
+              <a
+                href="https://wa.me/6282228692697"
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Chat WhatsApp Hotline Mahasiswa"
+                data-testid="footer-whatsapp-student-link"
+                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-[clamp(10px,2.8vw,11px)]
+                  leading-none transition-colors duration-200 hover:text-white"
+              >
+                <MessageCircle className="h-4 w-4 shrink-0 text-[#27AE60]" />
+                <span>Hotline Mahasiswa: 0822-2869-2697</span>
               </a>
               <a
                 href="mailto:pendaftaranmdj@baznasbazisdki.id"
