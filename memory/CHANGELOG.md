@@ -721,13 +721,21 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 
 
 ## 2026-09 — Kategori Berita Dinamis di CMS
-'
-    '- Super Admin kini memiliki tab **Kategori Berita** pada Kelola Website untuk menambah, mengganti nama, dan menghapus kategori.
-'
-    '- Editor Pengumuman memakai dropdown kategori yang diambil langsung dari CMS; halaman `/berita` memakai daftar yang sama untuk filter publik.
-'
-    '- Penggantian nama kategori ikut memperbarui berita terkait; penghapusan kategori memindahkan berita terkait ke kategori pertama yang tersisa.
-'
-    '- Validasi server mencegah daftar kosong, nama kosong/duplikat, lebih dari 20 kategori, serta pembaruan oleh peran selain Super Admin.
-'
-    '- Verifikasi: `yarn build` lulus; `pytest -q backend/tests/test_news_categories.py` lulus 12/12; testing agent memverifikasi desktop dan ponsel 390px tanpa overflow.
+- Super Admin dapat menambah, mengganti nama, dan menghapus kategori berita.
+- Editor Pengumuman memakai dropdown kategori dari CMS; halaman `/berita` memakai daftar sama
+  sebagai filter publik.
+- Penggantian nama kategori ikut memperbarui berita terkait; penghapusan kategori memindahkan
+  berita terkait ke kategori pertama yang tersisa.
+- Validasi server mencegah daftar kosong, nama kosong/duplikat, lebih dari 20 kategori, serta
+  pembaruan oleh peran selain Super Admin.
+- Verifikasi awal: `yarn build` lulus; `pytest -q backend/tests/test_news_categories.py` lulus
+  12/12; testing agent memverifikasi desktop dan ponsel 390px tanpa overflow.
+
+## 2026-09 — Kategori Berita Menyatu dengan Pengumuman
+- Tab **Kategori Berita** dihapus dari Kelola Website.
+- Kontrol tambah, ubah nama, hapus, dan simpan kategori dipindahkan ke bagian atas tab
+  **Pengumuman**, tepat sebelum editor berita.
+- Tata letak kategori dibuat dua kolom pada desktop agar ringkas; setiap berita tetap memakai
+  dropdown kategori seperti format yang diminta pengguna.
+- Verifikasi: build frontend lulus dan browser mengonfirmasi tab terpisah tidak tampil, editor
+  kategori tampil di Pengumuman, serta dropdown kategori berita berfungsi.

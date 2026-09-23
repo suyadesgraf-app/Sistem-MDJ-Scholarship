@@ -8,7 +8,6 @@ const TABS = [
   ["umum", "Umum & Banner"],
   ["alur", "Alur Pendaftaran"],
   ["pengumuman", "Pengumuman"],
-  ["kategori-berita", "Kategori Berita"],
   ["statistik", "Statistik"],
   ["persyaratan", "Syarat Pendaftar"],
   ["berkas", "Kelengkapan Berkas"],
@@ -192,91 +191,96 @@ export default function SiteManager() {
       )}
 
       {tab === "pengumuman" && (
-        <ArrayEditor
-          items={c.announcements || []}
-          onChange={(value) => setField("announcements", value)}
-          onSave={() => save({ announcements: c.announcements })}
-          saving={saving}
-          template={{
-            date: "",
-            category: c.news_categories?.[0] || "Informasi",
-            title: "",
-            summary: "",
-            content: "",
-            link: "",
-          }}
-          testid="announcement"
-          render={(item, update, index) => (
-            <>
-              <div className="mb-2 grid grid-cols-2 gap-2">
+        <div className="space-y-6">
+          <NewsCategoryEditor
+            categories={c.news_categories || []}
+            onSave={(news_categories, news_category_renames) => save({
+              news_categories,
+              news_category_renames,
+            })}
+            saving={saving}
+          />
+          <ArrayEditor
+            items={c.announcements || []}
+            onChange={(value) => setField("announcements", value)}
+            onSave={() => save({ announcements: c.announcements })}
+            saving={saving}
+            template={{
+              date: "",
+              category: c.news_categories?.[0] || "Informasi",
+              title: "",
+              summary: "",
+              content: "",
+              link: "",
+            }}
+            testid="announcement"
+            render={(item, update, index) => (
+              <>
+                <div className="mb-2 grid grid-cols-2 gap-2">
+                  <input
+                    value={item.date}
+                    onChange={(event) => update("date", event.target.value)}
+                    placeholder="Tanggal"
+                    data-testid={`announcement-date-${index}`}
+                    className={ic}
+                  />
+                  <select
+                    value={item.category || c.news_categories?.[0] || ""}
+                    onChange={(event) => update("category", event.target.value)}
+                    data-testid={`announcement-category-${index}`}
+                    className={ic}
+                  >
+                    {(c.news_categories || []).map((category) => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                </div>
                 <input
-                  value={item.date}
-                  onChange={(event) => update("date", event.target.value)}
-                  placeholder="Tanggal"
-                  data-testid={`announcement-date-${index}`}
+                  value={item.title}
+                  onChange={(event) => update("title", event.target.value)}
+                  placeholder="Judul"
+                  data-testid={`announcement-title-${index}`}
+                  className={`${ic} mb-2 font-semibold`}
+                />
+                <textarea
+                  value={item.summary}
+                  onChange={(event) => update("summary", event.target.value)}
+                  placeholder="Ringkasan"
+                  rows={2}
+                  data-testid={`announcement-summary-${index}`}
                   className={ic}
                 />
-                <select
-                  value={item.category || c.news_categories?.[0] || ""}
-                  onChange={(event) => update("category", event.target.value)}
-                  data-testid={`announcement-category-${index}`}
-                  className={ic}
-                >
-                  {(c.news_categories || []).map((category) => (
-                    <option key={category} value={category}>{category}</option>
-                  ))}
-                </select>
-              </div>
-              <input
-                value={item.title}
-                onChange={(event) => update("title", event.target.value)}
-                placeholder="Judul"
-                data-testid={`announcement-title-${index}`}
-                className={`${ic} mb-2 font-semibold`}
-              />
-              <textarea
-                value={item.summary}
-                onChange={(event) => update("summary", event.target.value)}
-                placeholder="Ringkasan"
-                rows={2}
-                data-testid={`announcement-summary-${index}`}
-                className={ic}
-              />
-              <textarea
-                value={item.content || ""}
-                onChange={(event) => update("content", event.target.value)}
-                placeholder="Isi detail berita"
-                rows={5}
-                data-testid={`announcement-content-${index}`}
-                className={`${ic} mt-2`}
-              />
-              <input
-                value={item.link || ""}
-                onChange={(event) => update("link", event.target.value)}
-                placeholder="Tautan pengumuman (opsional)"
-                data-testid={`announcement-link-${index}`}
-                className={`${ic} mt-2`}
-              />
-              <AnnouncementUpload onUpload={(attachment) => update(
-                attachment.content_type.startsWith("image/") ? "banner" : "attachment",
-                attachment,
-              )} index={index} />
-              {item.banner && <p className="mt-2 text-xs text-[#0B6B3A]">Banner: {item.banner.name}</p>}
-              {item.attachment && <p className="mt-2 text-xs text-[#0B6B3A]">Dokumen: {item.attachment.name}</p>}
-            </>
-          )}
-        />
-      )}
-
-      {tab === "kategori-berita" && (
-        <NewsCategoryEditor
-          categories={c.news_categories || []}
-          onSave={(news_categories, news_category_renames) => save({
-            news_categories,
-            news_category_renames,
-          })}
-          saving={saving}
-        />
+                <textarea
+                  value={item.content || ""}
+                  onChange={(event) => update("content", event.target.value)}
+                  placeholder="Isi detail berita"
+                  rows={5}
+                  data-testid={`announcement-content-${index}`}
+                  className={`${ic} mt-2`}
+                />
+                <input
+                  value={item.link || ""}
+                  onChange={(event) => update("link", event.target.value)}
+                  placeholder="Tautan pengumuman (opsional)"
+                  data-testid={`announcement-link-${index}`}
+                  className={`${ic} mt-2`}
+                />
+                <AnnouncementUpload onUpload={(attachment) => update(
+                  attachment.content_type.startsWith("image/") ? "banner" : "attachment",
+                  attachment,
+                )} index={index} />
+                {item.banner && (
+                  <p className="mt-2 text-xs text-[#0B6B3A]">Banner: {item.banner.name}</p>
+                )}
+                {item.attachment && (
+                  <p className="mt-2 text-xs text-[#0B6B3A]">
+                    Dokumen: {item.attachment.name}
+                  </p>
+                )}
+              </>
+            )}
+          />
+        </div>
       )}
 
       {tab === "statistik" && (
@@ -439,55 +443,61 @@ function NewsCategoryEditor({ categories, onSave, saving }) {
 
   return (
     <div className="space-y-4" data-testid="news-category-editor">
-      <div className="border-l-4 border-[#27AE60] bg-[#F0FBF5] px-4 py-3">
-        <p className="text-sm font-bold text-[#1F2937]">Kategori untuk Berita</p>
-        <p className="mt-1 text-xs leading-relaxed text-[#6B7280]">
-          Kategori ini digunakan saat membuat berita dan sebagai filter pada halaman Semua Berita.
-        </p>
-      </div>
-      {items.map((item, index) => (
-        <div key={item.id} className="flex items-center gap-2">
-          <input
-            value={item.value}
-            onChange={(event) => update(index, event.target.value)}
-            data-testid={`news-category-input-${index}`}
-            className={ic}
-          />
-          <button
-            type="button"
-            onClick={() => remove(index)}
-            data-testid={`delete-news-category-${index}`}
-            className="shrink-0 rounded-lg p-2.5 text-[#DC2626] hover:bg-[#FEE2E2]"
-            aria-label={`Hapus kategori ${item.value || index + 1}`}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p className="text-sm font-bold text-[#1F2937]">Kategori Berita</p>
+          <p className="mt-1 text-xs text-[#6B7280]">
+            Tambahkan atau ubah pilihan kategori untuk berita di bawah.
+          </p>
         </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => setItems((previous) => [
-          ...previous,
-          { id: newsCategoryItemSequence++, original: "", value: "" },
-        ])}
-        data-testid="add-news-category"
-        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed
-          border-gray-200 py-3 text-sm font-bold text-[#6B7280] transition-colors hover:border-[#27AE60]
-          hover:text-[#27AE60]"
-      >
-        <Plus className="h-4 w-4" /> Tambah Kategori
-      </button>
-      <button
-        type="button"
-        onClick={saveCategories}
-        disabled={saving}
-        data-testid="save-news-categories"
-        className="flex items-center gap-2 rounded-xl bg-[#27AE60] px-5 py-2.5 text-sm font-bold
-          text-white transition-colors hover:bg-[#0B6B3A] disabled:opacity-60"
-      >
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        Simpan Kategori Berita
-      </button>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {items.map((item, index) => (
+          <div key={item.id} className="flex items-center gap-2">
+            <input
+              value={item.value}
+              onChange={(event) => update(index, event.target.value)}
+              data-testid={`news-category-input-${index}`}
+              className={ic}
+            />
+            <button
+              type="button"
+              onClick={() => remove(index)}
+              data-testid={`delete-news-category-${index}`}
+              className="shrink-0 rounded-lg p-2.5 text-[#DC2626] hover:bg-[#FEE2E2]"
+              aria-label={`Hapus kategori ${item.value || index + 1}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => setItems((previous) => [
+            ...previous,
+            { id: newsCategoryItemSequence++, original: "", value: "" },
+          ])}
+          data-testid="add-news-category"
+          className="inline-flex items-center gap-2 rounded-lg border-2 border-dashed border-gray-200
+            px-4 py-2.5 text-sm font-bold text-[#6B7280] transition-colors hover:border-[#27AE60]
+            hover:text-[#27AE60]"
+        >
+          <Plus className="h-4 w-4" /> Tambah Kategori
+        </button>
+        <button
+          type="button"
+          onClick={saveCategories}
+          disabled={saving}
+          data-testid="save-news-categories"
+          className="flex items-center gap-2 rounded-lg bg-[#27AE60] px-5 py-2.5 text-sm font-bold
+            text-white transition-colors hover:bg-[#0B6B3A] disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Simpan Kategori
+        </button>
+      </div>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 ## P0 — Selesai
 - Kategori Berita dinamis: CMS Super Admin, dropdown kategori pada editor berita, dan
-  filter kategori publik pada `/berita`.
+  filter kategori publik pada `/berita`; kontrol CMS menyatu di tab Pengumuman.
 
 ## P1 — Prioritas Berikutnya
 - Refactor bertahap `/app/backend/server.py` yang sangat besar menjadi router/service
