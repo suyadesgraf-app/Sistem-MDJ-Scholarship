@@ -716,6 +716,14 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
 - Testing agent lulus 100% frontend: navigasi, URL langsung, sembilan kategori, pencarian, empty state, banner,
   tautan, dan tampilan ponsel tanpa overflow.
 
+## 2026-09 — Detail Berita CMS
+- Setiap kartu Berita Terbaru dan Semua Berita kini memiliki aksi **Baca Selengkapnya** yang membuka halaman
+  detail `/berita/:slug` berisi judul, kategori, tanggal, ringkasan, isi lengkap, banner, lampiran, dan sumber.
+- Super Admin dapat mengisi **Isi detail berita** pada editor Pengumuman; kategori Jadwal juga ditambahkan ke
+  filter halaman Semua Berita.
+- Testing agent lulus 100% backend/frontend: seluruh kartu membuka detail, CMS konten tersimpan, slug tidak
+  dikenal aman, dan ponsel tanpa overflow. Konten uji sudah dipulihkan.
+
 ## 2026-09 — Pembaruan slogan MDJ
 - Slogan beranda dan footer diubah dari “Muda dengan Zakat, Bahagia dengan Manfaat.” menjadi
   **MDJ Scholarship Circle of Ummah**.

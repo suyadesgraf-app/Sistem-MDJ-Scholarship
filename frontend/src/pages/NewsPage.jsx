@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowLeft, Search } from "lucide-react";
 import api from "@/lib/api";
 
-const categories = ["Semua Berita", "Pengumuman", "Informasi", "Kegiatan Program", "Prestasi Awardee", "Kerja Sama", "Liputan Media", "Inspirasi Alumni", "Artikel"];
+const categories = ["Semua Berita", "Pengumuman", "Informasi", "Jadwal", "Kegiatan Program", "Prestasi Awardee", "Kerja Sama", "Liputan Media", "Inspirasi Alumni", "Artikel"];
 const slugify = (value = "") => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 export default function NewsPage() {
