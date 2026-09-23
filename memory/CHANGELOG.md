@@ -861,3 +861,23 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   kegagalan parsial.
 - Verifikasi testing agent lulus backend 14/14, alur UI desktop/mobile, mapping XLSX, duplikat,
   konflik identifier, tanpa dokumen, dan pembersihan seluruh data uji.
+
+## 2026-09 — Sinkronisasi Kampus dan Rekening dari Import Peserta
+- Pemetaan impor peserta menambahkan Nama Bank Kampus, Nomor Rekening Kampus, dan Pemilik
+  Rekening Kampus.
+- Kampus baru dibuat otomatis sekali saja dari nilai kampus di Excel; rekening dan pemiliknya
+  disimpan pada master Kampus.
+- Rekening, pemilik, atau bank yang berbeda tidak menimpa master Kampus. Peserta tetap diproses
+  dan konflik tampil pada hasil impor per baris.
+- Menu Kampus sekarang memiliki input, kolom tabel, dan pencarian Nama Bank.
+
+## 2026-09 — Tambah dan Hapus Pendaftar Super Admin
+- Menambahkan dialog **Tambah Pendaftar** dengan Nama Lengkap, NIK, Email, Nomor HP, Kampus, dan
+  NIM. Data baru berstatus Terkirim tanpa berkas dan dapat membuat master kampus baru.
+- Menambahkan hapus permanen untuk satu pendaftar, seluruh pendaftar satu kampus, atau seluruh
+  pendaftar; dialog selalu menampilkan nama atau jumlah target sebelum tombol Hapus Permanen.
+- Penghapusan menghapus akun, profil, registrasi, rekam dokumen, notifikasi, chat mahasiswa,
+  persetujuan surat, eligibility, dan referensi penerima pencairan. Berkas penyimpanan objek tidak
+  memiliki API hapus fisik, tetapi tanpa rekam dokumen berkas tersebut tidak dapat diakses aplikasi.
+- Verifikasi testing agent lulus backend 16/16, RBAC, validasi, tambah manual, pratinjau,
+  konfirmasi, cascade delete, desktop/mobile, serta pembersihan data uji.

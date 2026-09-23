@@ -1,0 +1,33 @@
+{
+  "summary": "Tested Super Admin Data Peserta manual add + permanent deletion flow (backend + frontend). Backend pytest suite 16/16 passed covering RBAC (non-super-admin gets 403 on manual/preview/delete), validation (NIK<>16, bad email, bad phone), create with autocreated campus/status submitted/no docs, duplicate email 409, preview single/campus/all (no side effect), delete rejection without confirmed=true, cascade deletion of user/profile/registration/documents/notifications/student_live_chat/active_letter_approvals/stage_ii_eligibilities and $pull from campus_disbursements.recipient_user_ids, campus master retained, and 404 for no targets. Frontend UI: dialogs render properly on desktop 1920 and mobile 390 (no horizontal overflow), Hapus Permanen disabled when count is 0 and enabled after scope=all preview (2050) or with a valid campus selection.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_manual_participants_and_deletion.py",
+    "/app/test_reports/pytest/iter65_manual_deletion.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is >7500 lines; participants module (list/import/manual/delete/export) should be split into its own router for maintainability.",
+    "permanently_delete_participants deletes documents from Mongo but does not remove the underlying stored files (storage_path collected but unused) — potential orphaned files. Consider calling storage backend cleanup.",
+    "Manual create endpoint does not clamp/verify Indonesian phone format beyond min 8 digits; consider stricter validation matching family_phone helper used elsewhere.",
+    "ParticipantDeletionDialog runs delete-preview on every scope/campus change without debouncing; safe but produces extra requests when quickly toggling."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_manual_participants_and_deletion.py"
+  ],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100% (dialogs, RBAC visibility, mobile responsiveness verified)"},
+  "test_credentials": "Super Admin supri@baznasbazisdki.id / MdjSuper2026! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Created ephemeral test data: 2 users with @contoh.invalid emails prefixed test.manual.{run_tag}, 1 campus TEST_KampusUji_{run_tag}, plus seeded notifications/chat/approvals/disbursement docs. All cleaned up by fixture teardown via Mongo direct (users/profiles/registrations/documents/notifications/student_live_chat_messages/active_letter_approvals/stage_ii_eligibilities/campus_disbursements pull/campuses). Confirmed post-run: no residuals. Confirmed scope=all delete was NOT executed (preview only).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run tests serially: `pytest backend/tests/test_manual_participants_and_deletion.py -n 0 --junitxml=...` because default pytest.ini uses -n 2 --dist loadscope which splits classes across workers and breaks the create->preview->delete sequence. NIK generator uses uuid to avoid collisions. Never run confirmed scope=all on this shared DB.",
+  "rca of the issue": "N/A — implementation matches requirements. Initial test failures during authoring were only due to (a) test-side pytest-xdist loadscope splitting inter-class dependencies (fixed via -n 0) and (b) duplicate NIK generation across two participants (fixed via uuid-based generator)."
+}

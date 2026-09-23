@@ -52,6 +52,10 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   daya listrik rumah, format Rupiah, dan validasi wajib di server.
 - Super Admin dapat mengimpor peserta dari XLSX berformat sendiri melalui pemetaan kolom, dengan
   status Lolos / Penerima tanpa berkas dan pembaruan otomatis untuk duplikat.
+- Data Peserta Super Admin mendukung tambah pendaftar manual serta penghapusan permanen satu
+  pendaftar, satu kampus, atau seluruh pendaftar dengan dialog konfirmasi.
+- Impor peserta dapat membuat master Kampus beserta Nama Bank, Nomor Rekening, dan Pemilik
+  Rekening; konflik rekening dilaporkan tanpa menimpa data kampus.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 
