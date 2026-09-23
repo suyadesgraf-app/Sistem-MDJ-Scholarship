@@ -444,6 +444,22 @@ class CampusInput(BaseModel):
     bank_account_holder_name: Optional[str] = None
 
 
+class ManualParticipantInput(BaseModel):
+    name: str
+    nik: str
+    email: str
+    phone: str
+    campus: str
+    nim: str
+
+
+class ParticipantDeletionInput(BaseModel):
+    scope: str
+    user_id: Optional[str] = None
+    campus: Optional[str] = None
+    confirmed: bool = False
+
+
 class VerificationApprovalInput(BaseModel):
     recommendation_ids: List[str] = []
     approve_all: bool = False
@@ -5714,7 +5730,14 @@ async def sync_imported_campus_bank(imported: dict, now: str) -> dict:
     return {"created": False, "updated": len(update) > 1, "warning": warning}
 
 
-async def upsert_imported_participant(imported: dict, actor: dict, now: str) -> tuple:
+async def upsert_imported_participant(
+    imported: dict,
+    actor: dict,
+    now: str,
+    status: str = "lolos",
+    source: str = "participant_import",
+    history_note: str = "Data peserta diimpor tanpa berkas oleh Super Admin.",
+) -> tuple:
     name = str(imported.get("name") or "").strip()
     if not name:
         return "failed", "Nama Lengkap wajib diisi.", {}
@@ -5740,7 +5763,7 @@ async def upsert_imported_participant(imported: dict, actor: dict, now: str) -> 
             "password_hash": hash_password(secrets.token_urlsafe(32)),
             "name": name,
             "role": "student",
-            "auth_provider": "participant_import",
+            "auth_provider": source,
             "is_active": True,
             "created_at": now,
         })
@@ -5775,8 +5798,8 @@ async def upsert_imported_participant(imported: dict, actor: dict, now: str) -> 
         cpm_id = await create_cpm_id(now)
     category = registration.get("category") or f"Mahasiswa {imported.get('education_level') or ''}".strip()
     history_entry = {
-        "status": "lolos",
-        "note": "Data peserta diimpor tanpa berkas oleh Super Admin.",
+        "status": status,
+        "note": history_note,
         "at": now,
         "by": actor.get("name") or actor.get("email"),
     }
@@ -5786,7 +5809,7 @@ async def upsert_imported_participant(imported: dict, actor: dict, now: str) -> 
         "name": name,
         "email": email,
         "category": category or "Mahasiswa",
-        "status": "lolos",
+        "status": status,
         "cpm_id": cpm_id,
         "updated_at": now,
         "submitted_at": registration.get("submitted_at") or now,
@@ -5908,6 +5931,153 @@ async def import_participants_without_documents(
         "errors": errors,
         "warnings": warnings,
         "mapping": mapping,
+    }
+
+
+def normalize_manual_participant(payload: ManualParticipantInput) -> dict:
+    name = family_value(payload.name, "Nama lengkap", 160)
+    nik = family_nik(payload.nik, "NIK")
+    email = normalized_name(payload.email)
+    if "@" not in email or email.startswith("@") or email.endswith("@"):
+        raise HTTPException(status_code=400, detail="Email pendaftar tidak valid.")
+    phone = re.sub(r"[^0-9+]", "", str(payload.phone or ""))
+    if len(re.sub(r"\D", "", phone)) < 8:
+        raise HTTPException(status_code=400, detail="Nomor HP pendaftar tidak valid.")
+    campus = clean_campus_value(payload.campus)
+    nim = str(payload.nim or "").strip()
+    if not campus:
+        raise HTTPException(status_code=400, detail="Kampus wajib diisi.")
+    if not nim:
+        raise HTTPException(status_code=400, detail="NIM wajib diisi.")
+    return {
+        "name": name,
+        "nik": nik,
+        "email": email,
+        "phone": phone,
+        "campus": campus,
+        "nim": nim,
+    }
+
+
+async def participant_deletion_targets(payload: ParticipantDeletionInput) -> List[dict]:
+    if payload.scope == "single":
+        if not payload.user_id:
+            raise HTTPException(status_code=400, detail="Pendaftar yang akan dihapus wajib dipilih.")
+        registrations = await db.registrations.find(
+            {"user_id": payload.user_id},
+            {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+        ).to_list(1)
+    elif payload.scope == "campus":
+        campus_name = clean_campus_value(payload.campus)
+        if not campus_name:
+            raise HTTPException(status_code=400, detail="Kampus yang akan dihapus wajib dipilih.")
+        profiles = await db.profiles.find(
+            {"data.institusi": {"$regex": f"^{re.escape(campus_name)}$", "$options": "i"}},
+            {"_id": 0, "user_id": 1},
+        ).to_list(10000)
+        user_ids = [profile["user_id"] for profile in profiles]
+        registrations = await db.registrations.find(
+            {"user_id": {"$in": user_ids}},
+            {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+        ).to_list(10000)
+    elif payload.scope == "all":
+        registrations = await db.registrations.find(
+            {},
+            {"_id": 0, "user_id": 1, "name": 1, "email": 1},
+        ).to_list(10000)
+    else:
+        raise HTTPException(status_code=400, detail="Cakupan penghapusan tidak valid.")
+    return registrations
+
+
+def participant_deletion_label(payload: ParticipantDeletionInput, count: int) -> str:
+    if payload.scope == "single":
+        return "1 pendaftar"
+    if payload.scope == "campus":
+        return f"{count} pendaftar dari kampus {payload.campus}"
+    return f"seluruh {count} pendaftar dari semua kampus"
+
+
+@api_router.post("/admin/participants/manual")
+async def create_manual_participant(
+    payload: ManualParticipantInput,
+    user: dict = Depends(require_roles("super_admin")),
+):
+    imported = normalize_manual_participant(payload)
+    existing_user_id, matching_error = await participant_import_match_user_id(imported)
+    if matching_error:
+        raise HTTPException(status_code=409, detail=matching_error)
+    if existing_user_id:
+        raise HTTPException(
+            status_code=409,
+            detail="Pendaftar dengan NIK atau email tersebut sudah tersedia.",
+        )
+    now = datetime.now(timezone.utc).isoformat()
+    outcome, error_message, campus_sync = await upsert_imported_participant(
+        imported,
+        user,
+        now,
+        status="submitted",
+        source="super_admin_manual",
+        history_note="Pendaftar ditambahkan manual oleh Super Admin tanpa berkas.",
+    )
+    if outcome == "failed":
+        raise HTTPException(status_code=400, detail=error_message)
+    registration = await db.registrations.find_one(
+        {"email": imported["email"]},
+        {"_id": 0},
+    )
+    return {
+        "participant": registration or {},
+        "campus_warning": campus_sync.get("warning", ""),
+    }
+
+
+@api_router.post("/admin/participants/delete-preview")
+async def preview_participant_deletion(
+    payload: ParticipantDeletionInput,
+    user: dict = Depends(require_roles("super_admin")),
+):
+    participants = await participant_deletion_targets(payload)
+    return {
+        "count": len(participants),
+        "label": participant_deletion_label(payload, len(participants)),
+        "participants": participants[:10],
+    }
+
+
+@api_router.delete("/admin/participants")
+async def permanently_delete_participants(
+    payload: ParticipantDeletionInput,
+    user: dict = Depends(require_roles("super_admin")),
+):
+    if not payload.confirmed:
+        raise HTTPException(status_code=400, detail="Konfirmasi penghapusan permanen diperlukan.")
+    participants = await participant_deletion_targets(payload)
+    user_ids = [participant["user_id"] for participant in participants]
+    if not user_ids:
+        raise HTTPException(status_code=404, detail="Tidak ada data pendaftar untuk dihapus.")
+
+    documents = await db.documents.find(
+        {"user_id": {"$in": user_ids}},
+        {"_id": 0, "id": 1, "storage_path": 1},
+    ).to_list(10000)
+    await db.documents.delete_many({"user_id": {"$in": user_ids}})
+    await db.profiles.delete_many({"user_id": {"$in": user_ids}})
+    await db.registrations.delete_many({"user_id": {"$in": user_ids}})
+    await db.notifications.delete_many({"user_id": {"$in": user_ids}})
+    await db.student_live_chat_messages.delete_many({"student_id": {"$in": user_ids}})
+    await db.active_letter_approvals.delete_many({"user_id": {"$in": user_ids}})
+    await db.stage_ii_eligibilities.delete_many({"user_id": {"$in": user_ids}})
+    await db.users.delete_many({"user_id": {"$in": user_ids}})
+    await db.campus_disbursements.update_many(
+        {"recipient_user_ids": {"$in": user_ids}},
+        {"$pull": {"recipient_user_ids": {"$in": user_ids}}},
+    )
+    return {
+        "deleted_count": len(user_ids),
+        "deleted_documents": len(documents),
+        "label": participant_deletion_label(payload, len(user_ids)),
     }
 
 

@@ -3,9 +3,14 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { StatusBadge, STATUS_META } from "@/components/DashboardShell";
 import { useAuth } from "@/context/AuthContext";
-import { Search, Eye, X, FileText, Download, Loader2, Building2, Phone, Mail, GraduationCap, Upload } from "lucide-react";
+import {
+  Search, Eye, X, FileText, Download, Loader2, Building2, Phone, Mail, GraduationCap, Upload,
+  Trash2, UserPlus,
+} from "lucide-react";
 import { DocPreview } from "@/components/DocPreview";
 import ParticipantExcelImportDialog from "@/components/ParticipantExcelImportDialog";
+import ManualParticipantDialog from "@/components/ManualParticipantDialog";
+import ParticipantDeletionDialog from "@/components/ParticipantDeletionDialog";
 
 const STATUS_FILTERS = [
   ["all", "Semua"],
@@ -28,6 +33,8 @@ export default function ParticipantsPanel() {
   const [exporting, setExporting] = useState(false);
   const [detail, setDetail] = useState(null);
   const [showImport, setShowImport] = useState(false);
+  const [showManual, setShowManual] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const lockedRegion = user?.role === "admin_wilayah" ? user.region : "";
 
   const load = async () => {
@@ -119,11 +126,31 @@ export default function ParticipantsPanel() {
             {user?.role === "super_admin" && (
               <button
                 type="button"
+                onClick={() => setShowManual(true)}
+                data-testid="open-manual-participant"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#0B6B3A] bg-white px-4 py-2.5 text-sm font-bold text-[#0B6B3A] transition-colors hover:bg-[#F0FBF5]"
+              >
+                <UserPlus className="h-4 w-4" /> Tambah Pendaftar
+              </button>
+            )}
+            {user?.role === "super_admin" && (
+              <button
+                type="button"
                 onClick={() => setShowImport(true)}
                 data-testid="open-participant-import"
                 className="inline-flex items-center gap-2 rounded-lg border border-[#27AE60] bg-white px-4 py-2.5 text-sm font-bold text-[#0B6B3A] transition-colors hover:bg-[#F0FBF5]"
               >
                 <Upload className="h-4 w-4" /> Import Data
+              </button>
+            )}
+            {user?.role === "super_admin" && (
+              <button
+                type="button"
+                onClick={() => setDeleteTarget({ type: "bulk" })}
+                data-testid="open-participant-deletion"
+                className="inline-flex items-center gap-2 rounded-lg border border-[#DC2626] bg-white px-4 py-2.5 text-sm font-bold text-[#DC2626] transition-colors hover:bg-[#FEF2F2]"
+              >
+                <Trash2 className="h-4 w-4" /> Hapus Data
               </button>
             )}
             <button
@@ -196,7 +223,20 @@ export default function ParticipantsPanel() {
                   <td className="px-4 py-3 text-[#6B7280]">{p.doc_count}</td>
                   <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                   <td className="px-4 py-3 text-right">
-                    <button onClick={() => setDetail(p.user_id)} data-testid={`view-participant-${p.user_id}`} className="px-3 py-1.5 bg-[#E8F6EE] text-[#0B6B3A] text-xs font-bold rounded-lg hover:bg-[#d3efdf] inline-flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" /> Detail</button>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setDetail(p.user_id)} data-testid={`view-participant-${p.user_id}`} className="px-3 py-1.5 bg-[#E8F6EE] text-[#0B6B3A] text-xs font-bold rounded-lg hover:bg-[#d3efdf] inline-flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" /> Detail</button>
+                      {user?.role === "super_admin" && (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTarget({ type: "single", participant: p })}
+                          data-testid={`delete-participant-${p.user_id}`}
+                          className="rounded-lg border border-[#FECACA] p-1.5 text-[#DC2626] transition-colors hover:bg-[#FEF2F2]"
+                          title={`Hapus ${p.name}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -217,6 +257,19 @@ export default function ParticipantsPanel() {
         <ParticipantExcelImportDialog
           onClose={() => setShowImport(false)}
           onImported={load}
+        />
+      )}
+      {showManual && (
+        <ManualParticipantDialog
+          onClose={() => setShowManual(false)}
+          onCreated={load}
+        />
+      )}
+      {deleteTarget && (
+        <ParticipantDeletionDialog
+          participant={deleteTarget.participant}
+          onClose={() => setDeleteTarget(null)}
+          onDeleted={load}
         />
       )}
     </div>
