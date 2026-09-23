@@ -5,8 +5,10 @@
   filter kategori publik pada `/berita`; kontrol CMS menyatu di tab Pengumuman.
 - Popup pengumuman terkendali untuk akun Mahasiswa dan Beranda, dengan satu popup aktif per
   tujuan dan penyimpanan status tampil sekali.
+- Perlindungan akun demo mahasiswa dari penghapusan serta pengecualian dari seluruh rekap
+  Penerima Manfaat.
 
-## P1 — Prioritas Berikutnya
+## P1 — Ditunda sesuai arahan pengguna
 - Refactor bertahap `/app/backend/server.py` yang sangat besar menjadi router/service
   terpisah tanpa mengubah kontrak API atau perilaku aplikasi.
 - Brute-force lockout untuk login.
@@ -19,5 +21,5 @@
 - Notifikasi email perubahan status dan pembatasan CORS ke origin frontend.
 
 ## Next Action
-Mulai refactor backend secara bertahap, dimulai dengan memindahkan modul CMS/site content
-dari `server.py` sambil menjaga seluruh endpoint dan pengujian tetap lulus.
+Menunggu arahan fitur berikutnya. Refactor backend dan seluruh integrasi eksternal tetap ditunda
+sesuai keputusan pengguna.

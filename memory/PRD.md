@@ -56,6 +56,12 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   pendaftar, satu kampus, atau seluruh pendaftar dengan dialog konfirmasi.
 - Impor peserta dapat membuat master Kampus beserta Nama Bank, Nomor Rekening, dan Pemilik
   Rekening; konflik rekening dilaporkan tanpa menimpa data kampus.
+- Akun demo mahasiswa `mahasiswa.mdj@baznasbazisdki.id` terlindungi dari hapus tunggal, per
+  kampus, maupun seluruh peserta; tabel Data Peserta menampilkan label **Akun Demo** dan ikon
+  hapus nonaktif.
+- Akun demo dikecualikan dari daftar, statistik, dan proses operasional Penerima Manfaat.
+- Data Peserta kini memuat profil, akun, dan jumlah dokumen secara batch untuk mempercepat
+  pencarian dan tampilan daftar peserta.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

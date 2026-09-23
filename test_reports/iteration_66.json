@@ -1,0 +1,24 @@
+{
+  "summary": "Verified demo student (mahasiswa.mdj@baznasbazisdki.id) protection end-to-end. Backend pytest 20/20 passed (all previous manual create/preview/delete tests plus TestDemoStudentProtection: excluded from delete-preview, DELETE /api/admin/participants scope=single returns 404 with record intact, GET /api/admin/beneficiaries excludes email, GET /api/admin/stats.verified matches direct Mongo count with demo user_id excluded, and search by full email in participant list returns exactly one row). Frontend Data Peserta (Super Admin) shows Akun Demo badge and disabled trash icon (title 'Akun demo tidak dapat dihapus') for the demo row on both desktop 1920 and mobile 390 with no horizontal overflow. Dashboard shows 2049 penerima manfaat (2050 registrations - 1 demo), confirming beneficiary recap excludes the demo student. No confirmed scope=all/campus deletion was executed on shared data.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_manual_participants_and_deletion.py",
+    "/app/test_reports/pytest/iter66_demo_protection.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "backend/server.py exceeds 7600 lines; participants/beneficiaries router and demo-guard helpers should be extracted into dedicated modules for maintainability.",
+    "Frontend ParticipantsPanel.jsx search input only triggers on Enter (no debounce/blur) — not a bug but discoverability concern; consider onBlur or debounce for parity with typical search UX.",
+    "DEMO_STUDENT_EMAIL is duplicated between backend .env and ParticipantsPanel.jsx (also present in frontend/.env REACT_APP_DEMO_STUDENT_EMAIL). Prefer reading from process.env.REACT_APP_DEMO_STUDENT_EMAIL in the component to avoid drift.",
+    "list_participants doc_count still uses per-row aggregation for the returned rows; even though batch-optimized, verify DB has an index on documents.user_id + registrations.user_id compound queries."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (20/20)", "frontend": "100% (demo badge + disabled delete verified desktop & mobile, no overflow)"},
+  "test_credentials": "Super Admin supri@baznasbazisdki.id / MdjSuper2026! from /app/memory/test_credentials.md; Demo student was inspected read-only only.",
+  "seed_data_creation": "Ephemeral TEST_ users/campus created and cleaned by module teardown (users, profiles, registrations, documents, notifications, student_live_chat_messages, active_letter_approvals, stage_ii_eligibilities, campus_disbursements $pull, campuses). Demo student record NOT mutated.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: `pytest backend/tests/test_manual_participants_and_deletion.py -n 0 --junitxml=...`. Do NOT execute confirmed scope=all or scope=campus deletions on shared DB. The frontend search input uses data-testid=participant-search and only submits on Enter key (not debounced). Dashboard verified/passed_by_region and GET /api/admin/beneficiaries filter out the demo user_id via demo_beneficiary_exclusion_query.",
+  "rca of the issue": "N/A — implementation matches all six review-request requirements. During UI testing initially the search appeared not to filter (2050 rows) because the input only submits on Enter; using search.press('Enter') filtered to 1 row with the demo badge and disabled delete button as designed."
+}

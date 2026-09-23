@@ -881,3 +881,16 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   memiliki API hapus fisik, tetapi tanpa rekam dokumen berkas tersebut tidak dapat diakses aplikasi.
 - Verifikasi testing agent lulus backend 16/16, RBAC, validasi, tambah manual, pratinjau,
   konfirmasi, cascade delete, desktop/mobile, serta pembersihan data uji.
+
+## 2026-09 — Perlindungan Akun Demo Mahasiswa
+- Akun `mahasiswa.mdj@baznasbazisdki.id` tidak lagi menjadi target hapus tunggal, hapus per
+  kampus, atau hapus seluruh peserta; permintaan hapus khusus akun demo tidak mengubah data.
+- Penerima Manfaat demo dikecualikan dari daftar penerima, statistik `verified`, sebaran wilayah,
+  indeks pencocokan, dan proses surat aktif/pencairan terkait penerima.
+- Tabel Data Peserta menampilkan badge **Akun Demo** serta ikon hapus nonaktif. Pencarian email
+  akun demo kini menemukan satu baris dengan benar, termasuk bila data email hanya tersimpan pada
+  akun pengguna.
+- Pengambilan Data Peserta diubah menjadi kueri batch untuk akun, profil, dan jumlah dokumen,
+  sehingga daftar besar tidak lagi menjalankan kueri per baris.
+- Verifikasi testing agent lulus: backend 20/20; label dan tombol hapus terkunci teruji pada
+  desktop serta mobile tanpa overflow. Tidak ada penghapusan massal pada basis data bersama.
