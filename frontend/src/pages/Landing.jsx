@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?auto=format&fit=crop&w=1600&q=60";
-const ABOUT_IMG = "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBzbWlsaW5nJTIwc3R1ZHlpbmd8ZW58MHx8fHwxNzg5MTU2MTM5fDA&ixlib=rb-4.1.0&q=85";
 const newsSlug = (value = "") => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 const landingPopupKey = (announcement) => [
   "mdj",
@@ -188,7 +187,7 @@ export default function Landing() {
   const faqs = c.faqs || [];
   const hero = c.hero || {};
   const bannerBg = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : HERO_IMG;
-  const aboutBg = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : ABOUT_IMG;
+  const aboutBg = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : null;
   const logoUrl = c.logo_url ? `${API}/site/logo` : null;
   const recipientQuota = Number.parseInt(
     String(settings.recipient_quota || "").replace(/\D/g, ""),
@@ -367,7 +366,9 @@ export default function Landing() {
 
       {/* ABOUT */}
       <section id="tentang" className="py-20 lg:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid lg:grid-cols-2 gap-12 items-center mb-16">
+        <div
+          className={`mb-16 grid items-center gap-12 ${aboutBg ? "lg:grid-cols-2" : ""}`}
+        >
           <div>
             <h2 className="font-display font-extrabold text-3xl lg:text-4xl tracking-tight text-[#1F2937] mb-4">Tentang Program Masa Depan Jakarta</h2>
             <p className="text-[#6B7280] leading-relaxed">Program Masa Depan Jakarta (MDJ) adalah inisiatif pemberdayaan dan bantuan biaya pendidikan (UKT) yang dikelola oleh BAZNAS (BAZIS) Provinsi DKI Jakarta. Lebih dari sekadar beasiswa, kami membangun karakter, kompetensi vokasi, dan kepemimpinan generasi muda Jakarta.</p>
@@ -377,12 +378,14 @@ export default function Landing() {
               ))}
             </div>
           </div>
-          <img
-            src={aboutBg}
-            alt="Mahasiswa berkolaborasi"
-            className="rounded-2xl w-full h-72 object-cover shadow-lg"
-            data-testid="about-program-image"
-          />
+          {aboutBg && (
+            <img
+              src={aboutBg}
+              alt="Mahasiswa berkolaborasi"
+              className="h-72 w-full rounded-2xl object-cover shadow-lg"
+              data-testid="about-program-image"
+            />
+          )}
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {BENEFITS.map((b, i) => (

@@ -44,6 +44,8 @@ verifikasi panitia, pengelolaan penerima manfaat, pencairan, dan konten publik.
   jumlah tahap berapa pun.
 - Ikon sosial footer mengarah ke akun Instagram MDJ, YouTube BAZNAS BAZIS, dan Facebook BAZNAS
   BAZIS resmi.
+- Bagian Tentang tidak lagi menampilkan gambar stok saat refresh; hanya gambar dari CMS yang
+  dirender setelah data tersedia.
 - Referensi implementasi historis dipindahkan ke [`CHANGELOG.md`](CHANGELOG.md).
 - Prioritas selanjutnya tercatat di [`ROADMAP.md`](ROADMAP.md).
 

@@ -825,3 +825,10 @@ See /app/memory/test_credentials.md. Demo mahasiswa, admin, dan super admin ters
   Facebook ke `facebook.com/baznasbazis`.
 - Ketiga ikon membuka tautan pada tab baru.
 - Verifikasi browser mengonfirmasi URL serta atribut tab baru untuk seluruh ikon sosial.
+
+## 2026-09 — Gambar Tentang Hanya dari CMS
+- Menghapus fallback gambar stok pada bagian Tentang Program yang sebelumnya dapat muncul saat
+  halaman pertama kali dimuat.
+- Gambar Tentang kini hanya dirender bila Super Admin telah menyediakan URL gambar melalui CMS.
+- Verifikasi browser mensimulasikan respons CMS kosong saat pemuatan awal: tidak ada gambar stok;
+  setelah data CMS tersedia, gambar Tentang MDJ termuat dari penyimpanan aplikasi.
