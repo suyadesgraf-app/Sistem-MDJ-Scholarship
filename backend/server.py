@@ -4320,6 +4320,139 @@ def normalize_news_category_renames(value: Any, categories: List[str]) -> Dict[s
     }
 
 
+FOOTER_SOCIAL_PLATFORMS = {"facebook", "instagram", "youtube", "other"}
+FOOTER_CONTACT_TYPES = {"address", "whatsapp", "email", "phone", "other"}
+
+
+def default_footer_content() -> dict:
+    return {
+        "social_links": [
+            {
+                "platform": "facebook",
+                "label": "Facebook",
+                "url": "https://www.facebook.com/baznasbazis",
+            },
+            {
+                "platform": "instagram",
+                "label": "Instagram",
+                "url": "https://www.instagram.com/mdj.baznasbazisdki?stkn=bXc2NjVkcWY2dHZz",
+            },
+            {
+                "platform": "youtube",
+                "label": "YouTube",
+                "url": "https://www.youtube.com/@BAZNASBAZIST",
+            },
+        ],
+        "contact": {
+            "title": "Hubungi Kami",
+            "items": [
+                {
+                    "type": "address",
+                    "label": "Alamat",
+                    "value": "Gedung Graha Mental Spiritual Lt.5, Jl. Awaludin II, Kebon Melati, Tanah Abang, Jakarta Pusat",
+                    "url": "",
+                },
+                {
+                    "type": "whatsapp",
+                    "label": "Hotline Kampus",
+                    "value": "0853-5318-7574",
+                    "url": "https://wa.me/6285353187574",
+                },
+                {
+                    "type": "whatsapp",
+                    "label": "Hotline Mahasiswa",
+                    "value": "0822-2869-2697",
+                    "url": "https://wa.me/6282228692697",
+                },
+                {
+                    "type": "email",
+                    "label": "Email",
+                    "value": "pendaftaranmdj@baznasbazisdki.id",
+                    "url": "mailto:pendaftaranmdj@baznasbazisdki.id",
+                },
+            ],
+        },
+    }
+
+
+def footer_text(value: Any, field_name: str, limit: int) -> str:
+    text = str(value or "").strip()
+    if len(text) > limit:
+        raise HTTPException(status_code=422, detail=f"{field_name} maksimal {limit} karakter.")
+    return text
+
+
+def normalize_footer_url(value: Any, field_name: str, allowed_schemes: set[str]) -> str:
+    url = footer_text(value, field_name, 500)
+    if not url:
+        return ""
+    parsed = urlparse(url)
+    if parsed.scheme not in allowed_schemes:
+        raise HTTPException(status_code=422, detail=f"{field_name} menggunakan format tautan yang tidak didukung.")
+    if parsed.scheme in {"http", "https"} and not parsed.netloc:
+        raise HTTPException(status_code=422, detail=f"{field_name} harus berupa tautan lengkap.")
+    if parsed.scheme in {"mailto", "tel"} and not parsed.path:
+        raise HTTPException(status_code=422, detail=f"{field_name} tidak valid.")
+    return url
+
+
+def normalize_footer_content(value: Any) -> dict:
+    if not isinstance(value, dict):
+        raise HTTPException(status_code=422, detail="Data Footer & Kontak tidak valid.")
+    social_links = value.get("social_links") or []
+    contact = value.get("contact") or {}
+    if not isinstance(social_links, list) or len(social_links) > 12:
+        raise HTTPException(status_code=422, detail="Maksimal 12 tautan sosial dapat ditambahkan.")
+    if not isinstance(contact, dict):
+        raise HTTPException(status_code=422, detail="Data Hubungi Kami tidak valid.")
+    normalized_social_links = []
+    for item in social_links:
+        item = item if isinstance(item, dict) else {}
+        platform = str(item.get("platform") or "other").strip().lower()
+        label = footer_text(item.get("label"), "Label tautan sosial", 80)
+        url = normalize_footer_url(item.get("url"), "Tautan sosial", {"http", "https"})
+        if not label and not url:
+            continue
+        if not label or not url:
+            raise HTTPException(status_code=422, detail="Label dan tautan sosial wajib diisi.")
+        normalized_social_links.append({
+            "platform": platform if platform in FOOTER_SOCIAL_PLATFORMS else "other",
+            "label": label,
+            "url": url,
+        })
+    contact_items = contact.get("items") or []
+    if not isinstance(contact_items, list) or len(contact_items) > 12:
+        raise HTTPException(status_code=422, detail="Maksimal 12 kontak dapat ditambahkan.")
+    normalized_contact_items = []
+    for item in contact_items:
+        item = item if isinstance(item, dict) else {}
+        contact_type = str(item.get("type") or "other").strip().lower()
+        label = footer_text(item.get("label"), "Label kontak", 80)
+        contact_value = footer_text(item.get("value"), "Isi kontak", 500)
+        url = normalize_footer_url(
+            item.get("url"),
+            "Tautan kontak",
+            {"http", "https", "mailto", "tel"},
+        )
+        if not label and not contact_value and not url:
+            continue
+        if not label or not contact_value:
+            raise HTTPException(status_code=422, detail="Label dan isi kontak wajib diisi.")
+        normalized_contact_items.append({
+            "type": contact_type if contact_type in FOOTER_CONTACT_TYPES else "other",
+            "label": label,
+            "value": contact_value,
+            "url": url,
+        })
+    return {
+        "social_links": normalized_social_links,
+        "contact": {
+            "title": footer_text(contact.get("title"), "Judul Hubungi Kami", 100),
+            "items": normalized_contact_items,
+        },
+    }
+
+
 DEFAULT_SITE_CONTENT = {
     "settings": {
         "registration_open": True,
@@ -4351,6 +4484,7 @@ DEFAULT_SITE_CONTENT = {
         {"title": "Pengukuhan / Inagurasi", "desc": "Acara peresmian dan penyambutan resmi penerima manfaat baru."},
     ],
     "registration_flow": default_registration_flow(),
+    "footer": default_footer_content(),
     "news_categories": DEFAULT_NEWS_CATEGORIES,
     "announcements": [
         {"date": "12 Jan 2026", "category": "Informasi", "title": "Pengukuhan Kader Akademia MDJ", "summary": "Peserta yang lolos seleksi akhir wajib mengikuti kegiatan pengukuhan dan orientasi program pembinaan."},
@@ -4411,6 +4545,13 @@ async def get_site_content():
         await db.site_content.update_one(
             {"key": "main"},
             {"$set": {"registration_flow": content["registration_flow"]}},
+            upsert=True,
+        )
+    if "footer" not in content:
+        content["footer"] = default_footer_content()
+        await db.site_content.update_one(
+            {"key": "main"},
+            {"$set": {"footer": content["footer"]}},
             upsert=True,
         )
     missing_lists = {
@@ -4519,6 +4660,8 @@ async def update_site_content(
         content_update["registration_flow"] = normalize_registration_flow(
             content_update["registration_flow"]
         )
+    if "footer" in content_update:
+        content_update["footer"] = normalize_footer_content(content_update["footer"])
     requested_categories = content_update.get("news_categories")
     current_categories = current.get("news_categories") or DEFAULT_NEWS_CATEGORIES
     category_renames = content_update.pop("news_category_renames", None)

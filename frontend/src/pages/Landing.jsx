@@ -8,10 +8,58 @@ import SiteAnnouncementPopup from "@/components/SiteAnnouncementPopup";
 import {
   GraduationCap, User, Award, Shield, Menu, X, CheckCircle2, ArrowRight,
   School, BookOpen, Star, Calendar, ChevronDown, Sparkles, ShieldCheck,
-  Download, MapPin, Megaphone, Facebook, Instagram, Youtube, Mail, MessageCircle,
+  Download, MapPin, Megaphone, Facebook, Instagram, Youtube, Mail, MessageCircle, Link2, Phone,
 } from "lucide-react";
 
 const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?auto=format&fit=crop&w=1600&q=60";
+const DEFAULT_FOOTER_CONTENT = {
+  social_links: [
+    {
+      platform: "facebook",
+      label: "Facebook",
+      url: "https://www.facebook.com/baznasbazis",
+    },
+    {
+      platform: "instagram",
+      label: "Instagram",
+      url: "https://www.instagram.com/mdj.baznasbazisdki?stkn=bXc2NjVkcWY2dHZz",
+    },
+    {
+      platform: "youtube",
+      label: "YouTube",
+      url: "https://www.youtube.com/@BAZNASBAZIST",
+    },
+  ],
+  contact: {
+    title: "Hubungi Kami",
+    items: [
+      {
+        type: "address",
+        label: "Alamat",
+        value: "Gedung Graha Mental Spiritual Lt.5, Jl. Awaludin II, Kebon Melati, Tanah Abang, Jakarta Pusat",
+        url: "",
+      },
+      {
+        type: "whatsapp",
+        label: "Hotline Kampus",
+        value: "0853-5318-7574",
+        url: "https://wa.me/6285353187574",
+      },
+      {
+        type: "whatsapp",
+        label: "Hotline Mahasiswa",
+        value: "0822-2869-2697",
+        url: "https://wa.me/6282228692697",
+      },
+      {
+        type: "email",
+        label: "Email",
+        value: "pendaftaranmdj@baznasbazisdki.id",
+        url: "mailto:pendaftaranmdj@baznasbazisdki.id",
+      },
+    ],
+  },
+};
 const newsSlug = (value = "") => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 const landingPopupKey = (announcement) => [
   "mdj",
@@ -47,6 +95,33 @@ const ResponsiveDate = ({ value }) => (
     <span className="xl:hidden">{formatLandingDate(value, true)}</span>
   </>
 );
+
+const socialIcon = (platform) => {
+  if (platform === "facebook") return Facebook;
+  if (platform === "instagram") return Instagram;
+  if (platform === "youtube") return Youtube;
+  return Link2;
+};
+
+const contactIcon = (type) => {
+  if (type === "address") return MapPin;
+  if (type === "email") return Mail;
+  if (type === "phone") return Phone;
+  if (type === "whatsapp") return MessageCircle;
+  return Link2;
+};
+
+const contactHref = (item) => {
+  if (item.url) return item.url;
+  if (item.type === "email") return `mailto:${item.value}`;
+  if (item.type === "phone") return `tel:${item.value.replace(/[^0-9+]/g, "")}`;
+  if (item.type === "whatsapp") {
+    const digits = item.value.replace(/\D/g, "");
+    const normalized = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+    return normalized ? `https://wa.me/${normalized}` : "";
+  }
+  return "";
+};
 
 const NAV_LINKS = [
   { name: "Beranda", href: "#beranda" },
@@ -178,6 +253,10 @@ export default function Landing() {
   const settings = c.settings || {};
   const stats = c.stats || [];
   const registrationFlow = c.registration_flow || [];
+  const footerContent = c.footer || DEFAULT_FOOTER_CONTENT;
+  const socialLinks = footerContent.social_links || DEFAULT_FOOTER_CONTENT.social_links;
+  const contact = footerContent.contact || DEFAULT_FOOTER_CONTENT.contact;
+  const contactItems = contact.items || DEFAULT_FOOTER_CONTENT.contact.items;
   const announcements = c.announcements || [];
   const activeLandingPopup = announcements.find(
     (announcement) => announcement.show_landing_popup === true,
@@ -559,37 +638,27 @@ export default function Landing() {
               Program beasiswa dan pembinaan komprehensif bagi mahasiswa DKI Jakarta dan keluarga
               prasejahtera untuk membangun generasi berilmu, berakhlak, berdaya, dan berkontribusi.
             </p>
-            <div className="mt-6 flex items-center gap-3">
-              <a
-                href="https://www.facebook.com/baznasbazis"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Facebook BAZNAS BAZIS DKI Jakarta"
-                data-testid="footer-facebook-link"
-                className="text-white/60 transition-colors duration-200 hover:text-[#F2C94C]"
-              >
-                <Facebook className="h-5 w-5" />
-              </a>
-              <a
-                href="https://www.instagram.com/mdj.baznasbazisdki?stkn=bXc2NjVkcWY2dHZz"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Instagram BAZNAS BAZIS DKI Jakarta"
-                data-testid="footer-instagram-link"
-                className="text-white/60 transition-colors duration-200 hover:text-[#F2C94C]"
-              >
-                <Instagram className="h-5 w-5" />
-              </a>
-              <a
-                href="https://www.youtube.com/@BAZNASBAZIST"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="YouTube BAZNAS BAZIS DKI Jakarta"
-                data-testid="footer-youtube-link"
-                className="text-white/60 transition-colors duration-200 hover:text-[#F2C94C]"
-              >
-                <Youtube className="h-5 w-5" />
-              </a>
+            <div className="mt-6 flex flex-wrap items-center gap-3" data-testid="footer-social-links">
+              {socialLinks.filter((item) => item?.label && item?.url).map((item, index) => {
+                const Icon = socialIcon(item.platform);
+                const platform = item.platform || "other";
+                const testId = ["facebook", "instagram", "youtube"].includes(platform)
+                  ? `footer-${platform}-link`
+                  : `footer-social-${index}`;
+                return (
+                  <a
+                    key={`${platform}-${index}`}
+                    href={item.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={item.label}
+                    data-testid={testId}
+                    className="text-white/60 transition-colors duration-200 hover:text-[#F2C94C]"
+                  >
+                    <Icon className="h-5 w-5" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
@@ -644,48 +713,40 @@ export default function Landing() {
           </div>
 
           <div>
-            <p className="font-display text-sm font-bold text-white">Hubungi Kami</p>
-            <div className="mt-5 space-y-3 text-sm leading-relaxed">
-              <p className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#27AE60]" />
-                <span>
-                  Gedung Graha Mental Spiritual Lt.5, Jl. Awaludin II, Kebon Melati, Tanah Abang,
-                  Jakarta Pusat
-                </span>
-              </p>
-              <a
-                href="https://wa.me/6285353187574"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Chat WhatsApp Hotline Kampus"
-                data-testid="footer-whatsapp-campus-link"
-                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-sm
-                  leading-none transition-colors duration-200 hover:text-white"
-              >
-                <MessageCircle className="h-4 w-4 shrink-0 text-[#27AE60]" />
-                <span>Hotline Kampus: 0853-5318-7574</span>
-              </a>
-              <a
-                href="https://wa.me/6282228692697"
-                target="_blank"
-                rel="noreferrer"
-                aria-label="Chat WhatsApp Hotline Mahasiswa"
-                data-testid="footer-whatsapp-student-link"
-                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-sm
-                  leading-none transition-colors duration-200 hover:text-white"
-              >
-                <MessageCircle className="h-4 w-4 shrink-0 text-[#27AE60]" />
-                <span>Hotline Mahasiswa: 0822-2869-2697</span>
-              </a>
-              <a
-                href="mailto:pendaftaranmdj@baznasbazisdki.id"
-                data-testid="footer-email-link"
-                className="flex min-w-0 items-center gap-3 whitespace-nowrap text-sm
-                  leading-none transition-colors duration-200 hover:text-white"
-              >
-                <Mail className="h-4 w-4 shrink-0 text-[#27AE60]" />
-                <span className="whitespace-nowrap">pendaftaranmdj@baznasbazisdki.id</span>
-              </a>
+            <p className="font-display text-sm font-bold text-white" data-testid="footer-contact-title">
+              {contact.title || "Hubungi Kami"}
+            </p>
+            <div className="mt-5 space-y-3 text-sm leading-relaxed" data-testid="footer-contact-list">
+              {contactItems.filter((item) => item?.label && item?.value).map((item, index) => {
+                const Icon = contactIcon(item.type);
+                const href = contactHref(item);
+                const content = (
+                  <>
+                    <Icon className="mt-0.5 h-4 w-4 shrink-0 text-[#27AE60]" />
+                    <span className="min-w-0 whitespace-pre-line">
+                      <strong className="font-semibold text-white/85">{item.label}: </strong>
+                      {item.value}
+                    </span>
+                  </>
+                );
+                const className = "flex min-w-0 items-start gap-3 transition-colors duration-200 hover:text-white";
+                if (!href) {
+                  return <p key={`${item.label}-${index}`} data-testid={`footer-contact-${index}`} className={className}>{content}</p>;
+                }
+                return (
+                  <a
+                    key={`${item.label}-${index}`}
+                    href={href}
+                    target={href.startsWith("http") ? "_blank" : undefined}
+                    rel={href.startsWith("http") ? "noreferrer" : undefined}
+                    aria-label={item.label}
+                    data-testid={`footer-contact-${index}`}
+                    className={className}
+                  >
+                    {content}
+                  </a>
+                );
+              })}
             </div>
           </div>
         </div>

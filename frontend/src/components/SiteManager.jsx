@@ -12,6 +12,7 @@ import {
   Trash2,
   UploadCloud,
 } from "lucide-react";
+import { FooterContactEditor } from "@/components/FooterContactEditor";
 
 const TABS = [
   ["umum", "Umum & Banner"],
@@ -20,6 +21,7 @@ const TABS = [
   ["statistik", "Statistik"],
   ["persyaratan", "Syarat Pendaftar"],
   ["berkas", "Kelengkapan Berkas"],
+  ["footer", "Footer & Kontak"],
   ["legal", "Informasi Legal"],
   ["faq", "FAQ"],
 ];
@@ -375,6 +377,15 @@ export default function SiteManager() {
 
       {tab === "berkas" && (
         <StringListEditor items={c.required_documents || []} onChange={(v) => setField("required_documents", v)} onSave={() => save({ required_documents: c.required_documents })} saving={saving} testid="required-document" addLabel="Tambah Berkas" />
+      )}
+
+      {tab === "footer" && (
+        <FooterContactEditor
+          content={c.footer}
+          onChange={(footer) => setField("footer", footer)}
+          onSave={() => save({ footer: c.footer })}
+          saving={saving}
+        />
       )}
 
       {tab === "legal" && <LegalEditor content={c.legal_information || {}} onSave={(legal_information) => save({ legal_information })} saving={saving} />}
