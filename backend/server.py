@@ -1417,6 +1417,11 @@ async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
 async def get_pending_site_announcement(user: dict = Depends(require_roles("student"))):
     content = await db.site_content.find_one({"key": "main"}, {"_id": 0, "announcements": 1})
     announcements = (content or {}).get("announcements") or []
+    popup_signatures = {
+        announcement_signature(announcement)
+        for announcement in announcements
+        if isinstance(announcement, dict) and announcement.get("show_student_popup") is True
+    }
     for announcement in announcements:
         if not isinstance(announcement, dict):
             continue
@@ -1449,10 +1454,13 @@ async def get_pending_site_announcement(user: dict = Depends(require_roles("stud
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
         )
+    if not popup_signatures:
+        return {"announcement": None}
     notification = await db.notifications.find_one(
         {
             "user_id": user["user_id"],
             "type": "announcement",
+            "source_id": {"$in": list(popup_signatures)},
             "$or": [
                 {"is_popup_seen": {"$exists": False}},
                 {"is_popup_seen": False},
@@ -4402,13 +4410,33 @@ async def update_site_content(
     if isinstance(content_update.get("announcements"), list):
         fallback_category = effective_categories[0]
         normalized_announcements = []
+        student_popup_count = 0
+        landing_popup_count = 0
         for announcement in content_update["announcements"]:
             normalized_announcement = dict(announcement) if isinstance(announcement, dict) else {}
             category = str(normalized_announcement.get("category") or "").strip()
             normalized_announcement["category"] = (
                 category if category in effective_categories else fallback_category
             )
+            normalized_announcement["show_student_popup"] = (
+                normalized_announcement.get("show_student_popup") is True
+            )
+            normalized_announcement["show_landing_popup"] = (
+                normalized_announcement.get("show_landing_popup") is True
+            )
+            student_popup_count += int(normalized_announcement["show_student_popup"])
+            landing_popup_count += int(normalized_announcement["show_landing_popup"])
             normalized_announcements.append(normalized_announcement)
+        if student_popup_count > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Hanya satu pengumuman yang dapat menjadi popup akun Mahasiswa.",
+            )
+        if landing_popup_count > 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Hanya satu pengumuman yang dapat menjadi popup Beranda.",
+            )
         content_update["announcements"] = normalized_announcements
     incoming_announcements = content_update.get("announcements")
     new_announcements = []

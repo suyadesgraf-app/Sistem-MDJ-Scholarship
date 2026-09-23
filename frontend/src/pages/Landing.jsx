@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { API } from "@/lib/api";
 import axios from "axios";
 import RegistrationFlow from "@/components/RegistrationFlow";
+import SiteAnnouncementPopup from "@/components/SiteAnnouncementPopup";
 import {
   GraduationCap, User, Award, Shield, Menu, X, CheckCircle2, ArrowRight,
   School, BookOpen, Star, Calendar, ChevronDown, Sparkles, ShieldCheck,
@@ -13,6 +14,13 @@ import {
 const HERO_IMG = "https://images.unsplash.com/photo-1555899434-94d1368aa7af?auto=format&fit=crop&w=1600&q=60";
 const ABOUT_IMG = "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2OTF8MHwxfHNlYXJjaHwxfHx1bml2ZXJzaXR5JTIwc3R1ZGVudHMlMjBzbWlsaW5nJTIwc3R1ZHlpbmd8ZW58MHx8fHwxNzg5MTU2MTM5fDA&ixlib=rb-4.1.0&q=85";
 const newsSlug = (value = "") => value.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+const landingPopupKey = (announcement) => [
+  "mdj",
+  "landing-popup",
+  announcement.date || "",
+  announcement.category || "",
+  announcement.title || "",
+].join(":");
 
 const NAV_LINKS = [
   { name: "Beranda", href: "#beranda" },
@@ -133,6 +141,7 @@ export default function Landing() {
   const [content, setContent] = useState(null);
   const [faqOpen, setFaqOpen] = useState(0);
   const [remainingTime, setRemainingTime] = useState(null);
+  const [landingPopup, setLandingPopup] = useState(null);
   const go = (p) => navigate(p);
 
   useEffect(() => {
@@ -144,6 +153,9 @@ export default function Landing() {
   const stats = c.stats || [];
   const registrationFlow = c.registration_flow || [];
   const announcements = c.announcements || [];
+  const activeLandingPopup = announcements.find(
+    (announcement) => announcement.show_landing_popup === true,
+  );
   const requirements = c.eligibility_requirements || c.requirements || [];
   const requiredDocuments = c.required_documents || [];
   const faqs = c.faqs || [];
@@ -169,9 +181,47 @@ export default function Landing() {
     return () => window.clearInterval(timer);
   }, [settings.registration_end_at]);
 
+  useEffect(() => {
+    if (!activeLandingPopup) {
+      setLandingPopup(null);
+      return;
+    }
+    const popupId = landingPopupKey(activeLandingPopup);
+    if (window.localStorage.getItem(popupId)) {
+      setLandingPopup(null);
+      return;
+    }
+    setLandingPopup({
+      ...activeLandingPopup,
+      id: popupId,
+      message: activeLandingPopup.summary,
+    });
+  }, [activeLandingPopup]);
+
+  const dismissLandingPopup = (popupId) => {
+    window.localStorage.setItem(popupId, "seen");
+    setLandingPopup(null);
+  };
+
+  const viewLandingPopup = () => {
+    const announcementTitle = landingPopup?.title;
+    if (landingPopup?.id) {
+      dismissLandingPopup(landingPopup.id);
+    }
+    if (announcementTitle) {
+      go(`/berita/${newsSlug(announcementTitle)}`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white font-sans">
       <Navbar onNavigate={go} logoUrl={logoUrl} />
+      <SiteAnnouncementPopup
+        announcement={landingPopup}
+        onDismiss={dismissLandingPopup}
+        onView={viewLandingPopup}
+        variant="landing"
+      />
 
       {/* HERO */}
       <section id="beranda" className="relative min-h-[620px] flex items-center pt-20 overflow-hidden">

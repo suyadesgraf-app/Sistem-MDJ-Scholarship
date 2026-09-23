@@ -84,6 +84,17 @@ export default function SiteManager() {
   const setField = (path, value) => setC((p) => ({ ...p, [path]: value }));
   const setSetting = (k, v) => setC((p) => ({ ...p, settings: { ...p.settings, [k]: v } }));
   const setHero = (k, v) => setC((p) => ({ ...p, hero: { ...p.hero, [k]: v } }));
+  const setAnnouncementPopup = (index, field, enabled) => {
+    setC((previous) => ({
+      ...previous,
+      announcements: (previous.announcements || []).map((announcement, announcementIndex) => {
+        if (announcementIndex === index) {
+          return { ...announcement, [field]: enabled };
+        }
+        return enabled ? { ...announcement, [field]: false } : announcement;
+      }),
+    }));
+  };
 
   const bannerSrc = c.banner_url ? `${API.replace("/api", "")}${c.banner_url}` : null;
   const aboutSrc = c.about_url ? `${API.replace("/api", "")}${c.about_url}` : null;
@@ -234,6 +245,36 @@ export default function SiteManager() {
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
+                </div>
+                <div className="mb-3 flex flex-wrap gap-x-5 gap-y-2">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#374151]">
+                    <input
+                      type="checkbox"
+                      checked={item.show_student_popup === true}
+                      onChange={(event) => setAnnouncementPopup(
+                        index,
+                        "show_student_popup",
+                        event.target.checked,
+                      )}
+                      data-testid={`announcement-student-popup-${index}`}
+                      className="h-4 w-4 rounded border-gray-300 accent-[#27AE60]"
+                    />
+                    Popup Akun Mahasiswa
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-[#374151]">
+                    <input
+                      type="checkbox"
+                      checked={item.show_landing_popup === true}
+                      onChange={(event) => setAnnouncementPopup(
+                        index,
+                        "show_landing_popup",
+                        event.target.checked,
+                      )}
+                      data-testid={`announcement-landing-popup-${index}`}
+                      className="h-4 w-4 rounded border-gray-300 accent-[#27AE60]"
+                    />
+                    Popup Beranda
+                  </label>
                 </div>
                 <input
                   value={item.title}
