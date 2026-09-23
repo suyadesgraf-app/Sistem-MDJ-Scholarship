@@ -2,7 +2,16 @@ import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import api from "@/lib/api";
 import { API } from "@/lib/api";
-import { Loader2, Plus, Trash2, UploadCloud, Save, Image as ImageIcon } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  Image as ImageIcon,
+  Loader2,
+  Plus,
+  Save,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
 
 const TABS = [
   ["umum", "Umum & Banner"],
@@ -571,33 +580,96 @@ function NewsCategoryEditor({ categories, onSave, saving }) {
 }
 
 function RegistrationFlowEditor({ items, onChange, onSave, saving }) {
-  const updateDescription = (index, desc) => {
+  const updateField = (index, field, value) => {
     onChange(items.map((item, itemIndex) => (
-      itemIndex === index ? { ...item, desc } : item
+      itemIndex === index ? { ...item, [field]: value } : item
     )));
   };
+
+  const move = (index, direction) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= items.length) return;
+    const reordered = [...items];
+    [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+    onChange(reordered);
+  };
+
+  const remove = (index) => onChange(items.filter((_, itemIndex) => itemIndex !== index));
+
   return (
     <div className="space-y-4" data-testid="registration-flow-editor">
       <div className="border-l-4 border-[#27AE60] bg-[#F0FBF5] px-4 py-3">
         <p className="text-sm font-bold text-[#1F2937]">Alur Pendaftaran di Beranda</p>
         <p className="mt-1 text-xs leading-relaxed text-[#6B7280]">
-          Urutan 11 tahap dibuat tetap. Isi keterangan untuk ditampilkan ketika pengunjung mengarahkan
-          kursor ke tahap terkait atau membuka halaman di ponsel.
+          Tambahkan, ubah, susun ulang, atau hapus tahapan. Judul dan keterangan akan tampil di
+          Beranda.
         </p>
       </div>
+      {!items.length && (
+        <p
+          className="border border-dashed border-gray-200 bg-[#F9FAFB] p-4 text-sm text-[#6B7280]"
+          data-testid="registration-flow-empty-state"
+        >
+          Belum ada tahap alur. Tambahkan tahap pertama untuk ditampilkan di Beranda.
+        </p>
+      )}
       {items.map((item, index) => (
-        <div key={item.title} className="border border-gray-100 bg-white p-4 shadow-sm">
+        <div key={index} className="border border-gray-100 bg-white p-4 shadow-sm">
           <div className="flex items-start gap-3">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0B6B3A] text-xs font-bold text-white">
               {String(index + 1).padStart(2, "0")}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="font-display text-base font-bold text-[#1F2937]">{item.title}</p>
+              <div className="flex items-start gap-2">
+                <label className="min-w-0 flex-1 text-xs font-bold uppercase tracking-wide text-[#6B7280]">
+                  Judul Tahap
+                  <input
+                    value={item.title || ""}
+                    onChange={(event) => updateField(index, "title", event.target.value)}
+                    placeholder="Contoh: Pendaftaran Online"
+                    data-testid={`registration-flow-title-input-${index + 1}`}
+                    className={`${ic} mt-1.5 font-semibold normal-case`}
+                  />
+                </label>
+                <div className="flex shrink-0 items-center gap-1 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => move(index, -1)}
+                    disabled={index === 0}
+                    data-testid={`move-registration-flow-up-${index + 1}`}
+                    title="Pindahkan ke atas"
+                    className="rounded-lg p-2 text-[#0B6B3A] transition-colors hover:bg-[#E8F6EE]
+                      disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(index, 1)}
+                    disabled={index === items.length - 1}
+                    data-testid={`move-registration-flow-down-${index + 1}`}
+                    title="Pindahkan ke bawah"
+                    className="rounded-lg p-2 text-[#0B6B3A] transition-colors hover:bg-[#E8F6EE]
+                      disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => remove(index)}
+                    data-testid={`delete-registration-flow-${index + 1}`}
+                    title="Hapus tahap"
+                    className="rounded-lg p-2 text-[#DC2626] transition-colors hover:bg-[#FEE2E2]"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
               <label className="mt-3 block text-xs font-bold uppercase tracking-wide text-[#6B7280]">
                 Keterangan Tahap
                 <textarea
                   value={item.desc || ""}
-                  onChange={(event) => updateDescription(index, event.target.value)}
+                  onChange={(event) => updateField(index, "desc", event.target.value)}
                   placeholder="Masukkan keterangan yang muncul saat tahap dipilih..."
                   rows={3}
                   data-testid={`registration-flow-description-input-${index + 1}`}
@@ -608,6 +680,16 @@ function RegistrationFlowEditor({ items, onChange, onSave, saving }) {
           </div>
         </div>
       ))}
+      <button
+        type="button"
+        onClick={() => onChange([...items, { title: "", desc: "" }])}
+        data-testid="add-registration-flow-step"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-200
+          py-3 text-sm font-bold text-[#6B7280] transition-colors hover:border-[#27AE60]
+          hover:text-[#27AE60]"
+      >
+        <Plus className="h-4 w-4" /> Tambah Tahap
+      </button>
       <SaveBar onSave={onSave} saving={saving} />
     </div>
   );

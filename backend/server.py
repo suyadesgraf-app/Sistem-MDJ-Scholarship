@@ -4119,20 +4119,32 @@ def default_registration_flow() -> List[dict]:
 
 
 def normalize_registration_flow(value: Any) -> List[dict]:
-    if not isinstance(value, list) or len(value) != len(DEFAULT_REGISTRATION_FLOW):
+    if not isinstance(value, list):
         raise HTTPException(
             status_code=400,
-            detail="Alur pendaftaran harus berisi tepat 11 tahapan.",
+            detail="Alur pendaftaran harus berupa daftar tahapan.",
         )
-    return [
-        {
-            "title": DEFAULT_REGISTRATION_FLOW[index]["title"],
-            "desc": str(item.get("desc") or "").strip()[:800]
-            if isinstance(item, dict)
-            else "",
-        }
-        for index, item in enumerate(value)
-    ]
+    if len(value) > 30:
+        raise HTTPException(status_code=400, detail="Alur pendaftaran maksimal 30 tahapan.")
+
+    normalized_items = []
+    titles = set()
+    for item in value:
+        if not isinstance(item, dict):
+            raise HTTPException(status_code=400, detail="Data tahapan alur tidak valid.")
+        title = str(item.get("title") or "").strip()
+        description = str(item.get("desc") or "").strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Judul setiap tahapan wajib diisi.")
+        if len(title) > 120:
+            raise HTTPException(status_code=400, detail="Judul tahapan maksimal 120 karakter.")
+        if len(description) > 800:
+            raise HTTPException(status_code=400, detail="Keterangan tahapan maksimal 800 karakter.")
+        if title.casefold() in titles:
+            raise HTTPException(status_code=400, detail="Judul tahapan tidak boleh duplikat.")
+        titles.add(title.casefold())
+        normalized_items.append({"title": title, "desc": description})
+    return normalized_items
 
 
 DEFAULT_NEWS_CATEGORIES = [

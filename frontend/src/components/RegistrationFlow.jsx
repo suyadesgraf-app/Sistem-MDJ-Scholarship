@@ -1,33 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ArrowDown, ArrowRight } from "lucide-react";
 
-const DESKTOP_ORDER = [
-  "lg:order-1",
-  "lg:order-2",
-  "lg:order-3",
-  "lg:order-6",
-  "lg:order-5",
-  "lg:order-4",
-  "lg:order-7",
-  "lg:order-8",
-  "lg:order-9",
-  "lg:order-12",
-  "lg:order-11",
-];
-
-const DESKTOP_DIRECTION = [
-  "right",
-  "right",
-  "down",
-  "left",
-  "left",
-  "down",
-  "right",
-  "right",
-  "down",
-  "left",
-];
-
 export default function RegistrationFlow({ steps = [] }) {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [activeIndex, setActiveIndex] = useState(() => (
@@ -70,11 +43,11 @@ export default function RegistrationFlow({ steps = [] }) {
           {steps.map((step, index) => {
             const isLast = index === steps.length - 1;
             const isActive = activeIndex === index;
-            const direction = DESKTOP_DIRECTION[index];
+            const direction = index % 3 === 2 ? "down" : "right";
             return (
               <div
                 key={`${step.title}-${index}`}
-                className={`relative ${DESKTOP_ORDER[index]}`}
+                className="relative"
                 onMouseLeave={() => {
                   if (!isMobile) setActiveIndex(null);
                 }}
@@ -109,11 +82,11 @@ export default function RegistrationFlow({ steps = [] }) {
 
                   {!isLast && direction !== "down" && (
                     <span
-                      className={`absolute top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#F2C94C]/60 bg-[#08743D] text-[#F2C94C] lg:flex ${direction === "left" ? "-left-10" : "-right-10"}`}
+                      className="absolute -right-10 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#F2C94C]/60 bg-[#08743D] text-[#F2C94C] lg:flex"
                       aria-hidden="true"
                       data-testid={`registration-flow-arrow-${index + 1}`}
                     >
-                      <ArrowRight className={`h-4 w-4 ${direction === "left" ? "rotate-180" : ""}`} />
+                      <ArrowRight className="h-4 w-4" />
                     </span>
                   )}
                 </div>
@@ -139,7 +112,6 @@ export default function RegistrationFlow({ steps = [] }) {
               </div>
             );
           })}
-          <div className="hidden lg:order-10 lg:block" aria-hidden="true" />
         </div>
       </div>
     </section>
