@@ -439,6 +439,7 @@ class SiteContentInput(BaseModel):
 class CampusInput(BaseModel):
     name: str
     code: Optional[str] = None
+    bank_name: Optional[str] = None
     bank_account_number: Optional[str] = None
     bank_account_holder_name: Optional[str] = None
 
@@ -3946,6 +3947,7 @@ def serialize_campus(campus: dict, include_bank_data: bool = False) -> dict:
     account_number = decrypt_account_number(data.pop("bank_account_cipher", ""))
     if include_bank_data:
         data["bank_account_number_masked"] = mask_account_number(account_number)
+        data["bank_name"] = data.get("bank_name", "")
         data["bank_account_holder_name"] = data.get("bank_account_holder_name", "")
         data["has_bank_account"] = bool(account_number)
     else:
@@ -3956,6 +3958,7 @@ def serialize_campus(campus: dict, include_bank_data: bool = False) -> dict:
 def campus_bank_input(payload: CampusInput, existing: Optional[dict] = None) -> dict:
     existing = existing or {}
     account_number = normalize_account_number(payload.bank_account_number)
+    bank_name = clean_campus_value(payload.bank_name)
     holder_name = clean_campus_value(payload.bank_account_holder_name)
     current_holder = clean_campus_value(existing.get("bank_account_holder_name"))
     update = {}
@@ -3971,6 +3974,8 @@ def campus_bank_input(payload: CampusInput, existing: Optional[dict] = None) -> 
         update["bank_account_cipher"] = encrypt_account_number(account_number)
     if holder_name:
         update["bank_account_holder_name"] = holder_name
+    if bank_name:
+        update["bank_name"] = bank_name
     return update
 
 
@@ -5473,6 +5478,9 @@ PARTICIPANT_IMPORT_FIELDS = [
     {"key": "address", "label": "Alamat", "required": False},
     {"key": "gender", "label": "Jenis Kelamin", "required": False},
     {"key": "cpm_id", "label": "ID CPM", "required": False},
+    {"key": "campus_bank_name", "label": "Nama Bank Kampus", "required": False},
+    {"key": "campus_account_number", "label": "Nomor Rekening Kampus", "required": False},
+    {"key": "campus_account_holder", "label": "Pemilik Rekening Kampus", "required": False},
 ]
 
 PARTICIPANT_IMPORT_ALIASES = {
@@ -5491,6 +5499,20 @@ PARTICIPANT_IMPORT_ALIASES = {
     "address": {"alamat", "alamatlengkap"},
     "gender": {"jeniskelamin", "gender", "kelamin"},
     "cpm_id": {"idcpm", "cpmid", "nomorcpm", "idcalonpenerimamanfaat"},
+    "campus_bank_name": {"namabank", "bank", "bankkampus", "banktujuan"},
+    "campus_account_number": {
+        "nomorrekening",
+        "norekening",
+        "rekening",
+        "norek",
+        "nomorrekeningkampus",
+    },
+    "campus_account_holder": {
+        "namapemilikrekening",
+        "pemilikrekening",
+        "atasnamarekening",
+        "namarekening",
+    },
 }
 
 PARTICIPANT_IMPORT_PROFILE_KEYS = {
@@ -5630,14 +5652,76 @@ async def participant_import_match_user_id(imported: dict) -> tuple:
     return (next(iter(matched_ids)) if matched_ids else None), ""
 
 
+async def sync_imported_campus_bank(imported: dict, now: str) -> dict:
+    campus_name = clean_campus_value(imported.get("campus"))
+    if not campus_name:
+        return {"created": False, "updated": False, "warning": ""}
+    bank_name = clean_campus_value(imported.get("campus_bank_name"))
+    account_number = normalize_account_number(imported.get("campus_account_number"))
+    holder_name = clean_campus_value(imported.get("campus_account_holder"))
+    campus = await db.campuses.find_one(
+        {"name": {"$regex": f"^{re.escape(campus_name)}$", "$options": "i"}},
+        {"_id": 0},
+    )
+    if not campus:
+        campus = {
+            "id": str(uuid.uuid4()),
+            "name": campus_name,
+            "code": await create_student_campus_code(),
+            "source": "participant_import",
+            "created_at": now,
+            "updated_at": now,
+        }
+        if bank_name:
+            campus["bank_name"] = bank_name
+        if account_number and holder_name:
+            campus["bank_account_cipher"] = encrypt_account_number(account_number)
+            campus["bank_account_holder_name"] = holder_name
+        await db.campuses.insert_one(dict(campus))
+        warning = ""
+        if account_number and not holder_name:
+            warning = "Nomor rekening kampus diabaikan karena pemilik rekening belum dipetakan."
+        return {"created": True, "updated": False, "warning": warning}
+
+    current_account = decrypt_account_number(campus.get("bank_account_cipher", ""))
+    current_holder = clean_campus_value(campus.get("bank_account_holder_name"))
+    current_bank = clean_campus_value(campus.get("bank_name"))
+    conflicts = []
+    if account_number and current_account and account_number != current_account:
+        conflicts.append("nomor rekening")
+    if holder_name and current_holder and normalized_name(holder_name) != normalized_name(current_holder):
+        conflicts.append("pemilik rekening")
+    if bank_name and current_bank and normalized_name(bank_name) != normalized_name(current_bank):
+        conflicts.append("nama bank")
+    if conflicts:
+        return {
+            "created": False,
+            "updated": False,
+            "warning": f"Konflik data kampus {campus_name}: {', '.join(conflicts)} berbeda.",
+        }
+
+    update = {"updated_at": now}
+    if bank_name and not current_bank:
+        update["bank_name"] = bank_name
+    if holder_name and not current_holder:
+        update["bank_account_holder_name"] = holder_name
+    if account_number and not current_account and holder_name:
+        update["bank_account_cipher"] = encrypt_account_number(account_number)
+    await db.campuses.update_one({"id": campus["id"]}, {"$set": update})
+    warning = ""
+    if account_number and not holder_name:
+        warning = "Nomor rekening kampus diabaikan karena pemilik rekening belum dipetakan."
+    return {"created": False, "updated": len(update) > 1, "warning": warning}
+
+
 async def upsert_imported_participant(imported: dict, actor: dict, now: str) -> tuple:
     name = str(imported.get("name") or "").strip()
     if not name:
-        return "failed", "Nama Lengkap wajib diisi."
+        return "failed", "Nama Lengkap wajib diisi.", {}
 
     user_id, matching_error = await participant_import_match_user_id(imported)
     if matching_error:
-        return "failed", matching_error
+        return "failed", matching_error, {}
 
     created = user_id is None
     if created:
@@ -5647,7 +5731,7 @@ async def upsert_imported_participant(imported: dict, actor: dict, now: str) -> 
     email = imported_email or account.get("email") or f"import-{user_id}@mdj.invalid"
     email_owner = await db.users.find_one({"email": email}, {"_id": 0, "user_id": 1})
     if email_owner and email_owner["user_id"] != user_id:
-        return "failed", "Email sudah digunakan oleh peserta lain."
+        return "failed", "Email sudah digunakan oleh peserta lain.", {}
 
     if created:
         await db.users.insert_one({
@@ -5717,7 +5801,8 @@ async def upsert_imported_participant(imported: dict, actor: dict, now: str) -> 
     else:
         registration_data["history"] = [history_entry]
         await db.registrations.insert_one(registration_data)
-    return ("created" if created or not registration else "updated"), ""
+    campus_sync = await sync_imported_campus_bank(imported, now)
+    return ("created" if created or not registration else "updated"), "", campus_sync
 
 
 @api_router.post("/admin/participants/import/preview")
@@ -5771,21 +5856,41 @@ async def import_participants_without_documents(
     headers = workbook_data["headers"]
     mapping = validate_participant_import_mapping(mapping_value, headers)
     now = datetime.now(timezone.utc).isoformat()
-    summary = {"processed": 0, "created": 0, "updated": 0, "failed": 0}
+    summary = {
+        "processed": 0,
+        "created": 0,
+        "updated": 0,
+        "failed": 0,
+        "campuses_created": 0,
+        "campuses_updated": 0,
+        "campus_conflicts": 0,
+    }
     errors = []
+    warnings = []
 
     for row_number, row in enumerate(workbook_data["rows"], start=workbook_data["header_index"] + 2):
         if not any(value not in (None, "") for value in row):
             continue
         summary["processed"] += 1
         imported = participant_import_row(row, headers, mapping)
-        outcome, error_message = await upsert_imported_participant(imported, user, now)
+        outcome, error_message, campus_sync = await upsert_imported_participant(imported, user, now)
         if outcome == "failed":
             summary["failed"] += 1
             if len(errors) < 100:
                 errors.append({"row_number": row_number, "message": error_message})
         else:
             summary[outcome] += 1
+            if campus_sync.get("created"):
+                summary["campuses_created"] += 1
+            if campus_sync.get("updated"):
+                summary["campuses_updated"] += 1
+            if campus_sync.get("warning"):
+                summary["campus_conflicts"] += 1
+                if len(warnings) < 100:
+                    warnings.append({
+                        "row_number": row_number,
+                        "message": campus_sync["warning"],
+                    })
 
     import_record = {
         "id": str(uuid.uuid4()),
@@ -5798,7 +5903,12 @@ async def import_participants_without_documents(
         "target_status": "lolos",
     }
     await db.participant_imports.insert_one(import_record)
-    return {"summary": summary, "errors": errors, "mapping": mapping}
+    return {
+        "summary": summary,
+        "errors": errors,
+        "warnings": warnings,
+        "mapping": mapping,
+    }
 
 
 @api_router.get("/admin/participants/export.xlsx")

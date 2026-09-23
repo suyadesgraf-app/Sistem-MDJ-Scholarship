@@ -66,9 +66,11 @@ export default function ParticipantExcelImportDialog({ onClose, onImported }) {
       });
       setResult(response.data);
       onImported();
-      if (response.data.summary?.failed > 0) {
+      const summary = response.data.summary || {};
+      const warningCount = (summary.failed || 0) + (summary.campus_conflicts || 0);
+      if (warningCount > 0) {
         toast.warning(
-          `Import selesai dengan ${response.data.summary.failed} baris yang perlu diperiksa.`,
+          `Import selesai dengan ${warningCount} baris yang perlu diperiksa.`,
         );
       } else {
         toast.success("Import data peserta selesai diproses.");
@@ -292,6 +294,9 @@ function ParticipantImportResult({ result }) {
     ["Baris diproses", summary.processed || 0],
     ["Peserta baru", summary.created || 0],
     ["Peserta diperbarui", summary.updated || 0],
+    ["Kampus baru", summary.campuses_created || 0],
+    ["Kampus diperbarui", summary.campuses_updated || 0],
+    ["Konflik kampus", summary.campus_conflicts || 0],
     ["Gagal", summary.failed || 0],
   ];
   return (
@@ -315,6 +320,18 @@ function ParticipantImportResult({ result }) {
           <p className="text-sm font-bold text-[#92400E]">Baris yang perlu diperiksa</p>
           <ul className="mt-2 space-y-1 text-xs text-[#92400E]">
             {result.errors.map((item) => (
+              <li key={`${item.row_number}-${item.message}`}>
+                Baris {item.row_number}: {item.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {result.warnings?.length > 0 && (
+        <div className="mt-4 border-l-4 border-[#F59E0B] bg-[#FFFBEB] p-4">
+          <p className="text-sm font-bold text-[#92400E]">Konflik data kampus</p>
+          <ul className="mt-2 space-y-1 text-xs text-[#92400E]">
+            {result.warnings.map((item) => (
               <li key={`${item.row_number}-${item.message}`}>
                 Baris {item.row_number}: {item.message}
               </li>

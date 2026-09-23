@@ -15,6 +15,7 @@ import api from "@/lib/api";
 const emptyForm = {
   name: "",
   code: "",
+  bank_name: "",
   bank_account_holder_name: "",
   bank_account_number: "",
 };
@@ -50,7 +51,8 @@ export default function CampusManager() {
     const keyword = query.trim().toLowerCase();
     if (!keyword) return campuses;
     return campuses.filter((campus) => (
-      `${campus.name} ${campus.code || ""} ${campus.bank_account_holder_name || ""}`
+      `${campus.name} ${campus.code || ""} ${campus.bank_name || ""} ` +
+      `${campus.bank_account_holder_name || ""}`
         .toLowerCase()
         .includes(keyword)
     ));
@@ -163,7 +165,7 @@ export default function CampusManager() {
 
       <form
         onSubmit={submit}
-        className="grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-[1fr_11rem_1fr_1fr_auto]"
+        className="grid gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-2 xl:grid-cols-[1.3fr_0.9fr_1fr_1fr_1fr_auto]"
         data-testid="campus-form"
       >
         <input
@@ -172,6 +174,16 @@ export default function CampusManager() {
           onChange={(event) => setForm((previous) => ({ ...previous, name: event.target.value }))}
           placeholder="Nama kampus"
           data-testid="campus-name-input"
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#27AE60] focus:ring-2 focus:ring-[#27AE60]/20"
+        />
+        <input
+          value={form.bank_name}
+          onChange={(event) => setForm((previous) => ({
+            ...previous,
+            bank_name: event.target.value,
+          }))}
+          placeholder="Nama bank"
+          data-testid="campus-bank-name-input"
           className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-[#27AE60] focus:ring-2 focus:ring-[#27AE60]/20"
         />
         <input
@@ -244,6 +256,7 @@ export default function CampusManager() {
               <th className="w-16 px-5 py-3 font-semibold">No.</th>
               <th className="px-5 py-3 font-semibold">Nama Kampus</th>
               <th className="px-5 py-3 font-semibold">Kode Kampus</th>
+              <th className="px-5 py-3 font-semibold">Nama Bank</th>
               <th className="px-5 py-3 font-semibold">Atas Nama Rekening</th>
               <th className="px-5 py-3 font-semibold">Nomor Rekening</th>
               <th className="px-5 py-3 text-right font-semibold">Aksi</th>
@@ -252,13 +265,13 @@ export default function CampusManager() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="6" className="px-5 py-10 text-center" data-testid="campus-loading-state">
+                <td colSpan="7" className="px-5 py-10 text-center" data-testid="campus-loading-state">
                   <Loader2 className="mx-auto h-5 w-5 animate-spin text-[#27AE60]" />
                 </td>
               </tr>
             ) : filtered.length === 0 ? (
               <tr>
-                <td colSpan="6" className="px-5 py-10 text-center text-sm text-[#6B7280]" data-testid="campus-empty-state">
+                <td colSpan="7" className="px-5 py-10 text-center text-sm text-[#6B7280]" data-testid="campus-empty-state">
                   Belum ada kampus yang sesuai.
                 </td>
               </tr>
@@ -277,6 +290,7 @@ export default function CampusManager() {
                   </td>
                   <td className="px-5 py-3.5 text-sm font-semibold text-[#1F2937]">{campus.name}</td>
                   <td className="px-5 py-3.5 text-sm text-[#6B7280]">{campus.code || "—"}</td>
+                  <td className="px-5 py-3.5 text-sm text-[#6B7280]">{campus.bank_name || "Belum dicatat"}</td>
                   <td className="px-5 py-3.5 text-sm text-[#6B7280]">
                     {campus.bank_account_holder_name || "Belum dicatat"}
                   </td>
@@ -293,6 +307,7 @@ export default function CampusManager() {
                           setForm({
                             name: campus.name,
                             code: campus.code || "",
+                            bank_name: campus.bank_name || "",
                             bank_account_holder_name: campus.bank_account_holder_name || "",
                             bank_account_number: "",
                           });
