@@ -16,6 +16,8 @@ const TABS = [
   ["faq", "FAQ"],
 ];
 
+let newsCategoryItemSequence = 0;
+
 export default function SiteManager() {
   const [c, setC] = useState(null);
   const [tab, setTab] = useState("umum");
@@ -399,7 +401,11 @@ function AnnouncementUpload({ onUpload, index }) {
 }
 
 function NewsCategoryEditor({ categories, onSave, saving }) {
-  const makeItems = (values) => values.map((value) => ({ original: value, value }));
+  const makeItems = (values) => values.map((value) => ({
+    id: newsCategoryItemSequence++,
+    original: value,
+    value,
+  }));
   const [items, setItems] = useState(() => makeItems(categories));
 
   useEffect(() => {
@@ -440,7 +446,7 @@ function NewsCategoryEditor({ categories, onSave, saving }) {
         </p>
       </div>
       {items.map((item, index) => (
-        <div key={`${item.original || "new"}-${index}`} className="flex items-center gap-2">
+        <div key={item.id} className="flex items-center gap-2">
           <input
             value={item.value}
             onChange={(event) => update(index, event.target.value)}
@@ -462,7 +468,7 @@ function NewsCategoryEditor({ categories, onSave, saving }) {
         type="button"
         onClick={() => setItems((previous) => [
           ...previous,
-          { original: "", value: "" },
+          { id: newsCategoryItemSequence++, original: "", value: "" },
         ])}
         data-testid="add-news-category"
         className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed
