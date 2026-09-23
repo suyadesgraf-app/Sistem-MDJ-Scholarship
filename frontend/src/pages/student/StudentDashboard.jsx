@@ -7,6 +7,7 @@ import StudentProfile, {
   getMissingProfileFields,
   profileProgress,
 } from "@/components/StudentProfile";
+import { getMissingFamilyFields } from "@/components/FamilyProfileSection";
 import AccountSettings from "@/components/AccountSettings";
 import RegistrationSections from "@/components/RegistrationSections";
 import StudentDisbursementProofs from "@/components/StudentDisbursementProofs";
@@ -151,6 +152,12 @@ export default function StudentDashboard() {
   const set = (k, v) => setData((p) => ({ ...p, [k]: v }));
 
   const saveProfile = async () => {
+    const missingFamilyFields = getMissingFamilyFields(data);
+    if (missingFamilyFields.length > 0) {
+      setActive("profil");
+      toast.error(`Lengkapi Data Keluarga: ${missingFamilyFields[0].l}.`);
+      return;
+    }
     setSaving(true);
     try {
       const response = await api.put("/profile", { data });
@@ -165,7 +172,7 @@ export default function StudentDashboard() {
         toast.success("Profil berhasil disimpan.");
       }
     }
-    catch { toast.error("Gagal menyimpan profil."); }
+    catch (error) { toast.error(error.response?.data?.detail || "Gagal menyimpan profil."); }
     finally { setSaving(false); }
   };
 

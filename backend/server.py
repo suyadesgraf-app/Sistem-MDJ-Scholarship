@@ -996,13 +996,87 @@ async def get_profile(user: dict = Depends(get_current_user)):
     return profile
 
 
+FAMILY_PARENT_REQUIRED_FIELDS = ("name", "nik", "status", "phone", "job", "income")
+FAMILY_MEMBER_REQUIRED_FIELDS = ("name", "nik", "relationship", "education", "job", "income")
+FAMILY_PARENT_STATUSES = {"hidup", "meninggal"}
+
+
+def family_value(value: Any, label: str, max_length: int = 160) -> str:
+    normalized = str(value or "").strip()
+    if not normalized:
+        raise HTTPException(status_code=400, detail=f"{label} wajib diisi.")
+    if len(normalized) > max_length:
+        raise HTTPException(status_code=400, detail=f"{label} terlalu panjang.")
+    return normalized
+
+
+def family_nik(value: Any, label: str) -> str:
+    normalized = re.sub(r"\D", "", str(value or ""))
+    if len(normalized) != 16:
+        raise HTTPException(status_code=400, detail=f"{label} harus terdiri dari 16 digit.")
+    return normalized
+
+
+def family_income(value: Any, label: str) -> str:
+    normalized = re.sub(r"\D", "", "" if value is None else str(value))
+    if not normalized:
+        raise HTTPException(status_code=400, detail=f"{label} wajib diisi.")
+    return normalized
+
+
+def normalize_family_person(person: Any, label: str, member: bool = False) -> dict:
+    if not isinstance(person, dict):
+        raise HTTPException(status_code=400, detail=f"Data {label} wajib diisi.")
+    required = FAMILY_MEMBER_REQUIRED_FIELDS if member else FAMILY_PARENT_REQUIRED_FIELDS
+    normalized = {}
+    for field in required:
+        field_label = f"{field.replace('_', ' ').title()} {label}"
+        if field == "nik":
+            normalized[field] = family_nik(person.get(field), field_label)
+        elif field == "income":
+            normalized[field] = family_income(person.get(field), field_label)
+        else:
+            normalized[field] = family_value(person.get(field), field_label)
+    if not member and normalized["status"] not in FAMILY_PARENT_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Status {label} tidak valid.")
+    return normalized
+
+
+def normalize_family_profile(value: Any) -> dict:
+    if not isinstance(value, dict):
+        raise HTTPException(status_code=400, detail="Data Keluarga wajib diisi.")
+    raw_count_value = value.get("otherMemberCount")
+    raw_count = "" if raw_count_value is None else str(raw_count_value).strip()
+    if not raw_count.isdigit():
+        raise HTTPException(status_code=400, detail="Jumlah anggota keluarga lain wajib diisi.")
+    other_member_count = int(raw_count)
+    if other_member_count < 0 or other_member_count > 15:
+        raise HTTPException(status_code=400, detail="Jumlah anggota keluarga lain maksimal 15 orang.")
+    members = value.get("otherMembers")
+    if not isinstance(members, list) or len(members) != other_member_count:
+        raise HTTPException(status_code=400, detail="Lengkapi data anggota keluarga lain.")
+    normalized_members = [
+        normalize_family_person(member, f"Anggota Keluarga {index + 1}", member=True)
+        for index, member in enumerate(members)
+    ]
+    return {
+        "father": normalize_family_person(value.get("father"), "Ayah"),
+        "mother": normalize_family_person(value.get("mother"), "Ibu"),
+        "otherMemberCount": other_member_count,
+        "otherMembers": normalized_members,
+        "electricityPower": family_value(value.get("electricityPower"), "Daya listrik rumah", 40),
+    }
+
+
 @api_router.put("/profile")
 async def update_profile(payload: ProfileInput, user: dict = Depends(get_current_user)):
+    profile_data = dict(payload.data)
     student_campus = None
     updated_user = None
     if user.get("role") == "student":
-        student_campus = await register_student_campus(payload.data.get("institusi"))
-        display_name = str(payload.data.get("namaLengkap", "")).strip()
+        profile_data["family"] = normalize_family_profile(profile_data.get("family"))
+        student_campus = await register_student_campus(profile_data.get("institusi"))
+        display_name = str(profile_data.get("namaLengkap", "")).strip()
         if display_name:
             await db.users.update_one(
                 {"user_id": user["user_id"]},
@@ -1014,12 +1088,12 @@ async def update_profile(payload: ProfileInput, user: dict = Depends(get_current
             )
     await db.profiles.update_one(
         {"user_id": user["user_id"]},
-        {"$set": {"data": payload.data, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        {"$set": {"data": profile_data, "updated_at": datetime.now(timezone.utc).isoformat()}},
         upsert=True,
     )
     return {
         "message": "Profil disimpan",
-        "data": payload.data,
+        "data": profile_data,
         "campus": student_campus,
         "user": clean_user(updated_user) if updated_user else None,
     }

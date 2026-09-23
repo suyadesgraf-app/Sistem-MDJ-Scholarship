@@ -3,8 +3,12 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { DocPreview, docFileUrl } from "@/components/DocPreview";
 import CampusSelector from "@/components/CampusSelector";
+import FamilyProfileSection, {
+  getFamilyRequiredFieldCount,
+  getMissingFamilyFields,
+} from "@/components/FamilyProfileSection";
 import {
-  User, MapPin, Image as ImageIcon, ShieldCheck,
+  User, UsersRound, MapPin, Image as ImageIcon, ShieldCheck,
   ScanLine, Loader2, CheckCircle2, UploadCloud, Info, Trash2, Camera, FileCheck,
 } from "lucide-react";
 
@@ -62,25 +66,35 @@ export const PROFILE_REQUIRED_FIELDS = [
 export const PROFILE_REQUIRED = PROFILE_REQUIRED_FIELDS.map((field) => field.k);
 
 export function getMissingProfileFields(data = {}) {
-  return PROFILE_REQUIRED_FIELDS.filter((field) => (
+  const basicFields = PROFILE_REQUIRED_FIELDS.filter((field) => (
     !data[field.k] || String(data[field.k]).trim() === ""
   ));
+  const missingFamilyFields = getMissingFamilyFields(data);
+  return missingFamilyFields.length > 0
+    ? [...basicFields, { k: "family", l: "Data Keluarga" }]
+    : basicFields;
 }
 
 export function profileProgress(data = {}) {
-  const filled = PROFILE_REQUIRED.length - getMissingProfileFields(data).length;
-  return Math.round((filled / PROFILE_REQUIRED.length) * 100);
+  const total = PROFILE_REQUIRED.length + getFamilyRequiredFieldCount(data);
+  const missingBasic = PROFILE_REQUIRED_FIELDS.filter((field) => (
+    !data[field.k] || String(data[field.k]).trim() === ""
+  )).length;
+  const filled = total - missingBasic - getMissingFamilyFields(data).length;
+  return Math.round((filled / total) * 100);
 }
 
 const STEPS = [
   { id: "pribadi", label: "Data Pribadi", keys: PRIBADI.map((f) => f.k) },
   { id: "alamat", label: "Kontak & Alamat", keys: [...KONTAK, ...ALAMAT].map((f) => f.k) },
+  { id: "keluarga", label: "Keluarga", keys: [] },
   { id: "foto", label: "Foto Profil", keys: [] },
 ];
 
 const TABS = [
   { id: "pribadi", label: "Data Pribadi", icon: User },
   { id: "alamat", label: "Alamat", icon: MapPin },
+  { id: "keluarga", label: "Keluarga", icon: UsersRound },
   { id: "foto", label: "Foto Profil", icon: ImageIcon },
 ];
 
@@ -98,7 +112,9 @@ export default function StudentProfile({
   const progress = profileProgress(data);
   const missingProfileFields = getMissingProfileFields(data);
 
-  const stepDone = (keys) => {
+  const stepDone = (step) => {
+    if (step.id === "keluarga") return getMissingFamilyFields(data).length === 0;
+    const { keys } = step;
     const req = [...PRIBADI, ...KONTAK, ...ALAMAT, ...PENDIDIKAN].filter((f) => f.req && keys.includes(f.k)).map((f) => f.k);
     if (req.length === 0) return false;
     return req.every((k) => data[k] && String(data[k]).trim() !== "");
@@ -148,7 +164,7 @@ export default function StudentProfile({
         {/* Step indicator */}
         <div className="mt-6 flex items-center">
           {STEPS.map((s, i) => {
-            const done = stepDone(s.keys);
+            const done = stepDone(s);
             return (
               <React.Fragment key={s.id}>
                 <button onClick={() => setTab(s.id)} data-testid={`profile-step-${s.id}`} className="flex items-center gap-2 group">
@@ -212,6 +228,8 @@ export default function StudentProfile({
           <FieldGrid fields={ALAMAT} data={data} set={set} />
         </SectionCard>
       )}
+
+      {tab === "keluarga" && <FamilyProfileSection data={data} setData={setData} />}
 
       {tab === "foto" && (
         <PhotoTab
